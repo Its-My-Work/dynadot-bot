@@ -85,6 +85,20 @@ class Settings(BaseSettings):
     payment_return_url: str | None = None
     payment_failed_url: str | None = None
 
+    # --- VPS / VPN provisioning -------------------------------------------
+    # Which upstream cloud new servers are rented from. "mock" (or any
+    # provider whose token is unset) keeps the catalogue and checkout working
+    # without credentials instead of 500-ing.
+    vps_provider: str = "mock"
+    timeweb_api_token: SecretStr | None = None
+    aeza_api_token: SecretStr | None = None
+    pq_hosting_api_token: SecretStr | None = None
+    vps_timeout_seconds: float = 30.0
+    # Masquerade host for the Reality handshake.
+    vps_reality_sni: str = "www.microsoft.com"
+    # Paid term length for one server.
+    vps_term_days: int = 30
+
     # --- Telegram bot runtime ---------------------------------------------
     # Long polling locally; set a public base URL to switch to webhooks.
     telegram_webhook_base_url: str | None = None
@@ -138,6 +152,28 @@ class Settings(BaseSettings):
     @property
     def platega_configured(self) -> bool:
         return bool(self.platega_merchant_id and self.platega_secret)
+
+    def vps_api_token_for(self, provider: object) -> str | None:
+        """Return the API token for ``provider``, or None when unconfigured.
+
+        Takes the enum (or its value) rather than reading ``vps_provider`` so
+        callers can ask about a specific upstream — the admin panel shows which
+        of the three are usable.
+        """
+        name = getattr(provider, "value", provider)
+        secret = {
+            "timeweb": self.timeweb_api_token,
+            "aeza": self.aeza_api_token,
+            "pq_hosting": self.pq_hosting_api_token,
+        }.get(str(name))
+        return secret.get_secret_value() if secret else None
+
+    @property
+    def vps_configured(self) -> bool:
+        """True when the selected provider can actually provision."""
+        return self.vps_provider != "mock" and bool(
+            self.vps_api_token_for(self.vps_provider)
+        )
 
     @property
     def telegram_configured(self) -> bool:

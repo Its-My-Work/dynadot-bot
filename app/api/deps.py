@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
 import secrets
+from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -15,6 +14,7 @@ from app.db.session import get_db
 from app.i18n import Translator, normalize_language, parse_accept_language
 from app.integrations.dynadot import DynadotClient
 from app.integrations.payments import PaymentGateway
+from app.integrations.vps.base import BaseVpsProvider
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -69,6 +69,25 @@ async def get_payment_gateway(request: Request) -> PaymentGateway:
 
 
 Payments = Annotated[PaymentGateway, Depends(get_payment_gateway)]
+
+
+async def get_vps_provider(request: Request) -> BaseVpsProvider:
+    """Return the shared VPS provider created during application startup.
+
+    Unlike the Dynadot client this never 503s: ``build_provider`` falls back to
+    the mock when no keys are set, so a deploy without VPS credentials still
+    serves the catalogue instead of breaking the TMA.
+    """
+    provider = getattr(request.app.state, "vps_provider", None)
+    if provider is None:
+        from app.integrations.vps import build_provider
+
+        provider = build_provider(get_settings())
+        request.app.state.vps_provider = provider
+    return provider
+
+
+Vps = Annotated[BaseVpsProvider, Depends(get_vps_provider)]
 
 _basic_security = HTTPBasic(auto_error=False)
 

@@ -18,12 +18,15 @@ from app.models.enums import (
     OrderStatus,
     PaymentProvider,
     PaymentStatus,
+    ServerStatus,
     TaskStatus,
     Theme,
     UserRole,
+    VpsProvider,
 )
 from app.models.order import Order, Payment
 from app.models.user import ContactProfile, User
+from app.models.vps import ServerInstance
 
 __all__ = [
     "DEFAULT_THEME",
@@ -42,9 +45,12 @@ __all__ = [
     "Payment",
     "PaymentProvider",
     "PaymentStatus",
+    "ServerInstance",
+    "ServerStatus",
     "TaskStatus",
     "Theme",
     "TldPricing",
     "User",
     "UserRole",
+    "VpsProvider",
 ]

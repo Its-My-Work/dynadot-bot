@@ -86,6 +86,36 @@ class ApiCallStatus(str, enum.Enum):
     TIMEOUT = "timeout"
 
 
+class VpsProvider(str, enum.Enum):
+    """Upstream cloud a server was rented from.
+
+    ``MOCK`` is a first-class value, not a test artefact: when no API keys are
+    configured the API still has to serve the catalogue and the order flow, and
+    a persisted row needs to record that its server is not real.
+    """
+
+    TIMEWEB = "timeweb"
+    AEZA = "aeza"
+    PQ_HOSTING = "pq_hosting"
+    MOCK = "mock"
+
+
+class ServerStatus(str, enum.Enum):
+    """Lifecycle of a rented VPN server.
+
+    INSTALLING covers the window between the provider reporting the VM as
+    created and cloud-init finishing the Xray install — the VLESS link already
+    exists at that point but will not connect yet.
+    """
+
+    PENDING = "pending"
+    INSTALLING = "installing"
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    DELETED = "deleted"
+    FAILED = "failed"
+
+
 class TaskStatus(str, enum.Enum):
     """State of a queued outbound Dynadot operation."""
 

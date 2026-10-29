@@ -98,6 +98,7 @@ def test_all_expected_tables_exist():
         "dynadot_api_logs",
         "dynadot_tasks",
         "app_settings",
+        "server_instances",
     }
 
 

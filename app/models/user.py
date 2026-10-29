@@ -14,6 +14,7 @@ from app.models.enums import DEFAULT_THEME, Language, Theme, UserRole
 if TYPE_CHECKING:
     from app.models.domain import Domain
     from app.models.order import Order
+    from app.models.vps import ServerInstance
 
 
 class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -58,6 +59,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="user", cascade="all, delete-orphan"
     )
     domains: Mapped[list[Domain]] = relationship(back_populates="user")
+    servers: Mapped[list[ServerInstance]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def display_name(self) -> str:

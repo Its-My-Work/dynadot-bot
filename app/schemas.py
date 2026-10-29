@@ -13,8 +13,10 @@ from app.models.enums import (
     OrderStatus,
     PaymentProvider,
     PaymentStatus,
+    ServerStatus,
     TaskStatus,
     Theme,
+    VpsProvider,
 )
 
 
@@ -332,3 +334,69 @@ class AdminSettingsUpdate(BaseModel):
     default_markup_percent: float | None = None
     dynadot_base_url: str | None = None
     registration_worker_enabled: bool | None = None
+
+
+# ------------------------------------------------------------------ vps / vpn
+
+
+class VpsLocationRead(BaseModel):
+    """One datacentre option in the order form."""
+
+    code: str
+    name: str
+    country: str
+    flag: str = ""
+    label: str
+    available: bool = True
+
+
+class VpsPresetRead(BaseModel):
+    """One sellable plan with its retail price."""
+
+    code: str
+    name: str
+    cpu: int
+    ram_mb: int
+    disk_gb: int
+    price_rub: float
+    bandwidth_tb: float | None = None
+    description: str | None = None
+
+
+class ServerOrderCreate(BaseModel):
+    """Order a VPN server."""
+
+    location: str = Field(min_length=2, max_length=16)
+    preset: str = Field(min_length=2, max_length=32)
+    name: str | None = Field(default=None, max_length=64)
+
+
+class ServerRead(ORMModel):
+    id: str
+    provider: VpsProvider
+    name: str
+    status: ServerStatus
+    external_id: str | None = None
+    location_code: str | None = None
+    location_name: str | None = None
+    ip_address: str | None = None
+    preset_name: str | None = None
+    cpu: int | None = None
+    ram_mb: int | None = None
+    disk_gb: int | None = None
+    price_rub: float
+    vless_uuid: str | None = None
+    vless_sni: str | None = None
+    vless_link: str | None = None
+    expires_at: datetime | None = None
+    created_at: datetime
+
+
+class ServerOrderResponse(BaseModel):
+    """A created server order plus the checkout link to pay for it."""
+
+    server: ServerRead
+    payment_url: str | None = None
+    payment_id: str | None = None
+    amount: float
+    currency: Currency = Currency.RUB

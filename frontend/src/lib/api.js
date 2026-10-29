@@ -208,6 +208,22 @@ export const api = {
   adminSettings: () => request('/admin/settings'),
   updateAdminSettings: (data) =>
     request('/admin/settings', { method: 'PATCH', body: data }),
+
+  // --- vps & vpn -----------------------------------------------------------
+  vpsLocations: () => request('/servers/locations'),
+  vpsPresets: () => request('/servers/presets'),
+  createServerOrder: (telegramId, data) =>
+    request(`/servers/orders?telegram_id=${telegramId}`, {
+      method: 'POST',
+      body: data,
+    }),
+  myServers: (telegramId) => request(`/servers/my?telegram_id=${telegramId}`),
+  serverDetails: (telegramId, serverId) =>
+    request(`/servers/${serverId}?telegram_id=${telegramId}`),
+  deleteServer: (telegramId, serverId) =>
+    request(`/servers/${serverId}?telegram_id=${telegramId}`, {
+      method: 'DELETE',
+    }),
 };
 
 export default api;

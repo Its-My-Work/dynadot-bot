@@ -12,6 +12,7 @@ from app.api.routes import (
     orders,
     payments,
     users,
+    vps,
     webhooks,
 )
 
@@ -22,6 +23,7 @@ api_router.include_router(contacts.router)
 api_router.include_router(domains.router)
 api_router.include_router(orders.router)
 api_router.include_router(payments.router)
+api_router.include_router(vps.router)
 api_router.include_router(webhooks.router)
 api_router.include_router(admin.router)
 
