@@ -274,3 +274,79 @@ def test_telegram_webhook_acks_when_the_bot_is_not_running(client):
     )
     assert response.status_code == 200
     assert response.json() == {"ok": True}
+
+
+# -------------------------------------------------- registration enqueueing
+#
+# A confirmed payment must leave durable work behind before the 200 is sent;
+# otherwise a crash right after the ack loses a paid order with no trace.
+
+
+def _tasks_for(order_id: str) -> list:
+    from sqlalchemy import select
+
+    import app.db.session as session_module
+    from app.models.audit import DynadotTask
+
+    async def query():
+        async with session_module.get_session_factory()() as session:
+            return list(
+                await session.scalars(
+                    select(DynadotTask).where(DynadotTask.order_id == order_id)
+                )
+            )
+
+    return asyncio.run(query())
+
+
+def test_confirmed_payment_enqueues_a_registration_task(client):
+    client.post(
+        "/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH
+    )
+
+    tasks = _tasks_for(client.state["order_id"])
+    assert len(tasks) == 1
+    assert tasks[0].operation == "register_domain"
+    # CRITICAL priority: the customer's money is already taken.
+    assert tasks[0].priority == 0
+    assert tasks[0].request_id
+
+
+def test_redelivered_confirmation_does_not_enqueue_twice(client):
+    """Platega resends CONFIRMED; a second task would double-register."""
+    for _ in range(3):
+        client.post(
+            "/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH
+        )
+
+    assert len(_tasks_for(client.state["order_id"])) == 1
+
+
+def test_a_failed_payment_enqueues_nothing(client):
+    client.post(
+        "/api/v1/webhooks/platega",
+        json={"id": "tx-hook-1", "amount": 1187.50, "status": "CANCELED"},
+        headers=AUTH,
+    )
+    assert _tasks_for(client.state["order_id"]) == []
+
+
+def test_task_request_id_matches_the_orders_idempotency_key(client):
+    """One stable key per order is what stops a double registration."""
+    from sqlalchemy import select
+
+    import app.db.session as session_module
+
+    client.post(
+        "/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH
+    )
+
+    async def fetch_order():
+        async with session_module.get_session_factory()() as session:
+            return await session.scalar(
+                select(Order).where(Order.id == client.state["order_id"])
+            )
+
+    order = asyncio.run(fetch_order())
+    tasks = _tasks_for(client.state["order_id"])
+    assert tasks[0].request_id == order.dynadot_request_id

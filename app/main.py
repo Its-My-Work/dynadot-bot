@@ -99,9 +99,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.bot_dispatcher = None
     await _start_bot(app)
 
+    # Optional in-process worker. Off by default so a multi-replica API does
+    # not run N workers against Dynadot's single request slot.
+    app.state.registration_worker = None
+    if settings.registration_worker_enabled:
+        from app.db.session import get_session_factory
+        from app.services.worker import RegistrationWorker
+
+        worker = RegistrationWorker(
+            get_session_factory(),
+            client,
+            settings=settings,
+            bot=app.state.bot,
+            poll_interval=settings.registration_worker_interval,
+        )
+        await worker.start()
+        app.state.registration_worker = worker
+
     try:
         yield
     finally:
+        if app.state.registration_worker is not None:
+            await app.state.registration_worker.stop()
         await _stop_bot(app)
         await gateway.aclose()
         await client.aclose()

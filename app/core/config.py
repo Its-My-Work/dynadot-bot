@@ -65,6 +65,14 @@ class Settings(BaseSettings):
     default_markup_percent: float = 25.0
     usd_to_rub_rate: float = 95.0
 
+    # --- Registration worker ----------------------------------------------
+    # Run the worker inside the API process. Keep it False when
+    # `python -m app.worker` runs as its own service: two workers would fight
+    # over tasks and waste Dynadot's single request slot.
+    registration_worker_enabled: bool = False
+    registration_worker_interval: float = 5.0
+    registration_max_attempts: int = 4
+
     # --- Payments (Platega / RU gateways) ---------------------------------
     platega_merchant_id: str | None = None
     platega_secret: SecretStr | None = None

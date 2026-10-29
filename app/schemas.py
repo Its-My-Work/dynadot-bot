@@ -13,6 +13,7 @@ from app.models.enums import (
     OrderStatus,
     PaymentProvider,
     PaymentStatus,
+    TaskStatus,
 )
 
 
@@ -174,6 +175,61 @@ class ApiLogRead(ORMModel):
     duration_ms: float | None = None
     attempt: int
     created_at: datetime
+
+
+class TaskRead(ORMModel):
+    """A queued Dynadot operation, as shown in the admin queue view."""
+
+    id: str
+    operation: str
+    status: TaskStatus
+    priority: int
+    order_id: str | None = None
+    attempts: int
+    max_attempts: int
+    last_error: str | None = None
+    scheduled_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    created_at: datetime
+
+
+class AdminOrderRead(ORMModel):
+    """Richer order view for operators — includes the money breakdown."""
+
+    id: str
+    user_id: str
+    domain_name: str
+    tld: str
+    years: int
+    status: OrderStatus
+    cost_usd: float
+    price_rub: float
+    markup_percent: float
+    error_code: str | None = None
+    error_message: str | None = None
+    registered_at: datetime | None = None
+    created_at: datetime
+
+
+class AdminStats(BaseModel):
+    """Headline numbers for the admin dashboard."""
+
+    users: int
+    orders_total: int
+    orders_completed: int
+    orders_awaiting_payment: int
+    refunds_pending: int
+    domains_active: int
+    revenue_rub: float
+    tasks_queued: int
+    tasks_dead_letter: int
+
+
+class RefundResolve(BaseModel):
+    """Mark a REFUND_REQUIRED order as money-returned."""
+
+    note: str | None = Field(default=None, max_length=500)
 
 
 # ---------------------------------------------------------------- payments

@@ -27,8 +27,10 @@ from app.integrations.payments.exceptions import (
     PaymentNotFoundError,
     PaymentSignatureError,
 )
+from app.models.enums import OrderStatus
 from app.schemas import WebhookAck
 from app.services.payments import PaymentService
+from app.services.worker import enqueue_registration
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -85,6 +87,22 @@ async def platega_webhook(
     if not result.changed:
         response.status_code = status.HTTP_200_OK
         return WebhookAck(ok=True, applied=False, detail=result.reason)
+
+    # A newly paid order must get its registration task before we ack, so a
+    # crash straight after the 200 still leaves durable work to pick up.
+    if (
+        result.order is not None
+        and result.order.status is OrderStatus.PAID
+    ):
+        try:
+            await enqueue_registration(session, result.order)
+        except Exception:
+            # Never fail an applied payment over the queue: the worker's
+            # orphan sweep re-adopts any PAID order that has no task.
+            logger.exception(
+                "failed to enqueue registration",
+                extra={"order_id": result.order.id},
+            )
 
     return WebhookAck(ok=True, applied=True, detail=result.payment.status.value)
 
