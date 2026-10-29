@@ -125,6 +125,8 @@ export const api = {
 
   // --- users --------------------------------------------------------------
   getUser: (telegramId) => request(`/users/${telegramId}`),
+  ensureUser: (telegramId) =>
+    request('/users/register', { method: 'POST', params: { telegram_id: telegramId } }),
   setUserLanguage: (telegramId, language) =>
     request(`/users/${telegramId}/language`, {
       method: 'PATCH',

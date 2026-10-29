@@ -12,6 +12,18 @@ from app.schemas import LanguageUpdate, ThemeUpdate, UserRead
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+async def register_user(telegram_id: int, session: DbSession) -> User:
+    """Ensure a user record exists in PostgreSQL for web or first-time TMA users."""
+    user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+    if user is None:
+        user = User(telegram_id=telegram_id, username=f"user_{telegram_id}")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    return user
+
+
 @router.get("/{telegram_id}", response_model=UserRead)
 async def get_user(telegram_id: int, session: DbSession, t: Translate) -> User:
     user = await session.scalar(select(User).where(User.telegram_id == telegram_id))

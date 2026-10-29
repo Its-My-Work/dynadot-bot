@@ -46,12 +46,13 @@ export default function App() {
   useEffect(() => {
     if (!telegramId) return;
     api
-      .getUser(telegramId)
+      .ensureUser(telegramId)
       .then((user) => {
         if (user?.language) setLang(normalizeLanguage(user.language));
       })
       .catch(() => {
-        // A brand-new user has no profile yet; the client locale is fine.
+        // Fallback to getUser
+        api.getUser(telegramId).catch(() => {});
       });
   }, [telegramId]);
 
