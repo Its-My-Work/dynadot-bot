@@ -31,5 +31,20 @@ services:
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
+  # Long-polling bot. Omit this service and set TELEGRAM_WEBHOOK_BASE_URL
+  # instead to have the API serve updates over the webhook route — running
+  # both at once makes two pollers fight over one token.
+  bot:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://dynadot:dynadot@db:5432/dynadot_bot
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python -m app.bot
+    restart: unless-stopped
+
 volumes:
   pgdata:

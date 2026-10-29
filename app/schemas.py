@@ -6,7 +6,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.models.enums import DomainStatus, Language, OrderStatus
+from app.models.enums import (
+    Currency,
+    DomainStatus,
+    Language,
+    OrderStatus,
+    PaymentProvider,
+    PaymentStatus,
+)
 
 
 class ORMModel(BaseModel):
@@ -167,3 +174,45 @@ class ApiLogRead(ORMModel):
     duration_ms: float | None = None
     attempt: int
     created_at: datetime
+
+
+# ---------------------------------------------------------------- payments
+
+class CheckoutCreate(BaseModel):
+    """Start a payment for an existing order."""
+
+    order_id: str = Field(min_length=1, max_length=64)
+
+
+class PaymentRead(ORMModel):
+    id: str
+    order_id: str
+    provider: PaymentProvider
+    status: PaymentStatus
+    amount: float
+    currency: Currency
+    external_id: str | None = None
+    payment_url: str | None = None
+    created_at: datetime
+    paid_at: datetime | None = None
+
+
+class CheckoutResponse(BaseModel):
+    """What the TMA needs to redirect the customer to the gateway."""
+
+    payment_id: str
+    order_id: str
+    status: PaymentStatus
+    amount: float
+    currency: Currency
+    payment_url: str | None = None
+    message: str | None = None
+
+
+class WebhookAck(BaseModel):
+    """Acknowledgement body; gateways only care about the HTTP status."""
+
+    ok: bool = True
+    # False when the event was a duplicate or an illegal transition.
+    applied: bool = False
+    detail: str | None = None

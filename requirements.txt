@@ -9,3 +9,4 @@ asyncpg>=0.29
 greenlet>=3.0
 httpx>=0.27
 python-jose[cryptography]>=3.3
+aiogram>=3.13,<4

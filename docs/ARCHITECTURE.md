@@ -24,16 +24,29 @@ app/
 ├── i18n/
 │   ├── translator.py       # Catalogue loading, fallbacks, Accept-Language
 │   └── locales/{ru,en}.json
-├── integrations/dynadot/
-│   ├── signing.py          # HMAC-SHA256 request signing
-│   ├── queue.py            # Serialising priority queue + rate limiter
-│   ├── client.py           # Typed REST v2 adapter
-│   └── exceptions.py
+├── integrations/
+│   ├── dynadot/
+│   │   ├── signing.py      # HMAC-SHA256 request signing
+│   │   ├── queue.py        # Serialising priority queue + rate limiter
+│   │   ├── client.py       # Typed REST v2 adapter
+│   │   └── exceptions.py
+│   └── payments/
+│       ├── base.py         # PaymentGateway ABC + intent/session/event DTOs
+│       ├── platega.py      # Platega adapter (SBP/card/crypto, RU)
+│       └── exceptions.py
+├── services/
+│   └── payments.py         # Checkout + idempotent webhook application
+├── bot/                    # aiogram 3.x
+│   ├── runner.py           # Bot/Dispatcher factories, polling entrypoint
+│   ├── handlers.py         # /start, /help, /lang, /orders, callbacks
+│   ├── keyboards.py        # TMA web-app button, language picker, pay button
+│   ├── middlewares.py      # User upsert + request-scoped RU/EN translator
+│   └── notifications.py    # Outbound payment/order status messages
 └── api/
-    ├── deps.py             # DB session, language, Dynadot client
-    └── routes/             # meta, users, domains, admin
+    ├── deps.py             # DB session, language, Dynadot, payment gateway
+    └── routes/             # meta, users, domains, payments, webhooks, admin
 migrations/                 # Alembic (async env)
-tests/                      # 49 tests
+tests/                      # 184 tests
 ```
 
 ## Dynadot integration
@@ -86,6 +99,90 @@ models the resulting state so funds are never silently retained.
 customer's site goes offline) and `account_balance_reminder` (a drained
 registrar balance fails every registration *after* the customer has paid).
 
+## Payments (Platega / RU)
+
+`PaymentGateway` (`integrations/payments/base.py`) is the only contract business
+logic sees, so a second RU gateway or CryptoBot can be added without touching
+services. `PlategaGateway` implements it against `app.platega.io`.
+
+### Auth
+
+Platega uses two plain headers rather than a body signature:
+`X-MerchantId` and `X-Secret`. It echoes **those same headers back on its
+callbacks**, so webhook verification is a constant-time comparison of the
+incoming secret against ours — not an HMAC check.
+
+### Tying a callback to an order
+
+`POST /transaction/process` is sent with `payload = order.id`. Platega returns
+that value verbatim in the callback, which is what lets a webhook find its
+order without trusting gateway-side bookkeeping. The gateway's `transactionId`
+is stored on `Payment.external_id` (unique) and is the idempotency key.
+
+### Status mapping
+
+| Platega | Ours |
+|---|---|
+| `PENDING`, `PROCESSING`, `DISPUTED` | `PENDING` |
+| `CONFIRMED`, `SUCCESS` | `SUCCEEDED` |
+| `CANCELED`, `FAILED`, `DECLINED` | `FAILED` |
+| `EXPIRED`, `TIMEOUT` | `EXPIRED` |
+| `REFUNDED`, `PARTIALLY_REFUNDED`, `CHARGEBACKED` | `REFUNDED` |
+
+Two deliberate choices:
+
+- **`DISPUTED` → `PENDING`**, not failed. The money is not ours yet and Platega
+  resends `CONFIRMED` once the check clears; treating it as a failure would
+  cancel an order that is about to be paid.
+- **An unknown status → `PENDING`.** Guessing success hands out a free domain;
+  guessing failure cancels a paid order.
+
+### Webhook rules
+
+`POST /api/v1/webhooks/platega` enforces:
+
+- authenticate **before** parsing — an unauthenticated body never reaches the DB
+- verification reads the **raw** body (re-serialising a parsed model changes bytes)
+- **2xx for anything we decided about**, including duplicates, illegal
+  transitions and unknown transactions. Gateways retry on non-2xx, so a 4xx on a
+  deliberately-ignored event means the provider hammers us forever.
+- **5xx only for genuinely transient failures**, so the retry is useful
+
+`PaymentService.apply_webhook` is idempotent on `external_id` and guards state
+transitions. `CONFIRMED` after `CANCELED` **does** credit the customer — a
+cancelled-looking payment can still settle, and the money arrived. The reverse
+(a late `CANCELED` after `CONFIRMED`) is rejected so a paid order is never
+cancelled. `PaymentService.reconcile` polls the gateway for the dropped-webhook
+case, which would otherwise strand a paying customer in `AWAITING_PAYMENT`.
+
+## Telegram bot (aiogram 3.x)
+
+`/start`, `/help`, `/lang`, `/orders` plus inline callbacks. Two run modes share
+one dispatcher:
+
+- **polling** — `python -m app.bot`, a separate compose service
+- **webhook** — set `TELEGRAM_WEBHOOK_BASE_URL`; the API registers the URL on
+  startup and `/api/v1/webhooks/telegram` feeds updates into the same dispatcher
+
+Never both: two pollers on one token fight each other.
+
+`UserContextMiddleware` upserts the Telegram user and injects `user`,
+`language` and a bound `t` translator into every handler, on **both** messages
+and callback queries. A new user's language is seeded from their Telegram
+client locale; an explicit `/lang` choice is then never overwritten.
+
+Two pitfalls encoded in code:
+
+- Telegram rejects non-HTTPS web-app URLs, so `main_menu` drops the TMA button
+  rather than letting every `/start` fail with a Bad Request.
+- The `/`-prefixed catch-all handler must be registered **last** or it shadows
+  every real command. `build_router()` returns a fresh router per dispatcher
+  because aiogram refuses to attach one router to two dispatchers.
+
+Outbound notifications go through `safe_send`, which swallows Telegram errors:
+a user who blocked the bot must not fail a webhook and trigger a gateway retry
+of an already-processed payment.
+
 ## Internationalisation (RU/EN)
 
 JSON catalogues per language with flat dotted keys. Resolution order:
@@ -116,12 +213,15 @@ pip install -r requirements-dev.txt
 cp .env.example .env
 alembic upgrade head
 uvicorn app.main:app --reload     # docs at /api/v1/docs
-pytest                            # 49 tests
+python -m app.bot                 # bot via long polling (separate process)
+pytest                            # 184 tests
+ruff check .
 # or: docker compose up --build
 ```
 
 ## Not yet implemented
 
-Telegram bot handlers, Platega payment flow, Telegram `initData` auth and admin
-RBAC, the `DynadotTask` worker loop that drains persisted tasks, TLD price sync,
-and the React TMA/web frontend.
+Telegram `initData` auth and admin RBAC, the `DynadotTask` worker loop that
+drains persisted tasks (including the paid-order → register handoff and the
+`REFUND_REQUIRED` path), a scheduled `reconcile` sweep for stale pending
+payments, TLD price sync, and the React TMA/web frontend.

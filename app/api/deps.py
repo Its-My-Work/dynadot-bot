@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.i18n import Translator, normalize_language, parse_accept_language
 from app.integrations.dynadot import DynadotClient
+from app.integrations.payments import PaymentGateway
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -50,3 +51,17 @@ async def get_dynadot_client(request: Request) -> DynadotClient:
 
 
 Dynadot = Annotated[DynadotClient, Depends(get_dynadot_client)]
+
+
+async def get_payment_gateway(request: Request) -> PaymentGateway:
+    """Return the shared payment gateway created during application startup."""
+    gateway = getattr(request.app.state, "payment_gateway", None)
+    if gateway is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment gateway is not initialised",
+        )
+    return gateway
+
+
+Payments = Annotated[PaymentGateway, Depends(get_payment_gateway)]
