@@ -175,8 +175,8 @@ def _mount_frontend(app: FastAPI) -> None:
 
     admin_html = dist / "admin.html"
     if admin_html.is_file():
-        @app.get("/admin", include_in_schema=False, dependencies=[Depends(require_admin)])
-        @app.get("/admin.html", include_in_schema=False, dependencies=[Depends(require_admin)])
+        @app.get("/admin", include_in_schema=False)
+        @app.get("/admin.html", include_in_schema=False)
         async def admin_page() -> FileResponse:
             return FileResponse(str(admin_html))
 

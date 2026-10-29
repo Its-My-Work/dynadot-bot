@@ -11,28 +11,30 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 
-import api from './lib/api';
+import api, { getAdminToken } from './lib/api';
+import { makeTranslator } from './lib/i18n';
 import StatusBadge from './components/StatusBadge';
-import { AppBar, Brand, EmptyState, ErrorNote, SkeletonList, Spinner, ThemePicker } from './components/ui';
+import {
+  AppBar,
+  Brand,
+  EmptyState,
+  ErrorNote,
+  LangToggle,
+  Monogram,
+  SkeletonList,
+  Spinner,
+  ThemePicker,
+} from './components/ui';
 import useTheme from './hooks/useTheme';
-
-const VIEWS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'refunds', label: 'Refunds' },
-  { id: 'orders', label: 'Orders' },
-  { id: 'tasks', label: 'Queue' },
-  { id: 'pricing', label: 'Pricing' },
-  { id: 'logs', label: 'API log' },
-];
 
 const money = (value) =>
   new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(
     Number(value || 0),
   );
 
-const when = (value) =>
+const when = (value, language = 'ru') =>
   value
-    ? new Intl.DateTimeFormat('en-GB', {
+    ? new Intl.DateTimeFormat(language === 'en' ? 'en-GB' : 'ru-RU', {
         day: '2-digit',
         month: 'short',
         hour: '2-digit',
@@ -41,66 +43,252 @@ const when = (value) =>
     : '—';
 
 export default function AdminApp() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAdminToken()));
   const [view, setView] = useState('overview');
   const [stats, setStats] = useState(null);
-  // No telegramId in the operator console: the theme is a per-browser
-  // preference here, so localStorage alone is the right scope.
+  const [language, setLanguage] = useState(() => {
+    try {
+      return localStorage.getItem('dynadot_admin_lang') || 'ru';
+    } catch {
+      return 'ru';
+    }
+  });
+
   const { theme, selectTheme } = useTheme({ persist: false });
+  const t = makeTranslator(language);
+
+  const toggleLang = () => {
+    const next = language === 'ru' ? 'en' : 'ru';
+    setLanguage(next);
+    try {
+      localStorage.setItem('dynadot_admin_lang', next);
+    } catch {
+      // Ignored: storage quota or disabled in sandbox.
+    }
+  };
+
+  const handleLogout = () => {
+    api.adminLogout();
+    setIsAuthenticated(false);
+  };
 
   const loadStats = useCallback(() => {
     api
       .adminStats()
-      .then(setStats)
-      .catch(() => setStats(null));
+      .then((res) => {
+        setStats(res);
+        setIsAuthenticated(true);
+      })
+      .catch((err) => {
+        if (err?.status === 401) {
+          api.adminLogout();
+          setIsAuthenticated(false);
+        }
+      });
   }, []);
 
   useEffect(() => {
-    loadStats();
-    // Operators leave this open; a slow refresh keeps the refund count honest
-    // without hammering the API.
-    const timer = setInterval(loadStats, 30000);
-    return () => clearInterval(timer);
-  }, [loadStats]);
+    if (isAuthenticated) {
+      loadStats();
+    }
+  }, [isAuthenticated, loadStats]);
+
+  if (!isAuthenticated) {
+    return (
+      <AdminLoginScreen
+        onLogin={() => {
+          setIsAuthenticated(true);
+          loadStats();
+        }}
+        language={language}
+        onToggleLang={toggleLang}
+        theme={theme}
+        onSelectTheme={selectTheme}
+      />
+    );
+  }
+
+  const VIEWS = [
+    { id: 'overview', label: t('admin.nav.overview'), enLabel: 'Overview' },
+    {
+      id: 'refunds',
+      label: t('admin.nav.refunds'),
+      enLabel: 'Refunds',
+      badge: (s) => s?.refunds_pending,
+    },
+    { id: 'orders', label: t('admin.nav.orders'), enLabel: 'Orders' },
+    {
+      id: 'tasks',
+      label: t('admin.nav.tasks'),
+      enLabel: 'Queue',
+      badge: (s) => s?.tasks_dead_letter,
+    },
+    { id: 'pricing', label: t('admin.nav.pricing'), enLabel: 'Pricing' },
+    { id: 'logs', label: t('admin.nav.logs'), enLabel: 'API log' },
+    { id: 'settings', label: t('admin.nav.settings'), enLabel: 'Settings' },
+  ];
 
   return (
-    <div className="min-h-full">
+    <div className="flex min-h-screen flex-col bg-bg text-ink">
       <AppBar>
-        <div className="mx-auto flex h-full max-w-6xl items-center gap-6 px-6">
-          <Brand subtitle="Admin" />
-          <nav className="flex gap-1">
-            {VIEWS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setView(item.id)}
-                className={`rounded-md px-2.5 py-1 text-sm transition-colors ${
-                  view === item.id
-                    ? 'bg-elevated text-ink'
-                    : 'text-muted hover:text-ink'
-                }`}
-              >
-                {item.label}
-                {item.id === 'refunds' && stats?.refunds_pending ? (
-                  <span className="ml-2 rounded-full bg-warn/20 px-1.5 text-xs text-warn">
-                    {stats.refunds_pending}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </nav>
-          <div className="ml-auto">
-            <ThemePicker theme={theme} onSelect={selectTheme} />
+        <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
+          <Brand label="Dynadot" subtitle="Admin" />
+          <div className="flex items-center gap-2">
+            <ThemePicker
+              theme={theme}
+              onSelect={selectTheme}
+              label={t('theme.label')}
+            />
+            <LangToggle language={language} onToggle={toggleLang} />
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-faint hover:text-ink"
+            >
+              {t('admin.auth.logout')}
+            </button>
           </div>
         </div>
       </AppBar>
 
-      <main className="mx-auto max-w-6xl space-y-6 px-6 py-6">
-        {view === 'overview' ? <Overview stats={stats} /> : null}
-        {view === 'refunds' ? <Refunds onChange={loadStats} /> : null}
-        {view === 'orders' ? <Orders /> : null}
-        {view === 'tasks' ? <Tasks onChange={loadStats} /> : null}
-        {view === 'pricing' ? <Pricing /> : null}
-        {view === 'logs' ? <ApiLogs /> : null}
+      <div className="border-b border-line bg-surface/50">
+        <div className="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-4 py-2">
+          {VIEWS.map((item) => {
+            const count = item.badge?.(stats);
+            const active = view === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={item.enLabel}
+                onClick={() => setView(item.id)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  active
+                    ? 'bg-elevated text-ink shadow-sm'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                <span>{language === 'ru' ? item.label : item.enLabel}</span>
+                {count ? (
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold tabular-nums leading-none ${
+                      item.id === 'refunds'
+                        ? 'bg-warn/20 text-warn'
+                        : 'bg-danger/20 text-danger'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+        {view === 'overview' ? <Overview stats={stats} language={language} /> : null}
+        {view === 'refunds' ? (
+          <Refunds onResolved={loadStats} language={language} />
+        ) : null}
+        {view === 'orders' ? <Orders language={language} /> : null}
+        {view === 'tasks' ? (
+          <Tasks onChange={loadStats} language={language} />
+        ) : null}
+        {view === 'pricing' ? <Pricing language={language} /> : null}
+        {view === 'logs' ? <ApiLogs language={language} /> : null}
+        {view === 'settings' ? <Settings language={language} /> : null}
+      </main>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ login screen
+
+function AdminLoginScreen({ onLogin, language, onToggleLang, theme, onSelectTheme }) {
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const t = makeTranslator(language);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!password) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await api.adminLogin(username, password);
+      onLogin();
+    } catch {
+      setError(t('admin.auth.error'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col bg-bg text-ink">
+      <header className="flex h-12 items-center justify-between border-b border-line px-6">
+        <Brand label="Dynadot" subtitle="Admin" />
+        <div className="flex items-center gap-2">
+          <ThemePicker theme={theme} onSelect={onSelectTheme} label={t('theme.label')} />
+          <LangToggle language={language} onToggle={onToggleLang} />
+        </div>
+      </header>
+
+      <main className="flex flex-1 items-center justify-center p-4">
+        <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-6 shadow-xl">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <Monogram className="mb-3 h-10 w-10 text-lg" />
+            <h1 className="text-lg font-semibold text-ink">{t('admin.auth.title')}</h1>
+            <p className="mt-1 text-xs text-muted">{t('admin.auth.subtitle')}</p>
+          </div>
+
+          {error ? (
+            <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
+              {error}
+            </div>
+          ) : null}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted">
+                {t('admin.auth.login')}
+              </label>
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted">
+                {t('admin.auth.password')}
+              </label>
+              <input
+                type="password"
+                required
+                autoFocus
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary mt-2 flex w-full items-center justify-center gap-2 py-2 text-sm font-medium"
+            >
+              {loading ? <Spinner className="h-4 w-4" /> : null}
+              {t('admin.auth.submit')}
+            </button>
+          </form>
+        </div>
       </main>
     </div>
   );
@@ -108,23 +296,31 @@ export default function AdminApp() {
 
 // ------------------------------------------------------------------ overview
 
-function Overview({ stats }) {
+function Overview({ stats, language }) {
   if (!stats) return <SkeletonList rows={2} />;
 
+  const isRu = language === 'ru';
   const cards = [
-    { label: 'Revenue', value: `${money(stats.revenue_rub)} ₽`, tone: 'ok' },
-    { label: 'Completed', value: stats.orders_completed },
-    { label: 'Awaiting payment', value: stats.orders_awaiting_payment },
     {
-      label: 'Refunds pending',
+      label: isRu ? 'Выручка' : 'Revenue',
+      value: `${money(stats.revenue_rub)} ₽`,
+      tone: 'ok',
+    },
+    { label: isRu ? 'Выполнено' : 'Completed', value: stats.orders_completed },
+    {
+      label: isRu ? 'Ожидают оплаты' : 'Awaiting payment',
+      value: stats.orders_awaiting_payment,
+    },
+    {
+      label: isRu ? 'Ожидают возврата' : 'Refunds pending',
       value: stats.refunds_pending,
       tone: stats.refunds_pending > 0 ? 'warn' : undefined,
     },
-    { label: 'Active domains', value: stats.domains_active },
-    { label: 'Users', value: stats.users },
-    { label: 'Queued tasks', value: stats.tasks_queued },
+    { label: isRu ? 'Активные домены' : 'Active domains', value: stats.domains_active },
+    { label: isRu ? 'Пользователи' : 'Users', value: stats.users },
+    { label: isRu ? 'В очереди' : 'Queued tasks', value: stats.tasks_queued },
     {
-      label: 'Dead letter',
+      label: isRu ? 'Сбои (Dead Letter)' : 'Dead letter',
       value: stats.tasks_dead_letter,
       tone: stats.tasks_dead_letter > 0 ? 'danger' : undefined,
     },
@@ -154,9 +350,9 @@ function Overview({ stats }) {
   );
 }
 
-// ------------------------------------------------------------------- refunds
+// ------------------------------------------------------------------ refunds
 
-function Refunds({ onChange }) {
+function Refunds({ onResolved, language }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -166,40 +362,54 @@ function Refunds({ onChange }) {
     api
       .adminRefunds()
       .then((list) => setRows(Array.isArray(list) ? list : []))
-      .catch(() => {
-        setError('Could not load the refund queue.');
-        setRows(null);
-      });
+      .catch(() => setError('Could not load pending refunds.'));
   }, []);
 
   useEffect(load, [load]);
 
   async function resolve(order) {
-    // Refunds are paid out in the gateway console; this only closes our ledger.
-    if (!window.confirm(`Mark ${order.domain_name} as refunded?`)) return;
+    const isRu = language === 'ru';
+    const note = window.prompt(
+      isRu
+        ? `Пометить заказ #${order.id} возвращенным. Примечание:`
+        : `Mark refund as settled for ${order.domain_name}. Note (e.g. transfer id):`,
+      isRu ? 'Возврат средств клиенту через Platega' : 'Refund issued via gateway',
+    );
+    if (!note) return;
+
     setBusyId(order.id);
     try {
-      await api.resolveRefund(order.id, 'resolved from admin panel');
+      await api.resolveRefund(order.id, note);
       load();
-      onChange?.();
+      onResolved?.();
     } catch {
-      setError('Could not resolve the refund.');
+      setError('Could not mark the refund as resolved.');
     } finally {
       setBusyId(null);
     }
   }
 
   if (error) return <ErrorNote message={error} onRetry={load} />;
-  if (rows === null) return <SkeletonList rows={3} />;
+  if (rows === null) return <SkeletonList rows={4} />;
   if (rows.length === 0) {
     return (
-      <EmptyState icon="✓" title="No pending refunds" hint="Nothing is owed." />
+      <EmptyState
+        icon="✓"
+        title={language === 'ru' ? 'Нет ожидающих возвратов' : 'No refunds pending'}
+      />
     );
   }
 
+  const isRu = language === 'ru';
   return (
     <Table
-      head={['Domain', 'Amount', 'Reason', 'Created', '']}
+      head={[
+        isRu ? 'Домен' : 'Domain',
+        isRu ? 'Сумма' : 'Amount',
+        isRu ? 'Причина' : 'Reason',
+        isRu ? 'Создан' : 'Created',
+        '',
+      ]}
       rows={rows.map((order) => [
         <span key="d" className="font-medium">
           {order.domain_name}
@@ -211,7 +421,7 @@ function Refunds({ onChange }) {
           {order.error_message || order.error_code || '—'}
         </span>,
         <span key="c" className="text-muted">
-          {when(order.created_at)}
+          {when(order.created_at, language)}
         </span>,
         <button
           key="b"
@@ -221,7 +431,7 @@ function Refunds({ onChange }) {
           disabled={busyId === order.id}
         >
           {busyId === order.id ? <Spinner className="h-3 w-3" /> : null}
-          Mark refunded
+          {isRu ? 'Пометить возвращенным' : 'Mark refunded'}
         </button>,
       ])}
     />
@@ -230,7 +440,7 @@ function Refunds({ onChange }) {
 
 // -------------------------------------------------------------------- orders
 
-function Orders() {
+function Orders({ language }) {
   const [rows, setRows] = useState(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState(null);
@@ -257,32 +467,47 @@ function Orders() {
     'cancelled',
   ];
 
+  const isRu = language === 'ru';
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
-        {statuses.map((value) => (
+      <div className="flex flex-wrap items-center gap-1 text-xs">
+        {statuses.map((key) => (
           <button
-            key={value || 'all'}
+            key={key}
             type="button"
-            onClick={() => setStatus(value)}
-            className={`badge border px-2.5 py-1 ${
-              status === value
-                ? 'border-accent/50 bg-accent/15 text-accent'
-                : 'border-line bg-surface text-muted'
+            onClick={() => setStatus(key)}
+            className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+              status === key
+                ? 'bg-elevated text-ink shadow-sm'
+                : 'text-muted hover:text-ink'
             }`}
           >
-            {value || 'all'}
+            {key === '' ? (isRu ? 'Все заказы' : 'All') : key}
           </button>
         ))}
       </div>
 
       {error ? <ErrorNote message={error} /> : null}
-      {rows === null && !error ? <SkeletonList rows={4} /> : null}
-      {rows?.length === 0 ? <EmptyState icon="∅" title="No orders" /> : null}
-      {rows?.length ? (
+      {rows === null ? <SkeletonList rows={5} /> : null}
+      {rows && rows.length === 0 ? (
+        <EmptyState
+          icon="∅"
+          title={isRu ? 'Заказы не найдены' : 'No orders matched'}
+        />
+      ) : null}
+      {rows && rows.length > 0 ? (
         <Table
-          head={['Domain', 'Status', 'Price', 'Cost', 'Markup', 'Created']}
+          head={[
+            isRu ? 'Заказ' : 'Order',
+            isRu ? 'Домен' : 'Domain',
+            isRu ? 'Статус' : 'Status',
+            isRu ? 'Сумма' : 'Price',
+            isRu ? 'Создан' : 'Created',
+          ]}
           rows={rows.map((order) => [
+            <span key="i" className="font-mono text-xs text-muted">
+              {order.id.slice(0, 8)}
+            </span>,
             <span key="d" className="font-medium">
               {order.domain_name}
             </span>,
@@ -290,14 +515,8 @@ function Orders() {
             <span key="p" className="tabular-nums">
               {money(order.price_rub)} ₽
             </span>,
-            <span key="c" className="tabular-nums text-muted">
-              ${Number(order.cost_usd || 0).toFixed(2)}
-            </span>,
-            <span key="m" className="tabular-nums text-muted">
-              {Number(order.markup_percent || 0).toFixed(0)}%
-            </span>,
-            <span key="t" className="text-muted">
-              {when(order.created_at)}
+            <span key="c" className="text-muted">
+              {when(order.created_at, language)}
             </span>,
           ])}
         />
@@ -308,7 +527,7 @@ function Orders() {
 
 // --------------------------------------------------------------------- tasks
 
-function Tasks({ onChange }) {
+function Tasks({ onChange, language }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -339,12 +558,25 @@ function Tasks({ onChange }) {
   if (error) return <ErrorNote message={error} onRetry={load} />;
   if (rows === null) return <SkeletonList rows={4} />;
   if (rows.length === 0) {
-    return <EmptyState icon="✓" title="Queue is empty" />;
+    return (
+      <EmptyState
+        icon="✓"
+        title={language === 'ru' ? 'Очередь задач пуста' : 'Queue is empty'}
+      />
+    );
   }
 
+  const isRu = language === 'ru';
   return (
     <Table
-      head={['Operation', 'Status', 'Attempts', 'Error', 'Scheduled', '']}
+      head={[
+        isRu ? 'Операция' : 'Operation',
+        isRu ? 'Статус' : 'Status',
+        isRu ? 'Попытки' : 'Attempts',
+        isRu ? 'Ошибка' : 'Error',
+        isRu ? 'Запланировано' : 'Scheduled',
+        '',
+      ]}
       rows={rows.map((task) => [
         <span key="o" className="font-mono text-xs">
           {task.operation}
@@ -357,21 +589,21 @@ function Tasks({ onChange }) {
           {task.last_error || '—'}
         </span>,
         <span key="t" className="text-muted">
-          {when(task.scheduled_at)}
+          {when(task.scheduled_at, language)}
         </span>,
-        ['failed', 'dead_letter', 'succeeded'].includes(task.status) ? (
+        task.status === 'dead_letter' || task.status === 'failed' ? (
           <button
-            key="b"
+            key="r"
             type="button"
-            className="btn-ghost px-3 py-1.5 text-xs"
+            className="btn-ghost px-2 py-1 text-xs"
             onClick={() => retry(task)}
             disabled={busyId === task.id}
           >
             {busyId === task.id ? <Spinner className="h-3 w-3" /> : null}
-            Retry
+            {isRu ? 'Повторить' : 'Retry'}
           </button>
         ) : (
-          <span key="b" />
+          <span key="r" />
         ),
       ])}
     />
@@ -380,7 +612,7 @@ function Tasks({ onChange }) {
 
 // ------------------------------------------------------------------- pricing
 
-function Pricing() {
+function Pricing({ language }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
   const [savingTld, setSavingTld] = useState(null);
@@ -390,7 +622,7 @@ function Pricing() {
     api
       .adminPricing()
       .then((list) => setRows(Array.isArray(list) ? list : []))
-      .catch(() => setError('Could not load pricing.'));
+      .catch(() => setError('Could not load TLD pricing table.'));
   }, []);
 
   useEffect(load, [load]);
@@ -399,34 +631,36 @@ function Pricing() {
     setSavingTld(tld);
     try {
       const updated = await api.updatePricing(tld, patch);
-      setRows((current) => current.map((r) => (r.tld === tld ? updated : r)));
+      setRows((prev) =>
+        prev ? prev.map((r) => (r.tld === tld ? { ...r, ...updated } : r)) : [],
+      );
     } catch {
-      setError(`Could not update .${tld}.`);
+      setError(`Could not update .${tld}`);
     } finally {
       setSavingTld(null);
     }
   }
 
   if (error) return <ErrorNote message={error} onRetry={load} />;
-  if (rows === null) return <SkeletonList rows={4} />;
-  if (rows.length === 0) {
-    return (
-      <EmptyState
-        icon="◇"
-        title="No zones configured"
-        hint="Sync TLD prices from Dynadot to populate this table."
-      />
-    );
-  }
+  if (rows === null) return <SkeletonList rows={5} />;
 
+  const isRu = language === 'ru';
   return (
     <>
-      <p className="text-sm text-muted">
-        Changes apply to new orders only — existing orders keep the price frozen
-        at checkout.
+      <p className="mb-3 text-xs text-muted">
+        {isRu
+          ? 'Изменения применяются только к новым заказам — в существующих цена заморожена.'
+          : 'Changes apply to new orders only — existing orders keep the price frozen.'}
       </p>
       <Table
-        head={['Zone', 'Cost', 'Markup %', 'Fixed ₽', 'Enabled', '']}
+        head={[
+          isRu ? 'Зона' : 'Zone',
+          isRu ? 'Себестоимость' : 'Cost',
+          isRu ? 'Наценка %' : 'Markup %',
+          isRu ? 'Фикс ₽' : 'Fixed ₽',
+          isRu ? 'Активен' : 'Enabled',
+          '',
+        ]}
         rows={rows.map((row) => [
           <span key="z" className="font-medium">
             .{row.tld}
@@ -466,37 +700,30 @@ function EditableNumber({ value, onSave }) {
 
   return (
     <input
-      className="w-24 rounded-lg border border-line bg-surface px-2 py-1 text-sm
-        tabular-nums text-ink"
+      className="w-20 rounded-md border border-line bg-surface px-2 py-1 text-xs tabular-nums text-ink focus:border-accent focus:outline-none"
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => {
-        const trimmed = String(draft).trim();
-        const next = trimmed === '' ? null : Number(trimmed);
-        if (next !== null && Number.isNaN(next)) {
-          setDraft(value ?? '');
-          return;
-        }
-        if (next !== (value ?? null)) onSave(next);
+        const next = draft === '' ? null : Number(draft);
+        if (next !== value) onSave(next);
       }}
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.currentTarget.blur();
       }}
-      placeholder="—"
     />
   );
 }
 
 // ---------------------------------------------------------------------- logs
 
-function ApiLogs() {
+function ApiLogs({ language }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
 
   const load = useCallback(() => {
     setError(null);
     api
-      .adminApiLogs({ limit: 100 })
+      .adminApiLogs({ limit: 50 })
       .then((list) => setRows(Array.isArray(list) ? list : []))
       .catch(() => setError('Could not load API logs.'));
   }, []);
@@ -505,17 +732,33 @@ function ApiLogs() {
 
   if (error) return <ErrorNote message={error} onRetry={load} />;
   if (rows === null) return <SkeletonList rows={5} />;
-  if (rows.length === 0) return <EmptyState icon="▤" title="No API calls yet" />;
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        icon="∅"
+        title={language === 'ru' ? 'Логов API пока нет' : 'No API calls yet'}
+      />
+    );
+  }
 
+  const isRu = language === 'ru';
   return (
     <Table
-      head={['Method', 'Endpoint', 'Status', 'HTTP', 'ms', 'Try', 'When']}
+      head={[
+        isRu ? 'Метод' : 'Method',
+        isRu ? 'Путь' : 'Path',
+        isRu ? 'Статус' : 'Status',
+        'HTTP',
+        isRu ? 'Время' : 'Duration',
+        isRu ? 'Попытка' : 'Attempt',
+        isRu ? 'Дата' : 'Timestamp',
+      ]}
       rows={rows.map((log) => [
-        <span key="m" className="font-mono text-xs text-muted">
+        <span key="m" className="font-mono text-xs">
           {log.method}
         </span>,
-        <span key="e" className="truncate font-mono text-xs">
-          {log.endpoint}
+        <span key="p" className="max-w-xs truncate font-mono text-xs text-muted" title={log.path}>
+          {log.path}
         </span>,
         <StatusBadge
           key="s"
@@ -526,16 +769,223 @@ function ApiLogs() {
           {log.http_status ?? '—'}
         </span>,
         <span key="d" className="tabular-nums text-muted">
-          {log.duration_ms ? Math.round(log.duration_ms) : '—'}
+          {log.duration_ms ? `${Math.round(log.duration_ms)} ms` : '—'}
         </span>,
         <span key="a" className="tabular-nums text-muted">
           {log.attempt}
         </span>,
         <span key="w" className="text-muted">
-          {when(log.created_at)}
+          {when(log.created_at, language)}
         </span>,
       ])}
     />
+  );
+}
+
+// ------------------------------------------------------------------ settings
+
+function Settings({ language }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [error, setError] = useState(null);
+
+  const [fxRate, setFxRate] = useState('95.0');
+  const [markup, setMarkup] = useState('25.0');
+  const [baseUrl, setBaseUrl] = useState('https://api-sandbox.dynadot.com');
+  const [workerEnabled, setWorkerEnabled] = useState(true);
+
+  const t = makeTranslator(language);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    api
+      .adminSettings()
+      .then((cfg) => {
+        setData(cfg);
+        setFxRate(String(cfg.usd_to_rub_rate ?? 95.0));
+        setMarkup(String(cfg.default_markup_percent ?? 25.0));
+        setBaseUrl(cfg.dynadot_base_url || 'https://api-sandbox.dynadot.com');
+        setWorkerEnabled(Boolean(cfg.registration_worker_enabled));
+      })
+      .catch(() => setError('Could not load system settings.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(load, [load]);
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    setSavedSuccess(false);
+    setError(null);
+
+    try {
+      const updated = await api.updateAdminSettings({
+        usd_to_rub_rate: Number(fxRate),
+        default_markup_percent: Number(markup),
+        dynadot_base_url: baseUrl,
+        registration_worker_enabled: workerEnabled,
+      });
+      setData(updated);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 4000);
+    } catch {
+      setError('Could not update settings.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <SkeletonList rows={4} />;
+  if (error && !data) return <ErrorNote message={error} onRetry={load} />;
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-ink">{t('admin.settings.title')}</h2>
+        <p className="mt-1 text-xs text-muted">{t('admin.settings.subtitle')}</p>
+      </div>
+
+      {savedSuccess ? (
+        <div className="rounded-lg border border-ok/30 bg-ok/10 px-4 py-2.5 text-xs font-medium text-ok">
+          ✓ {t('admin.settings.saved')}
+        </div>
+      ) : null}
+
+      {error ? <ErrorNote message={error} /> : null}
+
+      <form onSubmit={handleSave} className="space-y-4">
+        {/* Finance */}
+        <div className="card space-y-4 p-5">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+            {t('admin.settings.finance')}
+          </h3>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">
+                {t('admin.settings.fx_rate')} (₽)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                min="1"
+                required
+                value={fxRate}
+                onChange={(e) => setFxRate(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm tabular-nums text-ink focus:border-accent focus:outline-none"
+              />
+              <p className="mt-1 text-[11px] text-muted">{t('admin.settings.fx_hint')}</p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">
+                {t('admin.settings.markup')} (%)
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                required
+                value={markup}
+                onChange={(e) => setMarkup(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm tabular-nums text-ink focus:border-accent focus:outline-none"
+              />
+              <p className="mt-1 text-[11px] text-muted">{t('admin.settings.markup_hint')}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Dynadot */}
+        <div className="card space-y-4 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+              {t('admin.settings.dynadot')}
+            </h3>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                data?.dynadot_configured
+                  ? 'bg-ok/15 text-ok'
+                  : 'bg-muted/15 text-muted'
+              }`}
+            >
+              {data?.dynadot_configured
+                ? language === 'ru' ? 'Ключ подключен' : 'API Key active'
+                : language === 'ru' ? 'Ключ не настроен' : 'No API key'}
+            </span>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink">
+              {t('admin.settings.env_mode')}
+            </label>
+            <select
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+            >
+              <option value="https://api-sandbox.dynadot.com">
+                {t('admin.settings.sandbox')}
+              </option>
+              <option value="https://api.dynadot.com">
+                {t('admin.settings.production')}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        {/* Worker */}
+        <div className="card space-y-3 p-5">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+            {t('admin.settings.worker')}
+          </h3>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={workerEnabled}
+              onChange={(e) => setWorkerEnabled(e.target.checked)}
+              className="h-4 w-4 rounded border-line bg-bg text-accent focus:ring-0"
+            />
+            <span className="text-xs font-medium text-ink">
+              {t('admin.settings.worker_enable')}
+            </span>
+          </label>
+        </div>
+
+        {/* System info */}
+        <div className="card flex items-center justify-between p-4 text-xs text-muted">
+          <span>
+            {language === 'ru' ? 'Окружение:' : 'Environment:'}{' '}
+            <strong className="text-ink font-medium">{data?.environment || 'prod'}</strong>
+          </span>
+          <span>
+            Platega:{' '}
+            <strong className={data?.platega_configured ? 'text-ok font-medium' : 'text-muted font-normal'}>
+              {data?.platega_configured
+                ? language === 'ru' ? 'Подключена' : 'Configured'
+                : language === 'ru' ? 'Не настроена' : 'Unconfigured'}
+            </strong>
+          </span>
+          <span>
+            {language === 'ru' ? 'Версия:' : 'Version:'}{' '}
+            <strong className="text-ink font-medium">{data?.app_version || '0.1.0'}</strong>
+          </span>
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5 text-xs font-medium"
+        >
+          {saving ? <Spinner className="h-3.5 w-3.5" /> : null}
+          {saving ? t('admin.settings.saving') : t('admin.settings.save')}
+        </button>
+      </form>
+    </div>
   );
 }
 

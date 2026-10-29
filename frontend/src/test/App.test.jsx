@@ -40,14 +40,12 @@ afterEach(() => {
 // ----------------------------------------------------------------- app shell
 
 describe('App', () => {
-  it('refuses to run without a telegram identity', () => {
-    // Opened as a bare URL: every endpoint needs a telegram_id, so guessing
-    // one would show a stranger's data. No Telegram also means no locale
-    // hint, so the default RU copy is what renders.
+  it('supports running in regular web browser outside Telegram', async () => {
+    // When opened in a regular web browser, the search tab renders cleanly
     render(<App />);
 
     expect(
-      screen.getByText('Откройте приложение через Telegram-бота.'),
+      await screen.findByPlaceholderText(/Enter a domain name|Введите домен/),
     ).toBeInTheDocument();
   });
 

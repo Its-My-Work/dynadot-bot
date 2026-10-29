@@ -50,8 +50,31 @@ function buildUrl(path, params) {
   return qs ? `${url}?${qs}` : url;
 }
 
-async function request(path, { method = 'GET', body, params, signal } = {}) {
-  const headers = { 'X-Language': currentLanguage };
+let adminToken =
+  typeof localStorage !== 'undefined' ? localStorage.getItem('dynadot_admin_token') : null;
+
+export function getAdminToken() {
+  return adminToken;
+}
+
+export function setAdminToken(token) {
+  adminToken = token;
+  try {
+    if (token) {
+      localStorage.setItem('dynadot_admin_token', token);
+    } else {
+      localStorage.removeItem('dynadot_admin_token');
+    }
+  } catch {
+    // Best-effort storage
+  }
+}
+
+async function request(path, { method = 'GET', body, params, signal, headers: extraHeaders = {} } = {}) {
+  const headers = { 'X-Language': currentLanguage, ...extraHeaders };
+  if (adminToken && path.startsWith('/admin') && !headers['Authorization']) {
+    headers['Authorization'] = `Basic ${adminToken}`;
+  }
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
   let response;
@@ -158,6 +181,18 @@ export const api = {
     request(`/payments/${paymentId}/refresh`, { method: 'POST' }),
 
   // --- admin --------------------------------------------------------------
+  adminLogin: async (username, password) => {
+    const token = btoa(`${username}:${password}`);
+    const res = await request('/admin/login', {
+      method: 'POST',
+      body: { username, password },
+    });
+    setAdminToken(token);
+    return res;
+  },
+  adminLogout: () => {
+    setAdminToken(null);
+  },
   adminStats: () => request('/admin/stats'),
   adminOrders: (params) => request('/admin/orders', { params }),
   adminRefunds: () => request('/admin/refunds'),
@@ -170,6 +205,9 @@ export const api = {
     request(`/admin/tld-pricing/${tld}`, { method: 'PATCH', body: patch }),
   adminApiLogs: (params) => request('/admin/api-logs', { params }),
   queueStatus: () => request('/admin/queue-status'),
+  adminSettings: () => request('/admin/settings'),
+  updateAdminSettings: (data) =>
+    request('/admin/settings', { method: 'PATCH', body: data }),
 };
 
 export default api;

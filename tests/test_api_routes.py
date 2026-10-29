@@ -570,7 +570,7 @@ def test_admin_auth_protects_routes_when_configured(client, monkeypatch):
     # Unauthenticated -> 401
     resp = client.get("/api/v1/admin/stats")
     assert resp.status_code == 401
-    assert "Basic" in resp.headers.get("WWW-Authenticate", "")
+    assert resp.json()["detail"] == "Admin credentials required"
 
     # Wrong credentials -> 401
     resp = client.get("/api/v1/admin/stats", auth=("admin", "wrong"))
@@ -579,3 +579,42 @@ def test_admin_auth_protects_routes_when_configured(client, monkeypatch):
     # Correct credentials -> 200
     resp = client.get("/api/v1/admin/stats", auth=("admin", "secret123"))
     assert resp.status_code == 200
+
+
+def test_admin_login_endpoint(client, monkeypatch):
+    import app.api.deps as deps_module
+    from pydantic import SecretStr
+
+    current_settings = deps_module.get_settings()
+    monkeypatch.setattr(current_settings, "admin_username", "admin")
+    monkeypatch.setattr(current_settings, "admin_password", SecretStr("secret123"))
+
+    # Invalid login -> 401
+    resp = client.post("/api/v1/admin/login", json={"username": "admin", "password": "wrongpassword"})
+    assert resp.status_code == 401
+
+    # Valid login -> 200
+    resp = client.post("/api/v1/admin/login", json={"username": "admin", "password": "secret123"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert "token" in data
+
+
+def test_admin_settings_get_and_patch(client):
+    # GET settings
+    resp = client.get("/api/v1/admin/settings")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "usd_to_rub_rate" in data
+    assert "default_markup_percent" in data
+
+    # PATCH settings
+    patch_resp = client.patch(
+        "/api/v1/admin/settings",
+        json={"usd_to_rub_rate": 99.5, "default_markup_percent": 30.0},
+    )
+    assert patch_resp.status_code == 200
+    updated = patch_resp.json()
+    assert updated["usd_to_rub_rate"] == 99.5
+    assert updated["default_markup_percent"] == 30.0

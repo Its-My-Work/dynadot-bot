@@ -18,11 +18,24 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from app.api.deps import DbSession, Dynadot, Translate, require_admin
+from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.models import Domain, DynadotApiLog, DynadotTask, Order, TldPricing, User
+from app.models import (
+    AppSetting,
+    Domain,
+    DynadotApiLog,
+    DynadotTask,
+    Order,
+    TldPricing,
+    User,
+)
 from app.models.enums import DomainStatus, OrderStatus, TaskStatus
 from app.schemas import (
+    AdminLoginRequest,
+    AdminLoginResponse,
     AdminOrderRead,
+    AdminSettingsRead,
+    AdminSettingsUpdate,
     AdminStats,
     ApiLogRead,
     RefundResolve,
@@ -32,13 +45,39 @@ from app.schemas import (
 )
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/admin", tags=["admin"])
+auth_router = APIRouter(dependencies=[Depends(require_admin)])
+
+
+@router.post("/login", response_model=AdminLoginResponse)
+async def admin_login(payload: AdminLoginRequest) -> AdminLoginResponse:
+    """Validate administrator credentials and return an authorization token."""
+    settings = get_settings()
+    if settings.admin_username and settings.admin_password:
+        import secrets
+
+        valid_user = secrets.compare_digest(
+            payload.username.encode("utf8"), settings.admin_username.encode("utf8")
+        )
+        valid_pass = secrets.compare_digest(
+            payload.password.encode("utf8"),
+            settings.admin_password.get_secret_value().encode("utf8"),
+        )
+        if not (valid_user and valid_pass):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Неверный логин или пароль",
+            )
+    import base64
+
+    token = base64.b64encode(f"{payload.username}:{payload.password}".encode("utf8")).decode("utf8")
+    return AdminLoginResponse(status="ok", username=payload.username, token=token)
 
 
 # ------------------------------------------------------------------ pricing
 
 
-@router.get("/tld-pricing", response_model=list[TldPricingRead])
+@auth_router.get("/tld-pricing", response_model=list[TldPricingRead])
 async def list_tld_pricing(session: DbSession) -> list[TldPricing]:
     result = await session.scalars(
         select(TldPricing).order_by(TldPricing.sort_order, TldPricing.tld)
@@ -46,7 +85,7 @@ async def list_tld_pricing(session: DbSession) -> list[TldPricing]:
     return list(result)
 
 
-@router.patch("/tld-pricing/{tld}", response_model=TldPricingRead)
+@auth_router.patch("/tld-pricing/{tld}", response_model=TldPricingRead)
 async def update_tld_pricing(
     tld: str,
     payload: TldPricingUpdate,
@@ -77,11 +116,11 @@ async def update_tld_pricing(
 # ------------------------------------------------------------------- orders
 
 
-@router.get("/orders", response_model=list[AdminOrderRead])
+@auth_router.get("/orders", response_model=list[AdminOrderRead])
 async def list_orders(
     session: DbSession,
     order_status: OrderStatus | None = Query(default=None, alias="status"),
-    limit: int = Query(default=50, ge=1, le=500),
+    limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> list[Order]:
     """All orders, newest first, optionally filtered by status."""
@@ -92,7 +131,7 @@ async def list_orders(
     return list(result)
 
 
-@router.get("/refunds", response_model=list[AdminOrderRead])
+@auth_router.get("/refunds", response_model=list[AdminOrderRead])
 async def list_pending_refunds(session: DbSession) -> list[Order]:
     """Orders where we hold the customer's money but could not deliver.
 
@@ -106,7 +145,7 @@ async def list_pending_refunds(session: DbSession) -> list[Order]:
     return list(result)
 
 
-@router.post("/refunds/{order_id}/resolve", response_model=AdminOrderRead)
+@auth_router.post("/refunds/{order_id}/resolve", response_model=AdminOrderRead)
 async def resolve_refund(
     order_id: str,
     payload: RefundResolve,
@@ -143,7 +182,7 @@ async def resolve_refund(
 # -------------------------------------------------------------------- tasks
 
 
-@router.get("/tasks", response_model=list[TaskRead])
+@auth_router.get("/tasks", response_model=list[TaskRead])
 async def list_tasks(
     session: DbSession,
     task_status: TaskStatus | None = Query(default=None, alias="status"),
@@ -157,7 +196,7 @@ async def list_tasks(
     return list(result)
 
 
-@router.post("/tasks/{task_id}/retry", response_model=TaskRead)
+@auth_router.post("/tasks/{task_id}/retry", response_model=TaskRead)
 async def retry_task(task_id: str, session: DbSession, t: Translate) -> DynadotTask:
     """Requeue a failed or dead-lettered task.
 
@@ -203,7 +242,7 @@ async def retry_task(task_id: str, session: DbSession, t: Translate) -> DynadotT
 # --------------------------------------------------------------------- logs
 
 
-@router.get("/api-logs", response_model=list[ApiLogRead])
+@auth_router.get("/api-logs", response_model=list[ApiLogRead])
 async def list_api_logs(
     session: DbSession,
     limit: int = Query(default=50, ge=1, le=500),
@@ -222,7 +261,7 @@ async def list_api_logs(
 # -------------------------------------------------------------------- stats
 
 
-@router.get("/stats", response_model=AdminStats)
+@auth_router.get("/stats", response_model=AdminStats)
 async def stats(session: DbSession) -> AdminStats:
     """Dashboard headline numbers.
 
@@ -273,7 +312,79 @@ async def stats(session: DbSession) -> AdminStats:
     )
 
 
-@router.get("/queue-status")
+@auth_router.get("/queue-status")
 async def queue_status(dynadot: Dynadot) -> dict[str, int | bool]:
     """Depth of the serialising Dynadot queue — key operational signal."""
     return {"pending": dynadot.queue.pending}
+
+
+# ------------------------------------------------------------------ settings
+
+
+@auth_router.get("/settings", response_model=AdminSettingsRead)
+async def get_admin_settings(session: DbSession) -> AdminSettingsRead:
+    """Retrieve runtime settings combining environment defaults and database overrides."""
+    settings = get_settings()
+    rows = (await session.scalars(select(AppSetting))).all()
+    db_map = {r.key: r.value for r in rows if r.value is not None}
+
+    return AdminSettingsRead(
+        usd_to_rub_rate=float(db_map.get("usd_to_rub_rate", settings.usd_to_rub_rate)),
+        default_markup_percent=float(
+            db_map.get("default_markup_percent", settings.default_markup_percent)
+        ),
+        dynadot_base_url=str(db_map.get("dynadot_base_url", settings.dynadot_base_url)),
+        dynadot_configured=settings.dynadot_configured,
+        platega_configured=settings.platega_configured,
+        registration_worker_enabled=db_map.get(
+            "registration_worker_enabled", str(settings.registration_worker_enabled)
+        ).lower()
+        in ("true", "1", "yes"),
+        environment=settings.environment,
+        app_version="0.1.0",
+    )
+
+
+@auth_router.patch("/settings", response_model=AdminSettingsRead)
+async def update_admin_settings(
+    payload: AdminSettingsUpdate, session: DbSession
+) -> AdminSettingsRead:
+    """Update runtime settings and persist overrides to PostgreSQL."""
+    settings = get_settings()
+
+    async def _upsert(key: str, val: str, desc: str) -> None:
+        row = await session.get(AppSetting, key)
+        if not row:
+            session.add(AppSetting(key=key, value=val, description=desc))
+        else:
+            row.value = val
+
+    if payload.usd_to_rub_rate is not None:
+        await _upsert("usd_to_rub_rate", str(payload.usd_to_rub_rate), "USD to RUB rate")
+        settings.usd_to_rub_rate = payload.usd_to_rub_rate
+
+    if payload.default_markup_percent is not None:
+        await _upsert(
+            "default_markup_percent",
+            str(payload.default_markup_percent),
+            "Default markup percent",
+        )
+        settings.default_markup_percent = payload.default_markup_percent
+
+    if payload.dynadot_base_url is not None:
+        await _upsert("dynadot_base_url", str(payload.dynadot_base_url), "Dynadot API base URL")
+        settings.dynadot_base_url = payload.dynadot_base_url
+
+    if payload.registration_worker_enabled is not None:
+        await _upsert(
+            "registration_worker_enabled",
+            str(payload.registration_worker_enabled).lower(),
+            "Registration worker enabled",
+        )
+        settings.registration_worker_enabled = payload.registration_worker_enabled
+
+    await session.commit()
+    return await get_admin_settings(session)
+
+
+router.include_router(auth_router)

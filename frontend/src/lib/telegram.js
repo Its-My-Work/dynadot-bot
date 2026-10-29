@@ -20,13 +20,27 @@ export function telegramUser() {
   return webApp()?.initDataUnsafe?.user ?? null;
 }
 
-/** Resolve the telegram id, allowing a `?telegram_id=` override for local dev. */
+/** Resolve the telegram id, allowing a `?telegram_id=` override for local dev,
+ * and generating a persistent web-user id when opened in a regular web browser.
+ */
 export function resolveTelegramId() {
   const fromClient = telegramUser()?.id;
   if (fromClient) return fromClient;
   if (typeof window === 'undefined') return null;
   const override = new URLSearchParams(window.location.search).get('telegram_id');
-  return override ? Number(override) : null;
+  if (override) return Number(override);
+
+  let webId = null;
+  try {
+    webId = localStorage.getItem('dynadot_web_user_id');
+    if (!webId) {
+      webId = String(9000000000 + Math.floor(Math.random() * 900000000));
+      localStorage.setItem('dynadot_web_user_id', webId);
+    }
+  } catch {
+    webId = '9000000001';
+  }
+  return Number(webId);
 }
 
 /** Initial language: Telegram's own preference, else the saved profile. */

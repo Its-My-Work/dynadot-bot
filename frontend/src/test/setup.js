@@ -24,6 +24,11 @@ if (typeof window !== 'undefined' && !window.localStorage) {
   });
 }
 
+if (typeof window !== 'undefined' && window.localStorage) {
+  window.localStorage.setItem('dynadot_admin_token', 'test_token');
+  window.localStorage.setItem('dynadot_admin_lang', 'en');
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

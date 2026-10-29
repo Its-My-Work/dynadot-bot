@@ -85,7 +85,6 @@ async def require_admin(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Admin credentials required",
-            headers={"WWW-Authenticate": "Basic"},
         )
 
     correct_username = secrets.compare_digest(
@@ -100,7 +99,6 @@ async def require_admin(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
         )
     return credentials.username
 

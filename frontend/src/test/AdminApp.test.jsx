@@ -353,3 +353,60 @@ describe('api log view', () => {
     expect(await screen.findByText('No API calls yet')).toBeInTheDocument();
   });
 });
+
+describe('login and settings', () => {
+  it('renders login screen when unauthenticated and logs in', async () => {
+    localStorage.removeItem('dynadot_admin_token');
+    vi.spyOn(api, 'adminLogin').mockResolvedValue({ status: 'ok', token: 'new_token' });
+    const user = userEvent.setup();
+
+    render(<AdminApp />);
+
+    expect(screen.getByLabelText(/Password|Пароль/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Password|Пароль/), 'secret');
+    await user.click(screen.getByRole('button', { name: /Sign In|Войти/ }));
+
+    expect(api.adminLogin).toHaveBeenCalledWith('admin', 'secret');
+  });
+
+  it('renders settings tab and allows updating rates', async () => {
+    localStorage.setItem('dynadot_admin_token', 'test_token');
+    vi.spyOn(api, 'adminSettings').mockResolvedValue({
+      usd_to_rub_rate: 95.0,
+      default_markup_percent: 25.0,
+      dynadot_base_url: 'https://api-sandbox.dynadot.com',
+      dynadot_configured: true,
+      platega_configured: false,
+      registration_worker_enabled: true,
+      environment: 'prod',
+      app_version: '0.1.0',
+    });
+    vi.spyOn(api, 'updateAdminSettings').mockResolvedValue({
+      usd_to_rub_rate: 100.0,
+      default_markup_percent: 30.0,
+    });
+    const user = userEvent.setup();
+
+    render(<AdminApp />);
+    await user.click(await screen.findByRole('button', { name: /Settings/ }));
+
+    expect(await screen.findByDisplayValue('95')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('25')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Save|Сохранить/ }));
+    expect(api.updateAdminSettings).toHaveBeenCalled();
+  });
+
+  it('allows toggling language in admin header', async () => {
+    localStorage.setItem('dynadot_admin_token', 'test_token');
+    localStorage.setItem('dynadot_admin_lang', 'en');
+    const user = userEvent.setup();
+
+    render(<AdminApp />);
+    const langBtn = await screen.findByRole('button', { name: /Switch language/ });
+    expect(langBtn).toHaveTextContent('RU');
+
+    await user.click(langBtn);
+    expect(langBtn).toHaveTextContent('EN');
+  });
+});

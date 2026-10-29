@@ -300,3 +300,35 @@ class WebhookAck(BaseModel):
     # False when the event was a duplicate or an illegal transition.
     applied: bool = False
     detail: str | None = None
+
+
+# ------------------------------------------------------------------ admin auth & settings
+
+
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AdminLoginResponse(BaseModel):
+    status: str = "ok"
+    username: str
+    token: str
+
+
+class AdminSettingsRead(BaseModel):
+    usd_to_rub_rate: float
+    default_markup_percent: float
+    dynadot_base_url: str
+    dynadot_configured: bool
+    platega_configured: bool
+    registration_worker_enabled: bool
+    environment: str
+    app_version: str = "0.1.0"
+
+
+class AdminSettingsUpdate(BaseModel):
+    usd_to_rub_rate: float | None = None
+    default_markup_percent: float | None = None
+    dynadot_base_url: str | None = None
+    registration_worker_enabled: bool | None = None

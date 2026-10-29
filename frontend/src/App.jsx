@@ -17,7 +17,7 @@ import CheckoutScreen from './screens/CheckoutScreen';
 import DomainsScreen from './screens/DomainsScreen';
 import OrdersScreen from './screens/OrdersScreen';
 import SearchScreen from './screens/SearchScreen';
-import { AppBar, Brand, EmptyState, LangToggle, ThemePicker } from './components/ui';
+import { AppBar, Brand, LangToggle, ThemePicker } from './components/ui';
 import useTheme from './hooks/useTheme';
 
 const TABS = [
@@ -30,7 +30,7 @@ export default function App() {
   const [language, setLang] = useState(() => normalizeLanguage(initialLanguage()));
   const [tab, setTab] = useState('search');
   const [candidate, setCandidate] = useState(null);
-  const [telegramId] = useState(() => resolveTelegramId());
+  const [telegramId] = useState(() => resolveTelegramId() || 9000000001);
   const { theme, selectTheme } = useTheme({ telegramId });
 
   const t = makeTranslator(language);
@@ -72,14 +72,6 @@ export default function App() {
         // Persisting the preference is best-effort; the UI already switched.
       }
     }
-  }
-
-  if (!telegramId) {
-    return (
-      <div className="mx-auto max-w-md px-4">
-        <EmptyState icon="⚠" title={t('common.no_user')} />
-      </div>
-    );
   }
 
   return (
