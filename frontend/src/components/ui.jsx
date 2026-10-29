@@ -1,4 +1,7 @@
 /** Layout primitives shared by the TMA and the admin panel. */
+import { useEffect, useRef, useState } from 'react';
+
+import { THEMES, themeMeta } from '../lib/themes';
 
 /** The 'D' monogram.
  *
@@ -152,6 +155,111 @@ export function Toast({ message, tone = 'ok' }) {
         px-4 py-3 text-sm text-ink shadow-pop ${tones[tone] ?? tones.ok}`}
     >
       {message}
+    </div>
+  );
+}
+
+/** Theme picker: a swatch button that opens a popover of the five themes.
+ *
+ * A popover rather than a cycle-button: with five options a single toggle
+ * would take up to four taps to reach a known theme and never shows what is
+ * available. Each row paints its own accent swatch, so the choice is made by
+ * looking rather than by reading names.
+ *
+ * Closes on outside click and on Escape — a popover that can only be
+ * dismissed by re-tapping the trigger traps the user on a narrow screen.
+ */
+export function ThemePicker({ theme, onSelect, label = 'Theme', align = 'right' }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const active = themeMeta(theme);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        data-testid="theme-trigger"
+        className="flex items-center gap-1.5 rounded-md border border-line
+          bg-surface px-2 py-1 text-xs font-medium text-muted
+          transition-colors hover:border-faint hover:text-ink"
+      >
+        <span
+          aria-hidden="true"
+          className="h-3 w-3 shrink-0 rounded-full border border-line"
+          style={{ background: active.accent }}
+        />
+        <span className="hidden sm:inline">{active.name}</span>
+      </button>
+
+      {open ? (
+        <div
+          role="listbox"
+          aria-label={label}
+          data-testid="theme-menu"
+          className={`absolute top-full z-50 mt-2 w-56 animate-fade-up
+            overflow-hidden rounded-xl border border-line bg-surface
+            shadow-pop ${align === 'right' ? 'right-0' : 'left-0'}`}
+        >
+          {THEMES.map((item) => {
+            const selected = item.id === active.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                data-theme-option={item.id}
+                onClick={() => {
+                  onSelect?.(item.id);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left
+                  transition-colors hover:bg-elevated
+                  ${selected ? 'bg-elevated' : ''}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 rounded-full border border-line"
+                  style={{ background: item.accent }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-ink">
+                    {item.name}
+                  </span>
+                  <span className="block truncate text-xs text-faint">
+                    {item.hint}
+                  </span>
+                </span>
+                {selected ? (
+                  <span aria-hidden="true" className="text-xs text-accent">
+                    ✓
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -14,6 +14,7 @@ from app.models.enums import (
     PaymentProvider,
     PaymentStatus,
     TaskStatus,
+    Theme,
 )
 
 
@@ -36,6 +37,20 @@ class LanguagesResponse(BaseModel):
     supported: list[str]
 
 
+class ThemeInfo(BaseModel):
+    """One selectable design theme, described for the UI picker."""
+
+    id: Theme
+    name: str
+    accent: str
+    scheme: str
+
+
+class ThemesResponse(BaseModel):
+    default: Theme
+    themes: list[ThemeInfo]
+
+
 # ------------------------------------------------------------------ users
 
 class UserRead(ORMModel):
@@ -45,11 +60,16 @@ class UserRead(ORMModel):
     first_name: str | None = None
     last_name: str | None = None
     language: Language
+    theme: Theme = Theme.ONYX_NEON
     created_at: datetime
 
 
 class LanguageUpdate(BaseModel):
     language: Language
+
+
+class ThemeUpdate(BaseModel):
+    theme: Theme
 
 
 # --------------------------------------------------------------- contacts

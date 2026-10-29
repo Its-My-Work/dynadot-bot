@@ -5,6 +5,8 @@
  * hard dependency on the SDK would make the app unopenable outside Telegram.
  */
 
+import { DEFAULT_THEME, applyThemeAttribute, initialTheme } from './themes';
+
 export function webApp() {
   return typeof window !== 'undefined' ? window.Telegram?.WebApp ?? null : null;
 }
@@ -33,13 +35,22 @@ export function initialLanguage() {
   return code && code.startsWith('ru') ? 'ru' : code ? 'en' : 'ru';
 }
 
-/** Apply Telegram's theme so the app never fights the surrounding client. */
+/** Apply the effective design theme.
+ *
+ * Telegram's own light/dark preference is only a *fallback* here: an explicit
+ * theme the user picked (held in localStorage) must survive the client firing
+ * `themeChanged`, otherwise toggling the phone's dark mode silently throws the
+ * user's choice away.
+ */
 export function applyTheme() {
-  const app = webApp();
-  if (typeof document === 'undefined') return 'dark';
-  const scheme = app?.colorScheme === 'light' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = scheme;
-  return scheme;
+  if (typeof document === 'undefined') return DEFAULT_THEME;
+  const scheme = webApp()?.colorScheme === 'light' ? 'light' : 'dark';
+  return applyThemeAttribute(initialTheme(scheme));
+}
+
+/** Telegram's raw colour scheme, for callers that need the fallback source. */
+export function telegramColorScheme() {
+  return webApp()?.colorScheme === 'light' ? 'light' : 'dark';
 }
 
 export function ready() {

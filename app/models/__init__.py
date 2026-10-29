@@ -10,6 +10,7 @@ from app.db.base import Base
 from app.models.audit import AppSetting, DynadotApiLog, DynadotTask
 from app.models.domain import Domain, TldPricing
 from app.models.enums import (
+    DEFAULT_THEME,
     ApiCallStatus,
     Currency,
     DomainStatus,
@@ -18,12 +19,14 @@ from app.models.enums import (
     PaymentProvider,
     PaymentStatus,
     TaskStatus,
+    Theme,
     UserRole,
 )
 from app.models.order import Order, Payment
 from app.models.user import ContactProfile, User
 
 __all__ = [
+    "DEFAULT_THEME",
     "ApiCallStatus",
     "AppSetting",
     "Base",
@@ -40,6 +43,7 @@ __all__ = [
     "PaymentProvider",
     "PaymentStatus",
     "TaskStatus",
+    "Theme",
     "TldPricing",
     "User",
     "UserRole",

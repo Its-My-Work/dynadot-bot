@@ -15,6 +15,8 @@ const catalogues = {
     'app.title': 'Домены',
     'app.subtitle': 'Регистрация за 5 минут',
 
+    'theme.label': 'Оформление',
+
     'nav.search': 'Поиск',
     'nav.domains': 'Мои домены',
     'nav.orders': 'Заказы',
@@ -102,6 +104,8 @@ const catalogues = {
   en: {
     'app.title': 'Domains',
     'app.subtitle': 'Registered in 5 minutes',
+
+    'theme.label': 'Theme',
 
     'nav.search': 'Search',
     'nav.domains': 'My domains',

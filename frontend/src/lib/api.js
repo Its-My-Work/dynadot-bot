@@ -107,6 +107,11 @@ export const api = {
       method: 'PATCH',
       body: { language },
     }),
+  setUserTheme: (telegramId, theme) =>
+    request(`/users/${telegramId}/theme`, {
+      method: 'PATCH',
+      body: { theme },
+    }),
 
   // --- search -------------------------------------------------------------
   zones: () => request('/domains/zones'),

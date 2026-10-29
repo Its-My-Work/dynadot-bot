@@ -13,7 +13,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import api from './lib/api';
 import StatusBadge from './components/StatusBadge';
-import { AppBar, Brand, EmptyState, ErrorNote, SkeletonList, Spinner } from './components/ui';
+import { AppBar, Brand, EmptyState, ErrorNote, SkeletonList, Spinner, ThemePicker } from './components/ui';
+import useTheme from './hooks/useTheme';
 
 const VIEWS = [
   { id: 'overview', label: 'Overview' },
@@ -42,6 +43,9 @@ const when = (value) =>
 export default function AdminApp() {
   const [view, setView] = useState('overview');
   const [stats, setStats] = useState(null);
+  // No telegramId in the operator console: the theme is a per-browser
+  // preference here, so localStorage alone is the right scope.
+  const { theme, selectTheme } = useTheme({ persist: false });
 
   const loadStats = useCallback(() => {
     api
@@ -84,6 +88,9 @@ export default function AdminApp() {
               </button>
             ))}
           </nav>
+          <div className="ml-auto">
+            <ThemePicker theme={theme} onSelect={selectTheme} />
+          </div>
         </div>
       </AppBar>
 

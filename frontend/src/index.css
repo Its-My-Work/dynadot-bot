@@ -2,11 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dark-first palette in the Linear/Vercel register: near-black surfaces, one
- * restrained accent, and text that steps down in three clear weights. Values
- * are raw RGB channels so Tailwind's `/<alpha-value>` syntax works.
- */
-:root {
+/* ===========================================================================
+ * Design themes.
+ *
+ * Every theme is a complete set of the same twelve channel triples, so any
+ * component built from the Tailwind colour aliases (`bg-surface`, `text-ink`,
+ * `border-line`, …) repaints correctly with no per-theme component code.
+ * Values are raw RGB channels so Tailwind's `/<alpha-value>` syntax works.
+ *
+ * `:root` carries the default (Onyx Neon) so a document with no `data-theme`
+ * attribute — or an unknown one — still renders a complete palette instead of
+ * collapsing to transparent/black.
+ *
+ * Adding a theme: a block here, an entry in `app/core/themes.py`, and a member
+ * in `models.enums.Theme`. Tests assert the three lists match.
+ * ======================================================================== */
+
+/* Default: Onyx Neon — near-black surfaces, one restrained electric accent. */
+:root,
+:root[data-theme='onyx-neon'] {
   --c-bg: 8 9 10;
   --c-surface: 16 16 19;
   --c-elevated: 24 24 28;
@@ -15,13 +29,90 @@
   --c-muted: 154 154 165;
   --c-faint: 104 104 116;
   --c-accent: 94 134 255;
-  --c-accent-ink: 255 255 255;
+  /* Dark ink on the bright accent, not white: white-on-#5e86ff is only 3.3:1
+   * and every primary button in the app uses this pair. Keeping the accent
+   * bright (rather than darkening it to carry white text) preserves its
+   * contrast when used as link/icon colour on the near-black background. */
+  --c-accent-ink: 8 9 10;
   --c-ok: 62 198 128;
   --c-warn: 234 179 8;
   --c-danger: 244 94 94;
 }
 
-/* Telegram's light theme: honour it, otherwise the app fights the client. */
+/* Vercel Mono — pure greyscale, white as the accent. Maximum contrast, zero
+ * chroma: the accent is the absence of colour, so status colours do all the
+ * semantic work. */
+:root[data-theme='vercel-mono'] {
+  --c-bg: 0 0 0;
+  --c-surface: 10 10 10;
+  --c-elevated: 23 23 23;
+  --c-line: 38 38 38;
+  --c-ink: 250 250 250;
+  --c-muted: 161 161 170;
+  --c-faint: 115 115 115;
+  --c-accent: 255 255 255;
+  --c-accent-ink: 0 0 0;
+  --c-ok: 45 164 78;
+  --c-warn: 245 166 35;
+  --c-danger: 232 64 64;
+}
+
+/* Linear Indigo — cool blue-tinted greys with a violet accent. Surfaces carry
+ * a few points of blue so the indigo accent reads as part of the palette
+ * rather than sitting on top of neutral grey. */
+:root[data-theme='linear-indigo'] {
+  --c-bg: 15 16 23;
+  --c-surface: 22 23 33;
+  --c-elevated: 31 32 45;
+  --c-line: 47 49 66;
+  --c-ink: 240 241 247;
+  --c-muted: 152 155 178;
+  --c-faint: 108 111 133;
+  --c-accent: 139 127 255;
+  /* Dark ink for the same reason as onyx-neon: white on this violet is 3.2:1. */
+  --c-accent-ink: 12 10 24;
+  --c-ok: 76 199 140;
+  --c-warn: 240 180 41;
+  --c-danger: 235 87 87;
+}
+
+/* Solana Cyber — deep purple-black with a mint/green accent. The accent is
+ * light, so `--c-accent-ink` is dark: white-on-mint fails contrast. */
+:root[data-theme='solana-cyber'] {
+  --c-bg: 10 7 18;
+  --c-surface: 19 13 32;
+  --c-elevated: 29 20 48;
+  --c-line: 52 36 82;
+  --c-ink: 243 240 250;
+  --c-muted: 166 155 192;
+  --c-faint: 120 108 148;
+  --c-accent: 20 241 149;
+  --c-accent-ink: 7 10 8;
+  --c-ok: 20 241 149;
+  --c-warn: 255 193 71;
+  --c-danger: 255 93 122;
+}
+
+/* Nordic Mist — the one light theme. Also what Telegram's light colour scheme
+ * maps onto, so a user on a light client is never shown a dark app. */
+:root[data-theme='nordic-mist'] {
+  --c-bg: 247 248 250;
+  --c-surface: 255 255 255;
+  --c-elevated: 238 241 245;
+  --c-line: 216 221 229;
+  --c-ink: 23 28 38;
+  --c-muted: 91 101 119;
+  --c-faint: 136 146 164;
+  --c-accent: 47 111 237;
+  --c-accent-ink: 255 255 255;
+  --c-ok: 26 148 95;
+  --c-warn: 181 125 10;
+  --c-danger: 204 54 54;
+}
+
+/* Telegram's light colour scheme, kept as an alias for backwards
+ * compatibility: `applyTheme()` used to set `data-theme="light"` and older
+ * cached bundles may still do so. */
 :root[data-theme='light'] {
   --c-bg: 250 250 251;
   --c-surface: 255 255 255;
@@ -31,6 +122,10 @@
   --c-muted: 98 98 110;
   --c-faint: 142 142 154;
   --c-accent: 44 92 240;
+  --c-accent-ink: 255 255 255;
+  --c-ok: 26 148 95;
+  --c-warn: 181 125 10;
+  --c-danger: 204 54 54;
 }
 
 @layer base {

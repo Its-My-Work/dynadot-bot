@@ -9,7 +9,7 @@ from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Index, S
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-from app.models.enums import Language, UserRole
+from app.models.enums import DEFAULT_THEME, Language, Theme, UserRole
 
 if TYPE_CHECKING:
     from app.models.domain import Domain
@@ -32,6 +32,14 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     language: Mapped[Language] = mapped_column(
         Enum(Language, native_enum=False, length=8),
         default=Language.RU,
+        nullable=False,
+    )
+    # Persisted design theme — mirrored into localStorage by the frontend so
+    # the first paint already uses the right palette.
+    theme: Mapped[Theme] = mapped_column(
+        Enum(Theme, native_enum=False, length=32),
+        default=DEFAULT_THEME,
+        server_default=DEFAULT_THEME.name,
         nullable=False,
     )
     role: Mapped[UserRole] = mapped_column(

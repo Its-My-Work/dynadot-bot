@@ -10,6 +10,24 @@ class Language(str, enum.Enum):
     EN = "en"
 
 
+class Theme(str, enum.Enum):
+    """Commercial design themes selectable in the TMA and admin panel.
+
+    Stored on the user profile so the choice follows the account across
+    devices; the frontend also mirrors it into ``localStorage`` so the very
+    first paint is already in the right palette (no flash of the default).
+    """
+
+    ONYX_NEON = "onyx-neon"
+    VERCEL_MONO = "vercel-mono"
+    LINEAR_INDIGO = "linear-indigo"
+    SOLANA_CYBER = "solana-cyber"
+    NORDIC_MIST = "nordic-mist"
+
+
+DEFAULT_THEME = Theme.ONYX_NEON
+
+
 class UserRole(str, enum.Enum):
     USER = "user"
     ADMIN = "admin"

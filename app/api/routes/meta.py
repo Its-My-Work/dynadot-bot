@@ -7,8 +7,9 @@ from sqlalchemy import text
 
 from app.api.deps import DbSession, Translate
 from app.core.config import settings
+from app.core.themes import themes_response
 from app.i18n import available_languages
-from app.schemas import HealthResponse, LanguagesResponse
+from app.schemas import HealthResponse, LanguagesResponse, ThemesResponse
 
 router = APIRouter(tags=["meta"])
 
@@ -38,6 +39,12 @@ async def languages() -> LanguagesResponse:
     return LanguagesResponse(
         default=settings.default_language, supported=available_languages()
     )
+
+
+@router.get("/themes", response_model=ThemesResponse)
+async def themes() -> ThemesResponse:
+    """The selectable design themes, for the TMA/admin theme picker."""
+    return themes_response()
 
 
 @router.get("/ping")

@@ -17,7 +17,8 @@ import CheckoutScreen from './screens/CheckoutScreen';
 import DomainsScreen from './screens/DomainsScreen';
 import OrdersScreen from './screens/OrdersScreen';
 import SearchScreen from './screens/SearchScreen';
-import { AppBar, Brand, EmptyState, LangToggle } from './components/ui';
+import { AppBar, Brand, EmptyState, LangToggle, ThemePicker } from './components/ui';
+import useTheme from './hooks/useTheme';
 
 const TABS = [
   { id: 'search', labelKey: 'nav.search', icon: '⌕' },
@@ -30,6 +31,7 @@ export default function App() {
   const [tab, setTab] = useState('search');
   const [candidate, setCandidate] = useState(null);
   const [telegramId] = useState(() => resolveTelegramId());
+  const { theme, selectTheme } = useTheme({ telegramId });
 
   const t = makeTranslator(language);
 
@@ -85,7 +87,14 @@ export default function App() {
       <AppBar>
         <div className="mx-auto flex h-full max-w-md items-center justify-between px-4">
           <Brand subtitle={t('app.subtitle')} />
-          <LangToggle language={language} onToggle={switchLanguage} />
+          <div className="flex items-center gap-2">
+            <ThemePicker
+              theme={theme}
+              onSelect={selectTheme}
+              label={t('theme.label')}
+            />
+            <LangToggle language={language} onToggle={switchLanguage} />
+          </div>
         </div>
       </AppBar>
 
