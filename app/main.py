@@ -167,12 +167,16 @@ def _mount_frontend(app: FastAPI) -> None:
         logger.info("frontend bundle not found; serving API only")
         return
 
+    from fastapi import Depends
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
 
+    from app.api.deps import require_admin
+
     admin_html = dist / "admin.html"
     if admin_html.is_file():
-        @app.get("/admin", include_in_schema=False)
+        @app.get("/admin", include_in_schema=False, dependencies=[Depends(require_admin)])
+        @app.get("/admin.html", include_in_schema=False, dependencies=[Depends(require_admin)])
         async def admin_page() -> FileResponse:
             return FileResponse(str(admin_html))
 

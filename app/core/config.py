@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
     secret_key: SecretStr = SecretStr("change-me-in-production")
+    admin_username: str | None = None
+    admin_password: SecretStr | None = None
 
     # --- Database ----------------------------------------------------------
     # Async driver DSN. PostgreSQL in production, SQLite for tests/local runs.

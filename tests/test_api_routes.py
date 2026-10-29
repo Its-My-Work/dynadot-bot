@@ -556,3 +556,26 @@ def test_retrying_a_queued_task_is_rejected(client):
 
 def test_retry_of_an_unknown_task_is_404(client):
     assert client.post("/api/v1/admin/tasks/nope/retry").status_code == 404
+
+
+def test_admin_auth_protects_routes_when_configured(client, monkeypatch):
+    import app.api.deps as deps_module
+    from pydantic import SecretStr
+
+    # Configure admin credentials
+    current_settings = deps_module.get_settings()
+    monkeypatch.setattr(current_settings, "admin_username", "admin")
+    monkeypatch.setattr(current_settings, "admin_password", SecretStr("secret123"))
+
+    # Unauthenticated -> 401
+    resp = client.get("/api/v1/admin/stats")
+    assert resp.status_code == 401
+    assert "Basic" in resp.headers.get("WWW-Authenticate", "")
+
+    # Wrong credentials -> 401
+    resp = client.get("/api/v1/admin/stats", auth=("admin", "wrong"))
+    assert resp.status_code == 401
+
+    # Correct credentials -> 200
+    resp = client.get("/api/v1/admin/stats", auth=("admin", "secret123"))
+    assert resp.status_code == 200

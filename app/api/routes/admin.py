@@ -14,10 +14,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
-from app.api.deps import DbSession, Dynadot, Translate
+from app.api.deps import DbSession, Dynadot, Translate, require_admin
 from app.core.logging import get_logger
 from app.models import Domain, DynadotApiLog, DynadotTask, Order, TldPricing, User
 from app.models.enums import DomainStatus, OrderStatus, TaskStatus
@@ -32,7 +32,7 @@ from app.schemas import (
 )
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 
 # ------------------------------------------------------------------ pricing

@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
+import secrets
+
 from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.i18n import Translator, normalize_language, parse_accept_language
 from app.integrations.dynadot import DynadotClient
@@ -65,3 +69,40 @@ async def get_payment_gateway(request: Request) -> PaymentGateway:
 
 
 Payments = Annotated[PaymentGateway, Depends(get_payment_gateway)]
+
+_basic_security = HTTPBasic(auto_error=False)
+
+
+async def require_admin(
+    credentials: Annotated[HTTPBasicCredentials | None, Depends(_basic_security)],
+) -> str | None:
+    """Validate HTTP Basic Auth if admin credentials are configured in settings."""
+    settings = get_settings()
+    if not settings.admin_password or not settings.admin_username:
+        return None
+
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin credentials required",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    correct_username = secrets.compare_digest(
+        credentials.username.encode("utf8"), settings.admin_username.encode("utf8")
+    )
+    correct_password = secrets.compare_digest(
+        credentials.password.encode("utf8"),
+        settings.admin_password.get_secret_value().encode("utf8"),
+    )
+
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
+
+AdminUser = Annotated[str | None, Depends(require_admin)]
