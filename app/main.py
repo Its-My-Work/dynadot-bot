@@ -167,7 +167,14 @@ def _mount_frontend(app: FastAPI) -> None:
         logger.info("frontend bundle not found; serving API only")
         return
 
+    from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
+
+    admin_html = dist / "admin.html"
+    if admin_html.is_file():
+        @app.get("/admin", include_in_schema=False)
+        async def admin_page() -> FileResponse:
+            return FileResponse(str(admin_html))
 
     # html=True makes the mount serve index.html for unknown paths, which is
     # what a client-side app needs.
