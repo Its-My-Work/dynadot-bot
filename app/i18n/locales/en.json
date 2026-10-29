@@ -1,0 +1,53 @@
+{
+  "common.yes": "Yes",
+  "common.no": "No",
+  "common.back": "Back",
+  "common.cancel": "Cancel",
+  "common.continue": "Continue",
+  "common.loading": "Loading…",
+  "common.error": "Something went wrong. Please try again.",
+  "common.price_from": "from {price} ₽",
+  "common.currency_rub": "₽",
+
+  "lang.name": "English",
+  "lang.switch": "Русский",
+  "lang.changed": "Language switched to English.",
+
+  "bot.start.greeting": "Hi {name}! Register a domain in 5 minutes — no passport, no foreign cards.",
+  "bot.start.open_app": "🔍 Find a domain",
+  "bot.start.my_domains": "📂 My domains",
+  "bot.start.help": "❓ Help",
+  "bot.help.text": "Type a domain name in the app, pick a zone and pay in rubles. The domain is registered automatically.",
+
+  "search.placeholder": "Enter a domain name",
+  "search.available": "Available",
+  "search.taken": "Taken",
+  "search.premium": "Premium",
+  "search.empty": "Nothing found.",
+  "search.invalid_name": "Invalid domain name.",
+
+  "order.buy": "Buy for {price} ₽",
+  "order.years": "Registration period: {years} yr.",
+  "order.contact_title": "Owner details",
+  "order.contact_saved": "Details saved for future purchases.",
+  "order.pay": "Pay",
+  "order.awaiting_payment": "Waiting for payment…",
+  "order.paid": "Payment received. Registering the domain…",
+  "order.completed": "Done! Domain {domain} is registered.",
+  "order.failed": "Could not register {domain}.",
+  "order.taken_meanwhile": "Domain {domain} was taken before your payment completed. We will refund you.",
+  "order.refund_required": "Processing a refund for {domain}.",
+
+  "domain.expires_at": "Expires on {date}",
+  "domain.nameservers": "Nameservers",
+  "domain.ns_updated": "Nameservers updated.",
+  "domain.expiry_reminder": "Domain {domain} expires on {date}. Renew it to keep it.",
+  "domain.whois_verification_required": "Verify the owner email for {domain}, otherwise the site will be suspended.",
+
+  "error.not_found": "Not found.",
+  "error.unauthorized": "Authentication required.",
+  "error.forbidden": "Access denied.",
+  "error.rate_limited": "Too many requests. Please wait a moment.",
+  "error.payment_failed": "Payment failed.",
+  "error.registrar_unavailable": "The registrar is temporarily unavailable. We will retry."
+}

@@ -1,0 +1,27 @@
+[project]
+name = "dynadot-bot"
+version = "0.1.0"
+description = "Domain registration service via Dynadot (Telegram Bot + TMA + Web)"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 90
+target-version = "py311"
+exclude = ["migrations/versions", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    "B008",    # FastAPI's Depends() in defaults is the documented pattern
+    "UP042",   # str+Enum is deliberate: 3.11 compat and Pydantic serialisation
+    "RUF001",  # Cyrillic text in RU strings trips the ambiguous-character rule
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "C408"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

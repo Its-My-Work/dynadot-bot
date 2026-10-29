@@ -1,0 +1,53 @@
+{
+  "common.yes": "Да",
+  "common.no": "Нет",
+  "common.back": "Назад",
+  "common.cancel": "Отмена",
+  "common.continue": "Продолжить",
+  "common.loading": "Загрузка…",
+  "common.error": "Что-то пошло не так. Попробуйте ещё раз.",
+  "common.price_from": "от {price} ₽",
+  "common.currency_rub": "₽",
+
+  "lang.name": "Русский",
+  "lang.switch": "English",
+  "lang.changed": "Язык изменён на русский.",
+
+  "bot.start.greeting": "Привет, {name}! Регистрируем домены за 5 минут — без паспорта и зарубежных карт.",
+  "bot.start.open_app": "🔍 Найти домен",
+  "bot.start.my_domains": "📂 Мои домены",
+  "bot.start.help": "❓ Помощь",
+  "bot.help.text": "Введите имя домена в приложении, выберите зону и оплатите в рублях. Домен будет зарегистрирован автоматически.",
+
+  "search.placeholder": "Введите имя домена",
+  "search.available": "Свободен",
+  "search.taken": "Занят",
+  "search.premium": "Премиум",
+  "search.empty": "Ничего не найдено.",
+  "search.invalid_name": "Некорректное имя домена.",
+
+  "order.buy": "Купить за {price} ₽",
+  "order.years": "Срок регистрации: {years} г.",
+  "order.contact_title": "Данные владельца",
+  "order.contact_saved": "Данные сохранены для будущих покупок.",
+  "order.pay": "Оплатить",
+  "order.awaiting_payment": "Ожидаем оплату…",
+  "order.paid": "Оплата получена. Регистрируем домен…",
+  "order.completed": "Готово! Домен {domain} зарегистрирован.",
+  "order.failed": "Не удалось зарегистрировать {domain}.",
+  "order.taken_meanwhile": "Домен {domain} был занят до завершения оплаты. Мы вернём средства.",
+  "order.refund_required": "Оформляем возврат средств за {domain}.",
+
+  "domain.expires_at": "Истекает {date}",
+  "domain.nameservers": "NS-серверы",
+  "domain.ns_updated": "NS-серверы обновлены.",
+  "domain.expiry_reminder": "Домен {domain} истекает {date}. Продлите, чтобы не потерять его.",
+  "domain.whois_verification_required": "Подтвердите email владельца домена {domain}, иначе сайт будет отключён.",
+
+  "error.not_found": "Не найдено.",
+  "error.unauthorized": "Требуется авторизация.",
+  "error.forbidden": "Доступ запрещён.",
+  "error.rate_limited": "Слишком много запросов. Подождите немного.",
+  "error.payment_failed": "Оплата не прошла.",
+  "error.registrar_unavailable": "Регистратор временно недоступен. Мы повторим попытку."
+}
