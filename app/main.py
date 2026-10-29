@@ -200,9 +200,7 @@ def _register_exception_handlers(app: FastAPI) -> None:
         logger.error("unhandled dynadot error", extra={"error": str(exc)})
         return JSONResponse(
             status_code=503,
-            content={
-                "detail": translate("error.registrar_unavailable", _lang(request))
-            },
+            content={"detail": translate("error.registrar_unavailable", _lang(request))},
         )
 
     @app.exception_handler(PaymentConfigError)

@@ -54,9 +54,7 @@ async def test_higher_priority_drains_first():
         await asyncio.sleep(0.005)
 
         tasks = [
-            asyncio.create_task(
-                queue.submit(lambda: make("low"), priority=Priority.LOW)
-            ),
+            asyncio.create_task(queue.submit(lambda: make("low"), priority=Priority.LOW)),
             asyncio.create_task(
                 queue.submit(lambda: make("critical"), priority=Priority.CRITICAL)
             ),

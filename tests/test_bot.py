@@ -69,9 +69,7 @@ def test_main_menu_degrades_gracefully_without_a_usable_tma_url():
     markup = main_menu("ru", "http://insecure.test")
     assert all(b.web_app is None for row in markup.inline_keyboard for b in row)
     # The rest of the menu must still be usable.
-    assert any(
-        b.callback_data == "orders" for row in markup.inline_keyboard for b in row
-    )
+    assert any(b.callback_data == "orders" for row in markup.inline_keyboard for b in row)
 
 
 @pytest.mark.parametrize("language", ["ru", "en"])
@@ -225,9 +223,7 @@ async def test_middleware_seeds_russian_for_an_unsupported_locale(session_factor
 async def test_middleware_never_overwrites_a_chosen_language(session_factory):
     """A user who picked EN must keep it even though their client reports RU."""
     async with session_factory() as session:
-        session.add(
-            User(telegram_id=900003, first_name="Old", language=Language.EN)
-        )
+        session.add(User(telegram_id=900003, first_name="Old", language=Language.EN))
         await session.commit()
 
     middleware = UserContextMiddleware(session_factory)
@@ -236,9 +232,7 @@ async def test_middleware_never_overwrites_a_chosen_language(session_factory):
     async def handler(event, data):
         captured.update(data)
 
-    tg_user = TgUser(
-        id=900003, is_bot=False, first_name="New", language_code="ru"
-    )
+    tg_user = TgUser(id=900003, is_bot=False, first_name="New", language_code="ru")
     await middleware(handler, object(), {"event_from_user": tg_user})
 
     assert captured["language"] == "en"
@@ -292,9 +286,7 @@ async def test_middleware_handles_an_update_with_no_sender(session_factory):
 async def test_start_greets_in_the_users_language(monkeypatch, language):
     import app.bot.handlers as handlers_module
 
-    monkeypatch.setattr(
-        handlers_module.settings, "tma_url", TMA_URL, raising=False
-    )
+    monkeypatch.setattr(handlers_module.settings, "tma_url", TMA_URL, raising=False)
 
     message = FakeMessage()
     user = User(telegram_id=555001, first_name="Ann", language=Language(language))
@@ -352,9 +344,7 @@ async def test_help_lists_commands_and_support(monkeypatch):
 async def test_help_says_so_when_support_is_unset(monkeypatch):
     import app.bot.handlers as handlers_module
 
-    monkeypatch.setattr(
-        handlers_module.settings, "support_username", None, raising=False
-    )
+    monkeypatch.setattr(handlers_module.settings, "support_username", None, raising=False)
     message = FakeMessage()
     await cmd_help(message, Translator("ru"))
     assert Translator("ru")("bot.help.no_support") in message.answers[0][0]
@@ -383,12 +373,8 @@ async def test_language_callback_persists_the_choice(session_factory, monkeypatc
     import app.bot.handlers as handlers_module
     import app.db.session as session_module
 
-    monkeypatch.setattr(
-        session_module, "get_session_factory", lambda: session_factory
-    )
-    monkeypatch.setattr(
-        handlers_module, "get_session_factory", lambda: session_factory
-    )
+    monkeypatch.setattr(session_module, "get_session_factory", lambda: session_factory)
+    monkeypatch.setattr(handlers_module, "get_session_factory", lambda: session_factory)
 
     async with session_factory() as session:
         user = User(telegram_id=910001, first_name="Switcher", language=Language.RU)
@@ -400,9 +386,7 @@ async def test_language_callback_persists_the_choice(session_factory, monkeypatc
     await cb_set_language(query, user)
 
     async with session_factory() as session:
-        fresh = await session.scalar(
-            select(User).where(User.telegram_id == 910001)
-        )
+        fresh = await session.scalar(select(User).where(User.telegram_id == 910001))
         assert fresh.language == Language.EN
 
     # The confirmation itself arrives in the newly chosen language.
@@ -415,9 +399,7 @@ async def test_language_callback_ignores_an_unsupported_code(
 ):
     import app.bot.handlers as handlers_module
 
-    monkeypatch.setattr(
-        handlers_module, "get_session_factory", lambda: session_factory
-    )
+    monkeypatch.setattr(handlers_module, "get_session_factory", lambda: session_factory)
 
     async with session_factory() as session:
         user = User(telegram_id=910002, first_name="X", language=Language.RU)
@@ -428,9 +410,7 @@ async def test_language_callback_ignores_an_unsupported_code(
     await cb_set_language(FakeQuery(f"{LANGUAGE_CALLBACK_PREFIX}de"), user)
 
     async with session_factory() as session:
-        fresh = await session.scalar(
-            select(User).where(User.telegram_id == 910002)
-        )
+        fresh = await session.scalar(select(User).where(User.telegram_id == 910002))
         assert fresh.language == Language.RU
 
 
@@ -441,9 +421,7 @@ async def test_language_callback_ignores_an_unsupported_code(
 async def test_orders_list_is_empty_for_a_new_user(session_factory, monkeypatch):
     import app.bot.handlers as handlers_module
 
-    monkeypatch.setattr(
-        handlers_module, "get_session_factory", lambda: session_factory
-    )
+    monkeypatch.setattr(handlers_module, "get_session_factory", lambda: session_factory)
     async with session_factory() as session:
         user = User(telegram_id=920001, first_name="Fresh")
         session.add(user)
@@ -458,9 +436,7 @@ async def test_orders_list_is_empty_for_a_new_user(session_factory, monkeypatch)
 async def test_orders_list_shows_localised_statuses(session_factory, monkeypatch):
     import app.bot.handlers as handlers_module
 
-    monkeypatch.setattr(
-        handlers_module, "get_session_factory", lambda: session_factory
-    )
+    monkeypatch.setattr(handlers_module, "get_session_factory", lambda: session_factory)
     async with session_factory() as session:
         user = User(telegram_id=920002, first_name="Buyer")
         session.add(user)
@@ -507,9 +483,7 @@ class FakeBot:
             from aiogram.exceptions import TelegramForbiddenError
 
             raise TelegramForbiddenError(method=None, message="bot was blocked")
-        self.sent.append(
-            {"chat_id": chat_id, "text": text, "reply_markup": reply_markup}
-        )
+        self.sent.append({"chat_id": chat_id, "text": text, "reply_markup": reply_markup})
 
 
 @pytest.mark.asyncio
@@ -540,9 +514,7 @@ async def test_payment_created_notification_carries_the_pay_button():
 @pytest.mark.asyncio
 async def test_payment_created_notification_without_a_url_has_no_markup():
     bot = FakeBot()
-    await notify_payment_created(
-        bot, 222, language="en", amount=100, payment_url=None
-    )
+    await notify_payment_created(bot, 222, language="en", amount=100, payment_url=None)
     assert bot.sent[0]["reply_markup"] is None
 
 

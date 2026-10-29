@@ -75,9 +75,7 @@ async def set_bot_commands(bot: Bot, settings: Settings | None = None) -> None:
             BotCommand(
                 command="lang", description=translate("bot.start.language", language)
             ),
-            BotCommand(
-                command="help", description=translate("bot.start.help", language)
-            ),
+            BotCommand(command="help", description=translate("bot.start.help", language)),
         ]
         with contextlib.suppress(Exception):
             # A failed menu update must never stop the bot from starting.

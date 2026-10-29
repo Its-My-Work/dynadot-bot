@@ -42,6 +42,4 @@ class TimestampMixin:
 class UUIDPrimaryKeyMixin:
     """UUID primary key — avoids leaking row counts in public identifiers."""
 
-    id: Mapped[str] = mapped_column(
-        primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(primary_key=True, default=lambda: str(uuid.uuid4()))

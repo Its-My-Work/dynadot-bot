@@ -24,6 +24,7 @@ class ORMModel(BaseModel):
 
 # ------------------------------------------------------------------ meta
 
+
 class HealthResponse(BaseModel):
     status: str = "ok"
     environment: str
@@ -53,6 +54,7 @@ class ThemesResponse(BaseModel):
 
 # ------------------------------------------------------------------ users
 
+
 class UserRead(ORMModel):
     id: str
     telegram_id: int
@@ -73,6 +75,7 @@ class ThemeUpdate(BaseModel):
 
 
 # --------------------------------------------------------------- contacts
+
 
 class ContactBase(BaseModel):
     first_name: str = Field(min_length=1, max_length=128)
@@ -106,6 +109,7 @@ class ContactRead(ORMModel, ContactBase):
 
 # ----------------------------------------------------------------- search
 
+
 class DomainSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=253)
     tlds: list[str] | None = None
@@ -133,6 +137,7 @@ class DomainSearchResponse(BaseModel):
 
 # ---------------------------------------------------------------- domains
 
+
 class DomainRead(ORMModel):
     id: str
     name: str
@@ -149,6 +154,7 @@ class NameserverUpdate(BaseModel):
 
 
 # ----------------------------------------------------------------- orders
+
 
 class OrderCreate(BaseModel):
     domain_name: str = Field(min_length=3, max_length=253)
@@ -168,6 +174,7 @@ class OrderRead(ORMModel):
 
 
 # ------------------------------------------------------------------ admin
+
 
 class TldPricingRead(ORMModel):
     id: str
@@ -253,6 +260,7 @@ class RefundResolve(BaseModel):
 
 
 # ---------------------------------------------------------------- payments
+
 
 class CheckoutCreate(BaseModel):
     """Start a payment for an existing order."""

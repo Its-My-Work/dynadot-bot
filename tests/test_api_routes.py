@@ -59,8 +59,11 @@ def client(tmp_path, monkeypatch, fake_dynadot):
     monkeypatch.setattr(session_module, "_engine", None)
     monkeypatch.setattr(session_module, "_session_factory", None)
 
-    for module in ("app.api.routes.orders", "app.api.routes.domains",
-                   "app.api.routes.admin"):
+    for module in (
+        "app.api.routes.orders",
+        "app.api.routes.domains",
+        "app.api.routes.admin",
+    ):
         import importlib
 
         monkeypatch.setattr(
@@ -96,6 +99,7 @@ def run(coro):
 
 # ------------------------------------------------------------------ contacts
 
+
 def test_first_contact_is_automatically_the_default(client):
     """Zero-tap checkout depends on there always being a default profile."""
     response = client.post(
@@ -114,13 +118,9 @@ def test_adding_a_default_contact_demotes_the_previous_one(client):
         "/api/v1/contacts", json=CONTACT_PAYLOAD, params={"telegram_id": TELEGRAM_ID}
     )
     second = {**CONTACT_PAYLOAD, "first_name": "Maria", "is_default": True}
-    client.post(
-        "/api/v1/contacts", json=second, params={"telegram_id": TELEGRAM_ID}
-    )
+    client.post("/api/v1/contacts", json=second, params={"telegram_id": TELEGRAM_ID})
 
-    contacts = client.get(
-        "/api/v1/contacts", params={"telegram_id": TELEGRAM_ID}
-    ).json()
+    contacts = client.get("/api/v1/contacts", params={"telegram_id": TELEGRAM_ID}).json()
     defaults = [c for c in contacts if c["is_default"]]
     assert len(defaults) == 1
     assert defaults[0]["first_name"] == "Maria"
@@ -139,9 +139,7 @@ def test_set_default_contact_endpoint(client):
     restored = client.post(f"/api/v1/contacts/{first['id']}/default").json()
     assert restored["is_default"] is True
 
-    contacts = client.get(
-        "/api/v1/contacts", params={"telegram_id": TELEGRAM_ID}
-    ).json()
+    contacts = client.get("/api/v1/contacts", params={"telegram_id": TELEGRAM_ID}).json()
     assert sum(1 for c in contacts if c["is_default"]) == 1
 
 
@@ -150,6 +148,7 @@ def test_contacts_for_an_unknown_user_are_empty_not_an_error(client):
 
 
 # -------------------------------------------------------------------- orders
+
 
 def test_create_order_freezes_the_price(client, fake_dynadot):
     response = client.post(
@@ -271,6 +270,7 @@ def test_cancelling_a_paid_order_is_rejected(client):
 
 # ------------------------------------------------------------------- domains
 
+
 def test_zones_endpoint_falls_back_to_defaults(client):
     zones = client.get("/api/v1/domains/zones").json()
     assert "com" in zones
@@ -354,6 +354,7 @@ def test_nameserver_update_rejects_an_empty_list_at_the_schema(client):
 
 
 # --------------------------------------------------------------------- admin
+
 
 def test_admin_stats_counts_orders_and_revenue(client):
     async def seed():
@@ -550,9 +551,7 @@ def test_retrying_a_queued_task_is_rejected(client):
             return task.id
 
     task_id = run(seed())
-    assert (
-        client.post(f"/api/v1/admin/tasks/{task_id}/retry").status_code == 409
-    )
+    assert client.post(f"/api/v1/admin/tasks/{task_id}/retry").status_code == 409
 
 
 def test_retry_of_an_unknown_task_is_404(client):

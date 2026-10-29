@@ -1,0 +1,3 @@
+// Build output: minified bundles are generated, not source to lint.
+dist/
+node_modules/

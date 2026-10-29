@@ -72,10 +72,7 @@ async def search_domains(
             detail=t("error.registrar_unavailable"),
         ) from exc
 
-    results = [
-        _to_result(item, t)
-        for item in _iter_search_items(raw, candidates)
-    ]
+    results = [_to_result(item, t) for item in _iter_search_items(raw, candidates)]
     return DomainSearchResponse(query=name, results=results)
 
 
@@ -96,9 +93,7 @@ async def list_my_domains(
     if user is None:
         return []
     result = await session.scalars(
-        select(Domain)
-        .where(Domain.user_id == user.id)
-        .order_by(Domain.created_at.desc())
+        select(Domain).where(Domain.user_id == user.id).order_by(Domain.created_at.desc())
     )
     return list(result)
 

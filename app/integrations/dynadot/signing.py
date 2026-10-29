@@ -39,8 +39,7 @@ def build_path_with_query(path: str, params: dict[str, object] | None = None) ->
     if not pairs:
         return path
     normalised = [
-        (k, "true" if v is True else "false" if v is False else str(v))
-        for k, v in pairs
+        (k, "true" if v is True else "false" if v is False else str(v)) for k, v in pairs
     ]
     return f"{path}?{urlencode(normalised)}"
 

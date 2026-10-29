@@ -194,9 +194,7 @@ class RegistrationWorker:
 
             if processed == 0:
                 with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(
-                        self._stop.wait(), timeout=self._poll_interval
-                    )
+                    await asyncio.wait_for(self._stop.wait(), timeout=self._poll_interval)
 
     # ----------------------------------------------------------------- cycle
 
@@ -302,9 +300,7 @@ class RegistrationWorker:
     # --------------------------------------------------------------- execute
 
     async def _execute(self, session: AsyncSession, task_id: str) -> None:
-        task = await session.scalar(
-            select(DynadotTask).where(DynadotTask.id == task_id)
-        )
+        task = await session.scalar(select(DynadotTask).where(DynadotTask.id == task_id))
         if task is None or not task.order_id:
             return
 
@@ -324,9 +320,7 @@ class RegistrationWorker:
     ) -> None:
         """Persist the attempt's outcome and schedule a retry if needed."""
         now = datetime.now(UTC)
-        task.result = dump_json(
-            {"outcome": result.outcome, "detail": result.detail}
-        )
+        task.result = dump_json({"outcome": result.outcome, "detail": result.detail})
 
         if result.outcome in (
             RegistrationOutcome.COMPLETED,
@@ -396,9 +390,7 @@ class RegistrationWorker:
         ):
             return
 
-        order = await session.scalar(
-            select(Order).where(Order.id == result.order_id)
-        )
+        order = await session.scalar(select(Order).where(Order.id == result.order_id))
         if order is None:
             return
         user = await session.scalar(select(User).where(User.id == order.user_id))

@@ -26,10 +26,10 @@ T = TypeVar("T")
 class Priority(IntEnum):
     """Lower value drains first."""
 
-    CRITICAL = 0   # register, renew — money already taken
-    HIGH = 10      # nameserver / DNS writes
-    NORMAL = 50    # account info, domain list
-    LOW = 100      # search, price sync
+    CRITICAL = 0  # register, renew — money already taken
+    HIGH = 10  # nameserver / DNS writes
+    NORMAL = 50  # account info, domain list
+    LOW = 100  # search, price sync
 
 
 @dataclass(order=True)

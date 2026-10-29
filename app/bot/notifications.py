@@ -64,9 +64,7 @@ async def notify_payment_created(
 ) -> bool:
     """Tell the customer an invoice exists and give them the pay button."""
     text = translate("payment.created", language, amount=f"{amount:.0f}")
-    markup = (
-        payment_keyboard(language, payment_url, amount) if payment_url else None
-    )
+    markup = payment_keyboard(language, payment_url, amount) if payment_url else None
     return await safe_send(bot, telegram_id, text, markup)
 
 

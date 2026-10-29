@@ -183,8 +183,15 @@ class DynadotClient:
                     f"transport failure: {exc}", code="transport_error"
                 )
                 await self._log_call(
-                    full_path, method, req_id, None, attempt,
-                    time.monotonic() - started, body, None, str(exc),
+                    full_path,
+                    method,
+                    req_id,
+                    None,
+                    attempt,
+                    time.monotonic() - started,
+                    body,
+                    None,
+                    str(exc),
                 )
                 if attempt < self._settings.dynadot_max_retries:
                     await self._backoff(attempt)
@@ -194,8 +201,15 @@ class DynadotClient:
             duration = time.monotonic() - started
             payload = self._parse_body(response)
             await self._log_call(
-                full_path, method, req_id, response.status_code, attempt,
-                duration, body, payload, None,
+                full_path,
+                method,
+                req_id,
+                response.status_code,
+                attempt,
+                duration,
+                body,
+                payload,
+                None,
             )
 
             if response.status_code in _RETRYABLE_STATUS:

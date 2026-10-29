@@ -187,9 +187,7 @@ class RegistrationService:
             return None
 
         profile = await self._session.scalar(
-            select(ContactProfile).where(
-                ContactProfile.id == order.contact_profile_id
-            )
+            select(ContactProfile).where(ContactProfile.id == order.contact_profile_id)
         )
         if profile is None:
             return None
@@ -355,9 +353,7 @@ class RegistrationService:
 
     # ----------------------------------------------------------- nameservers
 
-    async def update_nameservers(
-        self, domain: Domain, nameservers: list[str]
-    ) -> Domain:
+    async def update_nameservers(self, domain: Domain, nameservers: list[str]) -> Domain:
         """Delegate a domain to the customer's nameservers (e.g. Cloudflare)."""
         cleaned = [ns.strip().lower() for ns in nameservers if ns.strip()]
         if not cleaned:

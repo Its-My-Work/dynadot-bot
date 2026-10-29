@@ -90,10 +90,7 @@ async def platega_webhook(
 
     # A newly paid order must get its registration task before we ack, so a
     # crash straight after the 200 still leaves durable work to pick up.
-    if (
-        result.order is not None
-        and result.order.status is OrderStatus.PAID
-    ):
+    if result.order is not None and result.order.status is OrderStatus.PAID:
         try:
             await enqueue_registration(session, result.order)
         except Exception:

@@ -159,12 +159,8 @@ def test_confirmed_webhook_marks_payment_and_order_paid(client):
 
 def test_duplicate_webhook_returns_200_so_the_gateway_stops_retrying(client):
     """A non-2xx on a duplicate would make Platega retry a handled event forever."""
-    first = client.post(
-        "/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH
-    )
-    second = client.post(
-        "/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH
-    )
+    first = client.post("/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH)
+    second = client.post("/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH)
 
     assert first.json()["applied"] is True
     assert second.status_code == 200
@@ -215,9 +211,7 @@ def test_non_json_body_is_400(client):
 
 
 def test_json_array_body_is_400(client):
-    response = client.post(
-        "/api/v1/webhooks/platega", json=[1, 2, 3], headers=AUTH
-    )
+    response = client.post("/api/v1/webhooks/platega", json=[1, 2, 3], headers=AUTH)
     assert response.status_code == 400
 
 
@@ -300,9 +294,7 @@ def _tasks_for(order_id: str) -> list:
 
 
 def test_confirmed_payment_enqueues_a_registration_task(client):
-    client.post(
-        "/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH
-    )
+    client.post("/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH)
 
     tasks = _tasks_for(client.state["order_id"])
     assert len(tasks) == 1
@@ -315,9 +307,7 @@ def test_confirmed_payment_enqueues_a_registration_task(client):
 def test_redelivered_confirmation_does_not_enqueue_twice(client):
     """Platega resends CONFIRMED; a second task would double-register."""
     for _ in range(3):
-        client.post(
-            "/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH
-        )
+        client.post("/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH)
 
     assert len(_tasks_for(client.state["order_id"])) == 1
 
@@ -337,9 +327,7 @@ def test_task_request_id_matches_the_orders_idempotency_key(client):
 
     import app.db.session as session_module
 
-    client.post(
-        "/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH
-    )
+    client.post("/api/v1/webhooks/platega", json=confirmed_body(), headers=AUTH)
 
     async def fetch_order():
         async with session_module.get_session_factory()() as session:

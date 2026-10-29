@@ -266,9 +266,7 @@ class PlategaGateway(PaymentGateway):
 
     async def get_status(self, external_id: str) -> PaymentSession:
         """Poll a transaction — used by reconciliation when no webhook lands."""
-        data = await self._request(
-            "GET", STATUS_PATH.format(transaction_id=external_id)
-        )
+        data = await self._request("GET", STATUS_PATH.format(transaction_id=external_id))
         details = data.get("paymentDetails")
         return PaymentSession(
             external_id=str(data.get("id") or external_id),

@@ -37,6 +37,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 # ------------------------------------------------------------------ pricing
 
+
 @router.get("/tld-pricing", response_model=list[TldPricingRead])
 async def list_tld_pricing(session: DbSession) -> list[TldPricing]:
     result = await session.scalars(
@@ -74,6 +75,7 @@ async def update_tld_pricing(
 
 
 # ------------------------------------------------------------------- orders
+
 
 @router.get("/orders", response_model=list[AdminOrderRead])
 async def list_orders(
@@ -140,6 +142,7 @@ async def resolve_refund(
 
 # -------------------------------------------------------------------- tasks
 
+
 @router.get("/tasks", response_model=list[TaskRead])
 async def list_tasks(
     session: DbSession,
@@ -199,6 +202,7 @@ async def retry_task(task_id: str, session: DbSession, t: Translate) -> DynadotT
 
 # --------------------------------------------------------------------- logs
 
+
 @router.get("/api-logs", response_model=list[ApiLogRead])
 async def list_api_logs(
     session: DbSession,
@@ -216,6 +220,7 @@ async def list_api_logs(
 
 
 # -------------------------------------------------------------------- stats
+
 
 @router.get("/stats", response_model=AdminStats)
 async def stats(session: DbSession) -> AdminStats:
@@ -257,14 +262,10 @@ async def stats(session: DbSession) -> AdminStats:
         users=await count(select(func.count(User.id))),
         orders_total=sum(orders_by_status.values()),
         orders_completed=orders_by_status.get(OrderStatus.COMPLETED, 0),
-        orders_awaiting_payment=orders_by_status.get(
-            OrderStatus.AWAITING_PAYMENT, 0
-        ),
+        orders_awaiting_payment=orders_by_status.get(OrderStatus.AWAITING_PAYMENT, 0),
         refunds_pending=orders_by_status.get(OrderStatus.REFUND_REQUIRED, 0),
         domains_active=await count(
-            select(func.count(Domain.id)).where(
-                Domain.status == DomainStatus.ACTIVE
-            )
+            select(func.count(Domain.id)).where(Domain.status == DomainStatus.ACTIVE)
         ),
         revenue_rub=float(revenue or 0),
         tasks_queued=tasks_by_status.get(TaskStatus.QUEUED, 0),

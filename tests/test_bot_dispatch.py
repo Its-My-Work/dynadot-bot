@@ -73,9 +73,7 @@ async def harness(session_factory, monkeypatch):
 
     import app.bot.handlers as handlers_module
 
-    monkeypatch.setattr(
-        handlers_module, "get_session_factory", lambda: session_factory
-    )
+    monkeypatch.setattr(handlers_module, "get_session_factory", lambda: session_factory)
     monkeypatch.setattr(
         handlers_module.settings, "tma_url", "https://tma.test", raising=False
     )
@@ -126,9 +124,7 @@ async def test_start_command_routes_and_creates_the_user(harness):
     async with factory() as session:
         from sqlalchemy import select
 
-        user = await session.scalar(
-            select(User).where(User.telegram_id == 700001)
-        )
+        user = await session.scalar(select(User).where(User.telegram_id == 700001))
         assert user is not None
 
 
@@ -157,11 +153,7 @@ async def test_lang_command_sends_the_language_keyboard(harness):
     await dispatcher.feed_update(bot, make_update("/lang"))
     send = recording.requests[0]
     assert send.reply_markup is not None
-    codes = {
-        b.callback_data
-        for row in send.reply_markup.inline_keyboard
-        for b in row
-    }
+    codes = {b.callback_data for row in send.reply_markup.inline_keyboard for b in row}
     assert codes == {"lang:ru", "lang:en"}
 
 
@@ -229,7 +221,5 @@ async def test_language_callback_routes_and_persists(harness):
     await dispatcher.feed_update(bot, update)
 
     async with factory() as session:
-        user = await session.scalar(
-            select(User).where(User.telegram_id == 700010)
-        )
+        user = await session.scalar(select(User).where(User.telegram_id == 700010))
         assert user.language.value == "en"

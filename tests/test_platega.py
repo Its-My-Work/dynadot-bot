@@ -34,9 +34,7 @@ def make_settings(**overrides) -> Settings:
 
 def make_gateway(handler, **overrides) -> PlategaGateway:
     transport = httpx.MockTransport(handler)
-    client = httpx.AsyncClient(
-        transport=transport, base_url="https://app.platega.test"
-    )
+    client = httpx.AsyncClient(transport=transport, base_url="https://app.platega.test")
     return PlategaGateway(make_settings(**overrides), client=client)
 
 
@@ -310,9 +308,7 @@ def test_verify_webhook_is_case_insensitive_on_header_names():
 def test_verify_webhook_rejects_wrong_secret():
     gateway = PlategaGateway(make_settings())
     with pytest.raises(PaymentSignatureError):
-        gateway.verify_webhook(
-            {"X-MerchantId": MERCHANT_ID, "X-Secret": "wrong"}, b"{}"
-        )
+        gateway.verify_webhook({"X-MerchantId": MERCHANT_ID, "X-Secret": "wrong"}, b"{}")
 
 
 def test_verify_webhook_rejects_missing_secret():

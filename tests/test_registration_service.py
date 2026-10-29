@@ -168,6 +168,7 @@ async def make_order(
 
 # ------------------------------------------------------------------ claiming
 
+
 @pytest.mark.asyncio
 async def test_claim_moves_paid_order_to_registering(session, settings):
     order = await make_order(session)
@@ -218,6 +219,7 @@ async def test_register_order_skips_when_not_claimable(session, settings):
 
 # -------------------------------------------------------------- happy path
 
+
 @pytest.mark.asyncio
 async def test_successful_registration_completes_order_and_creates_domain(
     session, settings
@@ -234,9 +236,7 @@ async def test_successful_registration_completes_order_and_creates_domain(
     assert order.registered_at is not None
     assert order.dynadot_order_id == "dyn-1"
 
-    domain = await session.scalar(
-        select(Domain).where(Domain.name == "mynewsite.com")
-    )
+    domain = await session.scalar(select(Domain).where(Domain.name == "mynewsite.com"))
     assert domain is not None
     assert domain.status is DomainStatus.ACTIVE
     assert domain.user_id == order.user_id
@@ -297,6 +297,7 @@ async def test_contact_failure_falls_back_to_account_default(session, settings):
 
 # --------------------------------------------------------------- refund path
 
+
 @pytest.mark.asyncio
 async def test_domain_taken_during_payment_requires_a_refund(session, settings):
     """The core money-safety rule: taken domain => REFUND_REQUIRED, not FAILED."""
@@ -315,15 +316,11 @@ async def test_domain_taken_during_payment_requires_a_refund(session, settings):
 
 
 @pytest.mark.asyncio
-async def test_unavailable_reported_only_at_register_time_also_refunds(
-    session, settings
-):
+async def test_unavailable_reported_only_at_register_time_also_refunds(session, settings):
     """The race can be lost between our availability check and the register."""
     order = await make_order(session, domain="racy.com")
     client = FakeDynadot(
-        register_error=DynadotApiError(
-            "domain is not available", code="register_failed"
-        )
+        register_error=DynadotApiError("domain is not available", code="register_failed")
     )
     service = RegistrationService(session, client, settings)
 
@@ -406,6 +403,7 @@ async def test_escalate_never_touches_a_completed_order(session, settings):
 
 # ---------------------------------------------------------------- nameservers
 
+
 @pytest.mark.asyncio
 async def test_update_nameservers_calls_registrar_then_persists(session, settings):
     domain = Domain(name="ns-test.com", tld="com", status=DomainStatus.ACTIVE)
@@ -440,6 +438,7 @@ async def test_update_nameservers_rejects_an_empty_list(session, settings):
 
 
 # -------------------------------------------------------------------- parsing
+
 
 @pytest.mark.parametrize(
     "message",

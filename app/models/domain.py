@@ -52,18 +52,14 @@ class Domain(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     auto_renew: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_locked: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    privacy_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False
-    )
+    privacy_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Nameservers are stored denormalised (max 13 per the DNS spec) to avoid a
     # join for the common "show me my NS" read.
     nameservers: Mapped[str | None] = mapped_column(String(1024))
 
     # Expiry reminder bookkeeping so the bot does not spam the user.
-    expiry_notified_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )
+    expiry_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User | None] = relationship(back_populates="domains")
     contact_profile: Mapped[ContactProfile | None] = relationship()

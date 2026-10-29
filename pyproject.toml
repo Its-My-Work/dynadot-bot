@@ -25,3 +25,10 @@ ignore = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# The `app` package lives at the repo root, which pytest does not add to
+# sys.path on its own (the only conftest.py sits in tests/), so imports like
+# `from app.core.config import Settings` need the root injected explicitly.
+pythonpath = ["."]
+# Pin the fixture loop scope so async fixtures keep function-level isolation
+# instead of inheriting pytest-asyncio's future default.
+asyncio_default_fixture_loop_scope = "function"

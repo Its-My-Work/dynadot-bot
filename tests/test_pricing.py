@@ -161,9 +161,7 @@ async def test_enabled_tlds_falls_back_when_nothing_is_configured(session, setti
 
 
 @pytest.mark.asyncio
-async def test_enabled_tlds_respects_sort_order_and_the_enabled_flag(
-    session, settings
-):
+async def test_enabled_tlds_respects_sort_order_and_the_enabled_flag(session, settings):
     session.add_all(
         [
             TldPricing(tld="org", sort_order=2, is_enabled=True),

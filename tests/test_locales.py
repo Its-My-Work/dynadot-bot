@@ -35,8 +35,7 @@ def test_placeholders_match_across_languages():
     mismatched = {
         key: (sorted(PLACEHOLDER.findall(ru[key])), sorted(PLACEHOLDER.findall(en[key])))
         for key in ru
-        if sorted(PLACEHOLDER.findall(ru[key]))
-        != sorted(PLACEHOLDER.findall(en[key]))
+        if sorted(PLACEHOLDER.findall(ru[key])) != sorted(PLACEHOLDER.findall(en[key]))
     }
     assert mismatched == {}
 

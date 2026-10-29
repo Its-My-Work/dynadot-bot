@@ -87,6 +87,7 @@ async def seed_order(
 
 # -------------------------------------------------------------------- backoff
 
+
 def test_backoff_grows_exponentially_and_is_capped():
     assert backoff_seconds(1) == 15
     assert backoff_seconds(2) == 30
@@ -96,6 +97,7 @@ def test_backoff_grows_exponentially_and_is_capped():
 
 
 # ------------------------------------------------------------------- enqueue
+
 
 @pytest.mark.asyncio
 async def test_enqueue_creates_a_critical_priority_task(session_factory):
@@ -144,6 +146,7 @@ async def test_enqueue_reuses_the_orders_existing_request_id(session_factory):
 
 # --------------------------------------------------------------- happy path
 
+
 @pytest.mark.asyncio
 async def test_run_once_registers_a_paid_order_and_succeeds_the_task(
     session_factory, settings
@@ -164,9 +167,7 @@ async def test_run_once_registers_a_paid_order_and_succeeds_the_task(
         assert task.status is TaskStatus.SUCCEEDED
         assert task.attempts == 1
         assert task.finished_at is not None
-        domain = await session.scalar(
-            select(Domain).where(Domain.name == "happy.com")
-        )
+        domain = await session.scalar(select(Domain).where(Domain.name == "happy.com"))
         assert domain is not None
 
 
@@ -192,6 +193,7 @@ async def test_a_future_scheduled_task_is_not_picked_up(session_factory, setting
 
 # ---------------------------------------------------------------- orphans
 
+
 @pytest.mark.asyncio
 async def test_orphan_paid_order_is_adopted(session_factory, settings):
     """The webhook may have died before enqueueing; the order is still PAID."""
@@ -215,17 +217,14 @@ async def test_unpaid_orders_are_never_adopted(session_factory, settings):
 
     assert await worker.run_once() == 0
     async with session_factory() as session:
-        assert (
-            await session.scalar(select(DynadotTask).limit(1))
-        ) is None
+        assert (await session.scalar(select(DynadotTask).limit(1))) is None
 
 
 # ------------------------------------------------------------------- refunds
 
+
 @pytest.mark.asyncio
-async def test_taken_domain_fails_the_task_and_queues_a_refund(
-    session_factory, settings
-):
+async def test_taken_domain_fails_the_task_and_queues_a_refund(session_factory, settings):
     order_id = await seed_order(session_factory, domain="taken.com")
     client = FakeDynadot(available=False)
     worker = RegistrationWorker(session_factory, client, settings=settings)
@@ -244,6 +243,7 @@ async def test_taken_domain_fails_the_task_and_queues_a_refund(
 
 
 # --------------------------------------------------------------- retry path
+
 
 @pytest.mark.asyncio
 async def test_transient_failure_requeues_with_a_future_schedule(
@@ -337,6 +337,7 @@ async def test_exhausted_retries_dead_letter_and_escalate_to_refund(
 
 # ---------------------------------------------------------- stale reclaiming
 
+
 @pytest.mark.asyncio
 async def test_stale_running_task_is_reclaimed(session_factory, settings):
     """A SIGKILLed worker leaves RUNNING rows that nobody would ever finish."""
@@ -345,9 +346,7 @@ async def test_stale_running_task_is_reclaimed(session_factory, settings):
         order = await session.get(Order, order_id)
         task = await enqueue_registration(session, order)
         task.status = TaskStatus.RUNNING
-        task.started_at = datetime.now(UTC) - timedelta(
-            minutes=STALE_RUNNING_MINUTES + 5
-        )
+        task.started_at = datetime.now(UTC) - timedelta(minutes=STALE_RUNNING_MINUTES + 5)
         await session.commit()
         task_id = task.id
 
@@ -376,6 +375,7 @@ async def test_a_freshly_running_task_is_left_alone(session_factory, settings):
 
 
 # ------------------------------------------------------------- notifications
+
 
 @pytest.mark.asyncio
 async def test_customer_is_notified_in_their_language_on_completion(
@@ -417,6 +417,7 @@ async def test_a_blocked_bot_does_not_undo_a_registration(session_factory, setti
 
 
 # ------------------------------------------------------------------ lifecycle
+
 
 @pytest.mark.asyncio
 async def test_worker_start_and_stop_are_idempotent(session_factory, settings):
@@ -536,9 +537,7 @@ async def test_stop_cancels_a_task_that_refuses_to_drain(session_factory, settin
 @pytest.mark.asyncio
 async def test_unavailable_raised_from_search_is_handled(session_factory, settings):
     order_id = await seed_order(session_factory, domain="searchgone.com")
-    client = FakeDynadot(
-        search_error=DomainUnavailableError("gone", code="domain_taken")
-    )
+    client = FakeDynadot(search_error=DomainUnavailableError("gone", code="domain_taken"))
     worker = RegistrationWorker(session_factory, client, settings=settings)
 
     await worker.run_once()

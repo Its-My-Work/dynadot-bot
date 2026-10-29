@@ -78,9 +78,7 @@ class ContactProfile(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     """
 
     __tablename__ = "contact_profiles"
-    __table_args__ = (
-        Index("ix_contact_profiles_user_default", "user_id", "is_default"),
-    )
+    __table_args__ = (Index("ix_contact_profiles_user_default", "user_id", "is_default"),)
 
     user_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True

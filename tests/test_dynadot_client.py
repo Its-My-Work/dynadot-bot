@@ -61,9 +61,7 @@ async def test_search_sends_valid_signature_and_headers():
     assert headers["authorization"] == "Bearer test-key"
 
     # Recompute the signature over the exact path+query that was sent.
-    path_with_query = captured["url"].replace(
-        "https://api-sandbox.dynadot.com", ""
-    )
+    path_with_query = captured["url"].replace("https://api-sandbox.dynadot.com", "")
     expected = hmac.new(
         b"test-secret",
         f"test-key\n{path_with_query}\n{headers['x-request-id']}\n".encode(),
@@ -164,6 +162,7 @@ async def test_business_error_code_raises_api_error():
 @pytest.mark.asyncio
 async def test_ensure_available_raises_when_domain_taken():
     """Guards the resale 'taken after payment' case."""
+
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"code": 0, "data": {"available": "no"}})
 

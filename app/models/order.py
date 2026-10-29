@@ -108,9 +108,7 @@ class Payment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
 
     # Provider-side identifier; unique to make webhook handling idempotent.
-    external_id: Mapped[str | None] = mapped_column(
-        String(128), unique=True, index=True
-    )
+    external_id: Mapped[str | None] = mapped_column(String(128), unique=True, index=True)
     payment_url: Mapped[str | None] = mapped_column(Text)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
