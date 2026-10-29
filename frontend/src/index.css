@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark-first palette in the Linear/Vercel register: near-black surfaces, one
+ * restrained accent, and text that steps down in three clear weights. Values
+ * are raw RGB channels so Tailwind's `/<alpha-value>` syntax works.
+ */
+:root {
+  --c-bg: 8 9 10;
+  --c-surface: 16 16 19;
+  --c-elevated: 24 24 28;
+  --c-line: 38 38 44;
+  --c-ink: 244 244 246;
+  --c-muted: 154 154 165;
+  --c-faint: 104 104 116;
+  --c-accent: 94 134 255;
+  --c-accent-ink: 255 255 255;
+  --c-ok: 62 198 128;
+  --c-warn: 234 179 8;
+  --c-danger: 244 94 94;
+}
+
+/* Telegram's light theme: honour it, otherwise the app fights the client. */
+:root[data-theme='light'] {
+  --c-bg: 250 250 251;
+  --c-surface: 255 255 255;
+  --c-elevated: 244 244 246;
+  --c-line: 226 226 232;
+  --c-ink: 18 18 22;
+  --c-muted: 98 98 110;
+  --c-faint: 142 142 154;
+  --c-accent: 44 92 240;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    /* Telegram's viewport can be shorter than 100vh while collapsed. */
+    min-height: var(--tg-viewport-stable-height, 100vh);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Hide scrollbars in the TMA but keep scrolling — chrome looks alien there. */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  a:focus-visible {
+    @apply outline-none ring-2 ring-accent/60 ring-offset-2 ring-offset-bg;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
+      text-sm font-medium transition-colors disabled:cursor-not-allowed
+      disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-accent-ink hover:bg-accent/90;
+  }
+
+  .btn-ghost {
+    @apply btn border border-line bg-elevated text-ink hover:bg-line/60;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-line bg-surface px-4 py-3 text-base
+      text-ink placeholder:text-faint focus:border-accent/70;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+
+  /* Skeleton shimmer: a spinner on every card makes a list feel slower than
+   * placeholder shapes that match the final layout. */
+  .skeleton {
+    @apply relative overflow-hidden bg-elevated;
+  }
+  .skeleton::after {
+    @apply absolute inset-0 animate-shimmer;
+    content: '';
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--c-line) / 0.6),
+      transparent
+    );
+    transform: translateX(-100%);
+  }
+}

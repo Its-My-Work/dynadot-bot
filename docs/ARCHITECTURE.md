@@ -42,11 +42,28 @@ app/
 │   ├── keyboards.py        # TMA web-app button, language picker, pay button
 │   ├── middlewares.py      # User upsert + request-scoped RU/EN translator
 │   └── notifications.py    # Outbound payment/order status messages
+├── worker/
+│   └── __main__.py         # `python -m app.worker` process entrypoint
 └── api/
     ├── deps.py             # DB session, language, Dynadot, payment gateway
-    └── routes/             # meta, users, domains, payments, webhooks, admin
+    └── routes/             # meta, users, contacts, domains, orders,
+                            # payments, webhooks, admin
+services/
+├── payments.py             # Checkout + idempotent webhook application
+├── pricing.py              # USD cost -> RUB price, admin overrides
+├── registration.py         # Paid order -> registered domain
+└── worker.py               # DynadotTask queue + polling worker loop
+frontend/                   # React 18 + Tailwind (TMA + admin), Vite
+├── index.html              # TMA entry (Telegram WebApp SDK)
+├── admin.html              # Admin panel entry
+└── src/
+    ├── lib/                # api client, telegram bridge, i18n
+    ├── screens/            # Search, Checkout, Contact, Domains, Orders
+    ├── components/         # StatusBadge, ui primitives
+    ├── App.jsx             # TMA shell (tabs + checkout overlay)
+    └── AdminApp.jsx        # Operator console
 migrations/                 # Alembic (async env)
-tests/                      # 184 tests
+tests/                      # 279 backend tests (+117 frontend)
 ```
 
 ## Dynadot integration
@@ -183,6 +200,130 @@ Outbound notifications go through `safe_send`, which swallows Telegram errors:
 a user who blocked the bot must not fail a webhook and trigger a gateway retry
 of an already-processed payment.
 
+## Registration worker
+
+The paid-order → registered-domain pipeline. This is the most dangerous code
+in the system: by the time it runs, the customer's money has already been
+taken.
+
+### Why a durable DB-backed worker
+
+* A registration must survive a restart. The webhook returns 200 the moment
+  payment is confirmed; if the process died a second later, a paid order would
+  be lost with no record of what to do.
+* Dynadot serialises requests, so registration cannot simply be fired off
+  concurrently from a request handler.
+* Retries need state. Attempt counts, backoff and a dead-letter bucket live on
+  `DynadotTask` so the admin panel can show and requeue them.
+
+No external broker: PostgreSQL already provides the atomic claim this needs,
+and one fewer moving part beats millisecond latency on an operation whose
+registrar call takes seconds.
+
+### Flow
+
+```
+webhook CONFIRMED ─> PaymentService ─> order.status = PAID
+                                    └─> enqueue_registration()  (before the ack)
+worker tick ─> reclaim stale ─> adopt orphans ─> claim task
+            └─> ensure_available() ─> register() ─> Domain row + notify
+```
+
+### Invariants
+
+1. **Claim before calling.** `claim()` runs a conditional
+   `UPDATE ... WHERE status = PAID` and commits before any registrar call.
+   Whichever worker's statement matches the row owns the registration; a second
+   worker matches zero rows and backs off. An interrupted `REGISTERING` claim is
+   resumable so a restart never strands a paid order.
+2. **Reuse the request id.** `Order.dynadot_request_id` is generated once and
+   persisted, and `DynadotTask.request_id` mirrors it. Dynadot treats
+   `X-Request-Id` as the idempotency key, so a retry cannot double-register.
+3. **Taken domain means refund, never failure.** A name can be registered by
+   someone else between checkout and the registrar call. The order becomes
+   `REFUND_REQUIRED` — an operator work queue surfaced in the admin panel — not
+   `FAILED`. The same applies to our own auth/config errors: our fault, their
+   money.
+4. **Transport errors retry, business errors do not.** `DynadotTransportError`
+   and `DynadotRateLimitError` return the order to `PAID` and reschedule with
+   exponential backoff (15s doubling, capped at 600s). A rejected contact or
+   drained balance is terminal — retrying only burns rate limit.
+5. **Exhausted retries still owe money.** Dead-lettering calls
+   `escalate_to_refund()`, so giving up lands in the refund queue rather than a
+   silent `FAILED`.
+
+### Safety nets
+
+* **Orphan sweep.** Every tick queues `PAID` orders that have no task, so a
+  crash between confirming payment and enqueueing is survivable.
+* **Stale reclaim.** A task `RUNNING` for more than 15 minutes lost its worker
+  (SIGKILL, OOM) and is returned to the queue.
+* **Notification isolation.** A blocked bot cannot undo a completed
+  registration; notification failures are logged and swallowed.
+
+### Deployment
+
+One worker process, always: `python -m app.worker` as its own compose service
+with `REGISTRATION_WORKER_ENABLED=false` on the API. Two workers would contend
+for the same tasks and waste Dynadot's single request slot. For
+single-container and local setups, flip `REGISTRATION_WORKER_ENABLED=true` and
+the API runs it in-process instead.
+
+## Pricing
+
+`PricingService` is the single source of truth, because three callers need
+identical numbers (search grid, checkout, admin panel) and a divergence between
+them is a billing bug. Resolution order per zone:
+
+1. `TldPricing.fixed_price_rub` — hard override, wins over everything
+2. `TldPricing.markup_percent` — per-zone markup
+3. `Settings.default_markup_percent` — global fallback
+
+The resolved breakdown is frozen onto the order at creation, so a later markup
+change never alters what a customer already agreed to pay.
+
+## Frontend (React 18 + Tailwind)
+
+One Vite build, two entry points: `index.html` (TMA, loads Telegram's WebApp
+SDK) and `admin.html` (operator console). Sharing a bundle keeps the API client
+and design tokens in sync between them. FastAPI serves `frontend/dist` from
+`/` when it exists, mounted after the API router so it cannot shadow routes.
+
+### TMA
+
+Three tabs (search, domains, orders) plus a checkout overlay. Deliberately no
+router: the app is three lists and one flow, and a router would add history
+states that fight Telegram's own back button — which drives the overlay
+directly instead.
+
+* **Search** is one input, debounced 450ms and abortable. Each search is a
+  serialised registrar call, so per-keystroke firing would queue stale work
+  ahead of the user's real query. Taken results stay visible but dimmed;
+  filtering them out makes the zone grid look random.
+* **Checkout** is a small state machine (`contact? → order → payment link →
+  poll`) because the user's mental model is one continuous action. Polling, not
+  push: the TMA has no push channel, and the registration outcome can be
+  `REFUND_REQUIRED` — which gets its own explicit message rather than a bare
+  "failed".
+* **Contact form** appears exactly once per customer; the profile is saved
+  server-side as the default so repeat purchases need zero input.
+* **Nameservers** are edited as one-server-per-line text. Users paste the two
+  lines Cloudflare gives them; anything fancier only adds taps.
+
+Everything degrades gracefully when `window.Telegram` is absent so the bundle
+runs in a plain browser for development and tests. Telegram's colour scheme is
+honoured via CSS variables, so the TMA never fights the surrounding client.
+
+### Admin panel
+
+Dark, dense, one accent — Linear/Vercel register. Priorities in order:
+**refunds first** (money owed is the only urgent thing, badged in the nav and
+counted in the header), **dead-lettered tasks one click from a retry** (a
+registrar outage must not need a database console), then orders, pricing and
+the Dynadot API log. Revenue counts only `COMPLETED` orders: billing a
+refund-pending order as revenue overstates the books by exactly what we owe
+back.
+
 ## Internationalisation (RU/EN)
 
 JSON catalogues per language with flat dotted keys. Resolution order:
@@ -209,19 +350,31 @@ customer already agreed to pay.
 ## Running
 
 ```bash
+# Backend
 pip install -r requirements-dev.txt
 cp .env.example .env
 alembic upgrade head
 uvicorn app.main:app --reload     # docs at /api/v1/docs
 python -m app.bot                 # bot via long polling (separate process)
-pytest                            # 184 tests
+python -m app.worker              # registration worker (separate process)
+pytest                            # 279 tests
 ruff check .
-# or: docker compose up --build
+
+# Frontend
+cd frontend
+npm install
+npm run dev                       # Vite dev server, proxies /api to :8000
+npm test                          # 117 tests
+npm run build                     # -> frontend/dist, served by FastAPI at /
+
+# or: docker compose up --build    (api + bot + worker + postgres)
 ```
 
 ## Not yet implemented
 
-Telegram `initData` auth and admin RBAC, the `DynadotTask` worker loop that
-drains persisted tasks (including the paid-order → register handoff and the
-`REFUND_REQUIRED` path), a scheduled `reconcile` sweep for stale pending
-payments, TLD price sync, and the React TMA/web frontend.
+Telegram `initData` signature verification and admin RBAC (both surfaces are
+currently unauthenticated — do not expose the admin panel publicly), a
+scheduled `reconcile` sweep for stale pending payments, automated refund
+execution (Platega has no refund API, so `REFUND_REQUIRED` is cleared by hand
+in the admin panel), TLD price sync from Dynadot, a DNS record editor, and
+expiry-reminder scheduling.

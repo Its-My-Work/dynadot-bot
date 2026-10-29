@@ -40,8 +40,11 @@ from tests.test_registration_service import FakeDynadot
 
 
 @pytest_asyncio.fixture
-async def session_factory():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+async def session_factory(tmp_path):
+    # A file-backed database, not `:memory:`: the worker opens a second
+    # connection from its own task, and each in-memory connection would get
+    # its own empty database.
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'worker.db'}")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield async_sessionmaker(engine, expire_on_commit=False)
@@ -470,6 +473,64 @@ async def test_a_raising_tick_does_not_kill_the_loop(session_factory, settings):
     await worker.stop()
 
     assert calls["n"] > 1
+
+
+@pytest.mark.asyncio
+async def test_stop_waits_for_an_in_flight_task_instead_of_cancelling(
+    session_factory, settings
+):
+    """A hard cancel mid-registration can strand a RUNNING task (and a paid
+    order) until the stale-reclaim window, so stop() must drain first."""
+    order_id = await seed_order(session_factory, domain="draining.com")
+    worker = RegistrationWorker(
+        session_factory, FakeDynadot(), settings=settings, poll_interval=0.01
+    )
+
+    started = asyncio.Event()
+    release = asyncio.Event()
+    original = worker.run_once
+
+    async def slow_once():
+        started.set()
+        await release.wait()
+        return await original()
+
+    worker.run_once = slow_once
+    await worker.start()
+    await asyncio.wait_for(started.wait(), timeout=1)
+
+    # stop() is called while the tick is mid-flight; it must not cancel it.
+    stopping = asyncio.create_task(worker.stop(drain_timeout=5))
+    await asyncio.sleep(0.05)
+    assert not stopping.done(), "stop() returned before the task drained"
+
+    release.set()
+    await asyncio.wait_for(stopping, timeout=5)
+
+    async with session_factory() as session:
+        order = await session.get(Order, order_id)
+        assert order.status is OrderStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_stop_cancels_a_task_that_refuses_to_drain(session_factory, settings):
+    """Shutdown must still terminate if a tick hangs forever."""
+    worker = RegistrationWorker(
+        session_factory, FakeDynadot(), settings=settings, poll_interval=0.01
+    )
+
+    started = asyncio.Event()
+
+    async def hanging_once():
+        started.set()
+        await asyncio.Event().wait()  # never completes
+        return 0
+
+    worker.run_once = hanging_once
+    await worker.start()
+    await asyncio.wait_for(started.wait(), timeout=1)
+
+    await asyncio.wait_for(worker.stop(drain_timeout=0.05), timeout=5)
 
 
 @pytest.mark.asyncio

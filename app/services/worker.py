@@ -57,6 +57,11 @@ BACKOFF_MAX_SECONDS = 600
 #: and is safe to reclaim.
 STALE_RUNNING_MINUTES = 15
 
+#: How long `stop()` lets an in-flight registration finish before cancelling.
+#: Comfortably longer than a normal Dynadot register call so a graceful
+#: shutdown does not abort a purchase that already left money on the table.
+SHUTDOWN_DRAIN_SECONDS = 30.0
+
 
 def backoff_seconds(attempt: int) -> int:
     """Delay before attempt ``attempt`` (1-based)."""
@@ -141,13 +146,37 @@ class RegistrationWorker:
         self._task = asyncio.create_task(self._run(), name="registration-worker")
         logger.info("registration worker started")
 
-    async def stop(self) -> None:
+    async def stop(self, *, drain_timeout: float = SHUTDOWN_DRAIN_SECONDS) -> None:
+        """Signal the loop to finish and wait for the current task to land.
+
+        Cancelling mid-flight is a last resort: a hard cancel can abort an
+        in-progress registrar call after the domain was already bought,
+        leaving the task stuck in RUNNING until the stale-reclaim window
+        passes. So the loop is asked to stop and given `drain_timeout` to
+        return between tasks; only a worker still busy after that is cancelled.
+        """
         self._stop.set()
-        if self._task is not None:
-            self._task.cancel()
+        task = self._task
+        if task is None:
+            logger.info("registration worker stopped")
+            return
+
+        self._task = None
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=drain_timeout)
+        except TimeoutError:
+            # Still mid-registration: cancel and accept the stale reclaim.
+            logger.warning(
+                "registration worker did not drain in time; cancelling",
+                extra={"drain_timeout": drain_timeout},
+            )
+            task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
-                await self._task
-            self._task = None
+                await task
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("registration worker failed during shutdown")
         logger.info("registration worker stopped")
 
     async def _run(self) -> None:
@@ -393,6 +422,7 @@ class RegistrationWorker:
 __all__ = [
     "BACKOFF_MAX_SECONDS",
     "OP_REGISTER_DOMAIN",
+    "SHUTDOWN_DRAIN_SECONDS",
     "STALE_RUNNING_MINUTES",
     "RegistrationWorker",
     "backoff_seconds",

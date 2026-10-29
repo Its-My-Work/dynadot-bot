@@ -46,5 +46,21 @@ services:
     command: python -m app.bot
     restart: unless-stopped
 
+  # Registration worker. Exactly ONE replica: Dynadot processes one request at
+  # a time, and a second worker would only contend for the same tasks. The API
+  # keeps REGISTRATION_WORKER_ENABLED=false so it does not run a second one.
+  worker:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://dynadot:dynadot@db:5432/dynadot_bot
+      REGISTRATION_WORKER_ENABLED: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python -m app.worker
+    restart: unless-stopped
+
 volumes:
   pgdata:

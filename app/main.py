@@ -149,7 +149,30 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     _register_exception_handlers(app)
+    _mount_frontend(app)
     return app
+
+
+def _mount_frontend(app: FastAPI) -> None:
+    """Serve the built TMA / admin bundle when it exists.
+
+    Mounted last so it can own ``/`` without shadowing the API routes. A
+    missing ``dist`` is normal (API-only deploys, tests, a separately hosted
+    CDN) and must not fail startup.
+    """
+    from pathlib import Path
+
+    dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+    if not dist.is_dir():
+        logger.info("frontend bundle not found; serving API only")
+        return
+
+    from fastapi.staticfiles import StaticFiles
+
+    # html=True makes the mount serve index.html for unknown paths, which is
+    # what a client-side app needs.
+    app.mount("/", StaticFiles(directory=str(dist), html=True), name="frontend")
+    logger.info("frontend mounted", extra={"path": str(dist)})
 
 
 def _register_exception_handlers(app: FastAPI) -> None:
