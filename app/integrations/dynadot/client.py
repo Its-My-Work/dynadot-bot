@@ -376,13 +376,25 @@ class DynadotClient:
         )
 
     async def bulk_search(self, domains: list[str]) -> dict[str, Any]:
-        """Availability for many domains — always prefer this over N searches."""
-        return await self._request(
-            "GET",
-            "/domains/bulk_search",
-            params={"domain_name_list": ",".join(domains), "show_price": True},
-            priority=Priority.LOW,
-        )
+        """Availability for many domains — chunked to Dynadot's 5-domain cap."""
+        if not domains:
+            return {"domain_result_list": []}
+
+        chunk_size = 5
+        merged_results: list[dict[str, Any]] = []
+
+        for i in range(0, len(domains), chunk_size):
+            chunk = domains[i : i + chunk_size]
+            res = await self._request(
+                "GET",
+                "/domains/bulk_search",
+                params={"domain_name_list": ",".join(chunk), "show_price": True},
+                priority=Priority.LOW,
+            )
+            items = res.get("domain_result_list") or []
+            merged_results.extend(items)
+
+        return {"domain_result_list": merged_results}
 
     async def get_tld_prices(self, currency: str = "USD") -> dict[str, Any]:
         return await self._request(
