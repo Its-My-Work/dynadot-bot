@@ -126,6 +126,17 @@ describe('CheckoutScreen contact gate', () => {
     expect(await screen.findByText('Owner details')).toBeInTheDocument();
   });
 
+  it('allows going back from owner details via back button', async () => {
+    vi.spyOn(api, 'contacts').mockResolvedValue([]);
+    const onDone = vi.fn();
+    render(<CheckoutScreen t={t} telegramId={1} candidate={candidate} onDone={onDone} />);
+
+    const backButtons = await screen.findAllByRole('button', { name: /Back/i });
+    expect(backButtons.length).toBeGreaterThan(0);
+    await userEvent.click(backButtons[0]);
+    expect(onDone).toHaveBeenCalled();
+  });
+
   it('saves a contact and moves on to payment', async () => {
     vi.spyOn(api, 'contacts').mockResolvedValue([]);
     const createSpy = vi.spyOn(api, 'createContact').mockResolvedValue({ id: 'c1' });

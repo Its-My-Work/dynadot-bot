@@ -44,7 +44,7 @@ export function validateContact(values) {
   return { ok: true, missing: [] };
 }
 
-export default function ContactForm({ t, onSubmit, submitting = false }) {
+export default function ContactForm({ t, onSubmit, onCancel, submitting = false }) {
   const [values, setValues] = useState(EMPTY);
   const [touched, setTouched] = useState(false);
 
@@ -118,10 +118,26 @@ export default function ContactForm({ t, onSubmit, submitting = false }) {
         </p>
       ) : null}
 
-      <button type="submit" className="btn-primary w-full" disabled={submitting}>
-        {submitting ? <Spinner /> : null}
-        {t('contact.save')}
-      </button>
+      <div className="flex items-center gap-2 pt-1">
+        {onCancel ? (
+          <button
+            type="button"
+            className="btn-ghost flex-1 py-2.5 text-sm"
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            {t('common.back')}
+          </button>
+        ) : null}
+        <button
+          type="submit"
+          className="btn-primary flex-1 py-2.5 text-sm"
+          disabled={submitting}
+        >
+          {submitting ? <Spinner /> : null}
+          {t('contact.save')}
+        </button>
+      </div>
     </form>
   );
 }

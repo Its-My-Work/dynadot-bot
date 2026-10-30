@@ -181,10 +181,10 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
   if (needsContact) {
     return (
       <div className="space-y-4">
-        <Header domain={candidate.domain} price={candidate.price_rub} t={t} />
+        <Header domain={candidate.domain} price={candidate.price_rub} t={t} onBack={onDone} />
         <h2 className="text-sm font-medium">{t('buy.owner')}</h2>
         {error ? <ErrorNote message={error} /> : null}
-        <ContactForm t={t} onSubmit={saveContact} submitting={busy} />
+        <ContactForm t={t} onSubmit={saveContact} onCancel={onDone} submitting={busy} />
       </div>
     );
   }
@@ -193,7 +193,7 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
     const message = statusMessage(order.status, t);
     return (
       <div className="space-y-4">
-        <Header domain={order.domain_name} price={order.price_rub} t={t} />
+        <Header domain={order.domain_name} price={order.price_rub} t={t} onBack={onDone} />
 
         <div className="card space-y-3 p-4">
           <div className="flex items-center justify-between">
@@ -253,7 +253,12 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
 
   return (
     <div className="space-y-4">
-      <Header domain={candidate.domain} price={candidate.price_rub * years} t={t} />
+      <Header
+        domain={candidate.domain}
+        price={candidate.price_rub * years}
+        t={t}
+        onBack={onDone}
+      />
 
       <div className="card divide-y divide-line">
         <div className="flex items-center justify-between p-4">
@@ -311,13 +316,27 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
   );
 }
 
-function Header({ domain, price, t }) {
+function Header({ domain, price, t, onBack }) {
   return (
-    <div className="space-y-1">
-      <h1 className="text-xl font-semibold tracking-tight">{domain}</h1>
-      <p className="text-sm text-muted">
-        {formatPrice(price, t.language)} ₽
-      </p>
+    <div className="space-y-2">
+      {onBack ? (
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1 text-xs font-medium text-muted transition-colors hover:text-ink cursor-pointer py-1"
+        >
+          <span aria-hidden="true">←</span>
+          <span>{t('common.back')}</span>
+        </button>
+      ) : null}
+      <div className="space-y-0.5">
+        <h1 className="text-xl font-semibold tracking-tight">{domain}</h1>
+        {price !== undefined ? (
+          <p className="text-sm text-muted">
+            {formatPrice(price, t.language)} ₽
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
