@@ -19,10 +19,11 @@ class Theme(str, enum.Enum):
     """
 
     ONYX_NEON = "onyx-neon"
-    VERCEL_MONO = "vercel-mono"
     LINEAR_INDIGO = "linear-indigo"
-    SOLANA_CYBER = "solana-cyber"
+    SUNSET_CRIMSON = "sunset-crimson"
     NORDIC_MIST = "nordic-mist"
+    EMERALD_SPRING = "emerald-spring"
+    SOLAR_AMBER = "solar-amber"
 
 
 DEFAULT_THEME = Theme.ONYX_NEON

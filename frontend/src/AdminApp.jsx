@@ -784,6 +784,25 @@ function ApiLogs({ language }) {
 
 // ------------------------------------------------------------------ settings
 
+function KeyBadge({ configured, language }) {
+  const isRu = language === 'ru';
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+        configured ? 'bg-ok/15 text-ok' : 'bg-muted/15 text-muted'
+      }`}
+    >
+      {configured
+        ? isRu
+          ? 'Активен'
+          : 'Configured'
+        : isRu
+          ? 'Не задан'
+          : 'Not set'}
+    </span>
+  );
+}
+
 function Settings({ language }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -791,12 +810,38 @@ function Settings({ language }) {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [error, setError] = useState(null);
 
+  // Financial
   const [fxRate, setFxRate] = useState('95.0');
   const [markup, setMarkup] = useState('25.0');
+  const [vpsTermDays, setVpsTermDays] = useState('30');
+
+  // Dynadot
   const [baseUrl, setBaseUrl] = useState('https://api-sandbox.dynadot.com');
+  const [dynadotKey, setDynadotKey] = useState('');
+  const [dynadotSecret, setDynadotSecret] = useState('');
+
+  // Platega
+  const [merchantId, setMerchantId] = useState('');
+  const [plategaSecret, setPlategaSecret] = useState('');
+  const [plategaBaseUrl, setPlategaBaseUrl] = useState('https://app.platega.io');
+  const [paymentMethod, setPaymentMethod] = useState('2');
+
+  // VPS
+  const [vpsProvider, setVpsProvider] = useState('mock');
+  const [timewebToken, setTimewebToken] = useState('');
+  const [aezaToken, setAezaToken] = useState('');
+  const [pqToken, setPqToken] = useState('');
+  const [realitySni, setRealitySni] = useState('www.microsoft.com');
+
+  // Telegram
+  const [telegramToken, setTelegramToken] = useState('');
+  const [supportUsername, setSupportUsername] = useState('');
+
+  // Worker
   const [workerEnabled, setWorkerEnabled] = useState(true);
 
   const t = makeTranslator(language);
+  const isRu = language === 'ru';
 
   const load = useCallback(() => {
     setLoading(true);
@@ -807,7 +852,14 @@ function Settings({ language }) {
         setData(cfg);
         setFxRate(String(cfg.usd_to_rub_rate ?? 95.0));
         setMarkup(String(cfg.default_markup_percent ?? 25.0));
+        setVpsTermDays(String(cfg.vps_term_days ?? 30));
         setBaseUrl(cfg.dynadot_base_url || 'https://api-sandbox.dynadot.com');
+        setMerchantId(cfg.platega_merchant_id || '');
+        setPlategaBaseUrl(cfg.platega_base_url || 'https://app.platega.io');
+        setPaymentMethod(String(cfg.platega_payment_method ?? 2));
+        setVpsProvider(cfg.vps_provider || 'mock');
+        setRealitySni(cfg.vps_reality_sni || 'www.microsoft.com');
+        setSupportUsername(cfg.support_username || '');
         setWorkerEnabled(Boolean(cfg.registration_worker_enabled));
       })
       .catch(() => setError('Could not load system settings.'))
@@ -822,14 +874,38 @@ function Settings({ language }) {
     setSavedSuccess(false);
     setError(null);
 
+    const payload = {
+      usd_to_rub_rate: Number(fxRate),
+      default_markup_percent: Number(markup),
+      vps_term_days: Number(vpsTermDays),
+      dynadot_base_url: baseUrl,
+      platega_merchant_id: merchantId.trim() || null,
+      platega_base_url: plategaBaseUrl.trim() || undefined,
+      platega_payment_method: Number(paymentMethod) || 2,
+      vps_provider: vpsProvider,
+      vps_reality_sni: realitySni.trim() || undefined,
+      support_username: supportUsername.trim() || null,
+      registration_worker_enabled: workerEnabled,
+    };
+
+    if (dynadotKey.trim()) payload.dynadot_api_key = dynadotKey.trim();
+    if (dynadotSecret.trim()) payload.dynadot_api_secret = dynadotSecret.trim();
+    if (plategaSecret.trim()) payload.platega_secret = plategaSecret.trim();
+    if (timewebToken.trim()) payload.timeweb_api_token = timewebToken.trim();
+    if (aezaToken.trim()) payload.aeza_api_token = aezaToken.trim();
+    if (pqToken.trim()) payload.pq_hosting_api_token = pqToken.trim();
+    if (telegramToken.trim()) payload.telegram_bot_token = telegramToken.trim();
+
     try {
-      const updated = await api.updateAdminSettings({
-        usd_to_rub_rate: Number(fxRate),
-        default_markup_percent: Number(markup),
-        dynadot_base_url: baseUrl,
-        registration_worker_enabled: workerEnabled,
-      });
+      const updated = await api.updateAdminSettings(payload);
       setData(updated);
+      setDynadotKey('');
+      setDynadotSecret('');
+      setPlategaSecret('');
+      setTimewebToken('');
+      setAezaToken('');
+      setPqToken('');
+      setTelegramToken('');
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 4000);
     } catch {
@@ -839,11 +915,11 @@ function Settings({ language }) {
     }
   }
 
-  if (loading) return <SkeletonList rows={4} />;
+  if (loading) return <SkeletonList rows={5} />;
   if (error && !data) return <ErrorNote message={error} onRetry={load} />;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h2 className="text-base font-semibold text-ink">{t('admin.settings.title')}</h2>
         <p className="mt-1 text-xs text-muted">{t('admin.settings.subtitle')}</p>
@@ -857,14 +933,14 @@ function Settings({ language }) {
 
       {error ? <ErrorNote message={error} /> : null}
 
-      <form onSubmit={handleSave} className="space-y-4">
-        {/* Finance */}
+      <form onSubmit={handleSave} className="space-y-5">
+        {/* 1. Finance & Pricing */}
         <div className="card space-y-4 p-5">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
             {t('admin.settings.finance')}
           </h3>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-ink">
                 {t('admin.settings.fx_rate')} (₽)
@@ -896,26 +972,30 @@ function Settings({ language }) {
               />
               <p className="mt-1 text-[11px] text-muted">{t('admin.settings.markup_hint')}</p>
             </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">
+                {t('admin.settings.vps_term')}
+              </label>
+              <input
+                type="number"
+                min="1"
+                required
+                value={vpsTermDays}
+                onChange={(e) => setVpsTermDays(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm tabular-nums text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Dynadot */}
+        {/* 2. Dynadot Domain Registrar */}
         <div className="card space-y-4 p-5">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
               {t('admin.settings.dynadot')}
             </h3>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                data?.dynadot_configured
-                  ? 'bg-ok/15 text-ok'
-                  : 'bg-muted/15 text-muted'
-              }`}
-            >
-              {data?.dynadot_configured
-                ? language === 'ru' ? 'Ключ подключен' : 'API Key active'
-                : language === 'ru' ? 'Ключ не настроен' : 'No API key'}
-            </span>
+            <KeyBadge configured={data?.dynadot_configured} language={language} />
           </div>
 
           <div>
@@ -935,9 +1015,215 @@ function Settings({ language }) {
               </option>
             </select>
           </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-medium text-ink">
+                  {t('admin.settings.dynadot_key')}
+                </label>
+                <KeyBadge configured={data?.has_dynadot_api_key} language={language} />
+              </div>
+              <input
+                type="password"
+                placeholder={data?.has_dynadot_api_key ? '••••••••••••' : 'Вставьте API Key'}
+                value={dynadotKey}
+                onChange={(e) => setDynadotKey(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-medium text-ink">
+                  {t('admin.settings.dynadot_secret')}
+                </label>
+                <KeyBadge configured={data?.has_dynadot_api_secret} language={language} />
+              </div>
+              <input
+                type="password"
+                placeholder={data?.has_dynadot_api_secret ? '••••••••••••' : 'Вставьте API Secret'}
+                value={dynadotSecret}
+                onChange={(e) => setDynadotSecret(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Worker */}
+        {/* 3. Platega Payment Gateway */}
+        <div className="card space-y-4 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+              {t('admin.settings.platega_section')}
+            </h3>
+            <KeyBadge configured={data?.platega_configured} language={language} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">
+                {t('admin.settings.platega_merchant')}
+              </label>
+              <input
+                type="text"
+                placeholder="2793"
+                value={merchantId}
+                onChange={(e) => setMerchantId(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-medium text-ink">
+                  {t('admin.settings.platega_secret')}
+                </label>
+                <KeyBadge configured={data?.has_platega_secret} language={language} />
+              </div>
+              <input
+                type="password"
+                placeholder={data?.has_platega_secret ? '••••••••••••' : 'Вставьте секрет'}
+                value={plategaSecret}
+                onChange={(e) => setPlategaSecret(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 4. VPS Providers */}
+        <div className="card space-y-4 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+              {t('admin.settings.vps_section')}
+            </h3>
+            <KeyBadge configured={data?.vps_configured} language={language} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">
+                {t('admin.settings.vps_active')}
+              </label>
+              <select
+                value={vpsProvider}
+                onChange={(e) => setVpsProvider(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              >
+                <option value="timeweb">Timeweb Cloud</option>
+                <option value="aeza">Aeza</option>
+                <option value="pq_hosting">PQ.Hosting</option>
+                <option value="mock">Тестовый Mock (без списаний)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">
+                {t('admin.settings.vps_sni')}
+              </label>
+              <input
+                type="text"
+                value={realitySni}
+                onChange={(e) => setRealitySni(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-medium text-ink">
+                  {t('admin.settings.timeweb_token')}
+                </label>
+                <KeyBadge configured={data?.has_timeweb_api_token} language={language} />
+              </div>
+              <input
+                type="password"
+                placeholder={data?.has_timeweb_api_token ? '••••••••••••' : 'Bearer токен Timeweb'}
+                value={timewebToken}
+                onChange={(e) => setTimewebToken(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-medium text-ink">
+                  {t('admin.settings.aeza_token')}
+                </label>
+                <KeyBadge configured={data?.has_aeza_api_token} language={language} />
+              </div>
+              <input
+                type="password"
+                placeholder={data?.has_aeza_api_token ? '••••••••••••' : 'API ключ Aeza'}
+                value={aezaToken}
+                onChange={(e) => setAezaToken(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-medium text-ink">
+                  {t('admin.settings.pq_token')}
+                </label>
+                <KeyBadge configured={data?.has_pq_hosting_api_token} language={language} />
+              </div>
+              <input
+                type="password"
+                placeholder={data?.has_pq_hosting_api_token ? '••••••••••••' : 'API ключ PQ.Hosting'}
+                value={pqToken}
+                onChange={(e) => setPqToken(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Telegram Bot & Support */}
+        <div className="card space-y-4 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+              {t('admin.settings.telegram_section')}
+            </h3>
+            <KeyBadge configured={data?.telegram_configured} language={language} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-medium text-ink">
+                  {t('admin.settings.telegram_token')}
+                </label>
+                <KeyBadge configured={data?.has_telegram_bot_token} language={language} />
+              </div>
+              <input
+                type="password"
+                placeholder={data?.has_telegram_bot_token ? '••••••••••••' : '123456:ABC-DEF...'}
+                value={telegramToken}
+                onChange={(e) => setTelegramToken(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">
+                {t('admin.settings.support_user')}
+              </label>
+              <input
+                type="text"
+                placeholder="@support"
+                value={supportUsername}
+                onChange={(e) => setSupportUsername(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Worker & System */}
         <div className="card space-y-3 p-5">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
             {t('admin.settings.worker')}
@@ -959,19 +1245,11 @@ function Settings({ language }) {
         {/* System info */}
         <div className="card flex items-center justify-between p-4 text-xs text-muted">
           <span>
-            {language === 'ru' ? 'Окружение:' : 'Environment:'}{' '}
+            {isRu ? 'Окружение:' : 'Environment:'}{' '}
             <strong className="text-ink font-medium">{data?.environment || 'prod'}</strong>
           </span>
           <span>
-            Platega:{' '}
-            <strong className={data?.platega_configured ? 'text-ok font-medium' : 'text-muted font-normal'}>
-              {data?.platega_configured
-                ? language === 'ru' ? 'Подключена' : 'Configured'
-                : language === 'ru' ? 'Не настроена' : 'Unconfigured'}
-            </strong>
-          </span>
-          <span>
-            {language === 'ru' ? 'Версия:' : 'Version:'}{' '}
+            {isRu ? 'Версия:' : 'Version:'}{' '}
             <strong className="text-ink font-medium">{data?.app_version || '0.1.0'}</strong>
           </span>
         </div>

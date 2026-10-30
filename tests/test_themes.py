@@ -68,10 +68,11 @@ def seeded_user() -> int:
 
 EXPECTED_IDS = [
     "onyx-neon",
-    "vercel-mono",
     "linear-indigo",
-    "solana-cyber",
+    "sunset-crimson",
     "nordic-mist",
+    "emerald-spring",
+    "solar-amber",
 ]
 
 CSS_VARIABLES = (
@@ -212,13 +213,13 @@ def test_new_user_gets_the_default_theme(client, seeded_user) -> None:
 
 def test_set_theme_persists_and_is_returned(client, seeded_user) -> None:
     patch = client.patch(
-        f"/api/v1/users/{seeded_user}/theme", json={"theme": "solana-cyber"}
+        f"/api/v1/users/{seeded_user}/theme", json={"theme": "sunset-crimson"}
     )
     assert patch.status_code == 200
-    assert patch.json()["theme"] == "solana-cyber"
+    assert patch.json()["theme"] == "sunset-crimson"
 
     # Re-read: the value must come back from the database, not just the echo.
-    assert client.get(f"/api/v1/users/{seeded_user}").json()["theme"] == "solana-cyber"
+    assert client.get(f"/api/v1/users/{seeded_user}").json()["theme"] == "sunset-crimson"
 
 
 def test_set_theme_rejects_an_unknown_theme(client, seeded_user) -> None:
@@ -235,10 +236,10 @@ def test_set_theme_on_a_missing_user_is_404(client) -> None:
 
 def test_theme_does_not_disturb_the_language_preference(client, seeded_user) -> None:
     client.patch(f"/api/v1/users/{seeded_user}/language", json={"language": "en"})
-    client.patch(f"/api/v1/users/{seeded_user}/theme", json={"theme": "vercel-mono"})
+    client.patch(f"/api/v1/users/{seeded_user}/theme", json={"theme": "emerald-spring"})
     user = client.get(f"/api/v1/users/{seeded_user}").json()
     assert user["language"] == "en"
-    assert user["theme"] == "vercel-mono"
+    assert user["theme"] == "emerald-spring"
 
 
 def test_migration_enum_matches_the_model() -> None:

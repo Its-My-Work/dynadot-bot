@@ -23,10 +23,11 @@ depends_on: str | Sequence[str] | None = None
 
 THEME_ENUM = sa.Enum(
     'ONYX_NEON',
-    'VERCEL_MONO',
     'LINEAR_INDIGO',
-    'SOLANA_CYBER',
+    'SUNSET_CRIMSON',
     'NORDIC_MIST',
+    'EMERALD_SPRING',
+    'SOLAR_AMBER',
     name='theme',
     native_enum=False,
     length=32,

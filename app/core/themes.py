@@ -24,14 +24,8 @@ from app.schemas import ThemeInfo, ThemesResponse
 THEMES: tuple[ThemeInfo, ...] = (
     ThemeInfo(
         id=Theme.ONYX_NEON,
-        name="Onyx Neon",
-        accent="#5e86ff",
-        scheme="dark",
-    ),
-    ThemeInfo(
-        id=Theme.VERCEL_MONO,
-        name="Vercel Mono",
-        accent="#ffffff",
+        name="Cyber Neon",
+        accent="#00f0ff",
         scheme="dark",
     ),
     ThemeInfo(
@@ -41,15 +35,27 @@ THEMES: tuple[ThemeInfo, ...] = (
         scheme="dark",
     ),
     ThemeInfo(
-        id=Theme.SOLANA_CYBER,
-        name="Solana Cyber",
-        accent="#14f195",
+        id=Theme.SUNSET_CRIMSON,
+        name="Sunset Crimson",
+        accent="#ff3366",
         scheme="dark",
     ),
     ThemeInfo(
         id=Theme.NORDIC_MIST,
         name="Nordic Mist",
         accent="#2f6fed",
+        scheme="light",
+    ),
+    ThemeInfo(
+        id=Theme.EMERALD_SPRING,
+        name="Emerald Spring",
+        accent="#047857",
+        scheme="light",
+    ),
+    ThemeInfo(
+        id=Theme.SOLAR_AMBER,
+        name="Solar Amber",
+        accent="#c2410c",
         scheme="light",
     ),
 )

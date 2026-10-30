@@ -15,6 +15,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import SecretStr
 from sqlalchemy import func, select
 
 from app.api.deps import DbSession, Dynadot, Translate, require_admin
@@ -328,14 +329,57 @@ async def get_admin_settings(session: DbSession) -> AdminSettingsRead:
     rows = (await session.scalars(select(AppSetting))).all()
     db_map = {r.key: r.value for r in rows if r.value is not None}
 
+    def has_secret(key: str, s_val: SecretStr | None) -> bool:
+        return bool(db_map.get(key) or (s_val.get_secret_value() if s_val else None))
+
+    dynadot_ok = bool(
+        has_secret("dynadot_api_key", settings.dynadot_api_key)
+        and has_secret("dynadot_api_secret", settings.dynadot_api_secret)
+    )
+    platega_ok = bool(
+        (db_map.get("platega_merchant_id") or settings.platega_merchant_id)
+        and has_secret("platega_secret", settings.platega_secret)
+    )
+    tw_ok = has_secret("timeweb_api_token", settings.timeweb_api_token)
+    aeza_ok = has_secret("aeza_api_token", settings.aeza_api_token)
+    pq_ok = has_secret("pq_hosting_api_token", settings.pq_hosting_api_token)
+    tg_ok = has_secret("telegram_bot_token", settings.telegram_bot_token)
+    cur_provider = str(db_map.get("vps_provider", settings.vps_provider))
+
     return AdminSettingsRead(
         usd_to_rub_rate=float(db_map.get("usd_to_rub_rate", settings.usd_to_rub_rate)),
         default_markup_percent=float(
             db_map.get("default_markup_percent", settings.default_markup_percent)
         ),
+        vps_term_days=int(db_map.get("vps_term_days", settings.vps_term_days)),
         dynadot_base_url=str(db_map.get("dynadot_base_url", settings.dynadot_base_url)),
-        dynadot_configured=settings.dynadot_configured,
-        platega_configured=settings.platega_configured,
+        dynadot_configured=dynadot_ok,
+        has_dynadot_api_key=has_secret("dynadot_api_key", settings.dynadot_api_key),
+        has_dynadot_api_secret=has_secret("dynadot_api_secret", settings.dynadot_api_secret),
+        platega_merchant_id=db_map.get("platega_merchant_id", settings.platega_merchant_id),
+        platega_base_url=str(db_map.get("platega_base_url", settings.platega_base_url)),
+        platega_payment_method=int(
+            db_map.get("platega_payment_method", settings.platega_payment_method)
+        ),
+        platega_configured=platega_ok,
+        has_platega_secret=has_secret("platega_secret", settings.platega_secret),
+        support_username=db_map.get("support_username", settings.support_username),
+        telegram_configured=tg_ok,
+        has_telegram_bot_token=tg_ok,
+        vps_provider=cur_provider,
+        vps_reality_sni=str(db_map.get("vps_reality_sni", settings.vps_reality_sni)),
+        vps_configured=cur_provider != "mock"
+        and (
+            (cur_provider == "timeweb" and tw_ok)
+            or (cur_provider == "aeza" and aeza_ok)
+            or (cur_provider == "pq_hosting" and pq_ok)
+        ),
+        timeweb_configured=tw_ok,
+        has_timeweb_api_token=tw_ok,
+        aeza_configured=aeza_ok,
+        has_aeza_api_token=aeza_ok,
+        pq_hosting_configured=pq_ok,
+        has_pq_hosting_api_token=pq_ok,
         registration_worker_enabled=db_map.get(
             "registration_worker_enabled", str(settings.registration_worker_enabled)
         ).lower()
@@ -359,6 +403,7 @@ async def update_admin_settings(
         else:
             row.value = val
 
+    # Financial & Pricing
     if payload.usd_to_rub_rate is not None:
         await _upsert("usd_to_rub_rate", str(payload.usd_to_rub_rate), "USD to RUB rate")
         settings.usd_to_rub_rate = payload.usd_to_rub_rate
@@ -371,10 +416,87 @@ async def update_admin_settings(
         )
         settings.default_markup_percent = payload.default_markup_percent
 
+    if payload.vps_term_days is not None:
+        await _upsert("vps_term_days", str(payload.vps_term_days), "VPS term days")
+        settings.vps_term_days = payload.vps_term_days
+
+    # Dynadot
     if payload.dynadot_base_url is not None:
         await _upsert("dynadot_base_url", str(payload.dynadot_base_url), "Dynadot API base URL")
         settings.dynadot_base_url = payload.dynadot_base_url
 
+    if payload.dynadot_api_key is not None and payload.dynadot_api_key.strip():
+        val = payload.dynadot_api_key.strip()
+        await _upsert("dynadot_api_key", val, "Dynadot API Key")
+        settings.dynadot_api_key = SecretStr(val)
+
+    if payload.dynadot_api_secret is not None and payload.dynadot_api_secret.strip():
+        val = payload.dynadot_api_secret.strip()
+        await _upsert("dynadot_api_secret", val, "Dynadot API Secret")
+        settings.dynadot_api_secret = SecretStr(val)
+
+    # Platega
+    if payload.platega_merchant_id is not None:
+        val = payload.platega_merchant_id.strip()
+        await _upsert("platega_merchant_id", val, "Platega Merchant ID")
+        settings.platega_merchant_id = val
+
+    if payload.platega_secret is not None and payload.platega_secret.strip():
+        val = payload.platega_secret.strip()
+        await _upsert("platega_secret", val, "Platega Secret")
+        settings.platega_secret = SecretStr(val)
+
+    if payload.platega_base_url is not None:
+        val = payload.platega_base_url.strip()
+        await _upsert("platega_base_url", val, "Platega Base URL")
+        settings.platega_base_url = val
+
+    if payload.platega_payment_method is not None:
+        await _upsert(
+            "platega_payment_method",
+            str(payload.platega_payment_method),
+            "Platega Payment Method",
+        )
+        settings.platega_payment_method = payload.platega_payment_method
+
+    # Telegram
+    if payload.telegram_bot_token is not None and payload.telegram_bot_token.strip():
+        val = payload.telegram_bot_token.strip()
+        await _upsert("telegram_bot_token", val, "Telegram Bot Token")
+        settings.telegram_bot_token = SecretStr(val)
+
+    if payload.support_username is not None:
+        val = payload.support_username.strip().lstrip("@")
+        await _upsert("support_username", val, "Support Telegram Username")
+        settings.support_username = val
+
+    # VPS
+    if payload.vps_provider is not None:
+        val = payload.vps_provider.strip().lower()
+        await _upsert("vps_provider", val, "Active VPS Provider")
+        settings.vps_provider = val
+
+    if payload.timeweb_api_token is not None and payload.timeweb_api_token.strip():
+        val = payload.timeweb_api_token.strip()
+        await _upsert("timeweb_api_token", val, "Timeweb Cloud API Token")
+        settings.timeweb_api_token = SecretStr(val)
+
+    if payload.aeza_api_token is not None and payload.aeza_api_token.strip():
+        val = payload.aeza_api_token.strip()
+        await _upsert("aeza_api_token", val, "Aeza API Token")
+        settings.aeza_api_token = SecretStr(val)
+
+    if payload.pq_hosting_api_token is not None and payload.pq_hosting_api_token.strip():
+        val = payload.pq_hosting_api_token.strip()
+        await _upsert("pq_hosting_api_token", val, "PQ.Hosting API Token")
+        settings.pq_hosting_api_token = SecretStr(val)
+
+    if payload.vps_reality_sni is not None:
+        val = payload.vps_reality_sni.strip()
+        await _upsert("vps_reality_sni", val, "VLESS Reality SNI Masquerade")
+        settings.vps_reality_sni = val
+
+    # Worker
     if payload.registration_worker_enabled is not None:
         await _upsert(
             "registration_worker_enabled",

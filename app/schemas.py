@@ -319,20 +319,75 @@ class AdminLoginResponse(BaseModel):
 
 
 class AdminSettingsRead(BaseModel):
+    # Financial & Pricing
     usd_to_rub_rate: float
     default_markup_percent: float
+    vps_term_days: int = 30
+
+    # Domain Registrar (Dynadot)
     dynadot_base_url: str
     dynadot_configured: bool
+    has_dynadot_api_key: bool = False
+    has_dynadot_api_secret: bool = False
+
+    # Payments (Platega)
+    platega_merchant_id: str | None = None
+    platega_base_url: str = "https://app.platega.io"
+    platega_payment_method: int = 2
     platega_configured: bool
+    has_platega_secret: bool = False
+
+    # Telegram
+    support_username: str | None = None
+    telegram_configured: bool = False
+    has_telegram_bot_token: bool = False
+
+    # VPS & VPN
+    vps_provider: str = "mock"
+    vps_reality_sni: str = "www.microsoft.com"
+    vps_configured: bool = False
+    timeweb_configured: bool = False
+    has_timeweb_api_token: bool = False
+    aeza_configured: bool = False
+    has_aeza_api_token: bool = False
+    pq_hosting_configured: bool = False
+    has_pq_hosting_api_token: bool = False
+
+    # Automation & System
     registration_worker_enabled: bool
     environment: str
     app_version: str = "0.1.0"
 
 
 class AdminSettingsUpdate(BaseModel):
+    # Financial & Pricing
     usd_to_rub_rate: float | None = None
     default_markup_percent: float | None = None
+    vps_term_days: int | None = None
+
+    # Domain Registrar (Dynadot)
     dynadot_base_url: str | None = None
+    dynadot_api_key: str | None = None
+    dynadot_api_secret: str | None = None
+
+    # Payments (Platega)
+    platega_merchant_id: str | None = None
+    platega_secret: str | None = None
+    platega_base_url: str | None = None
+    platega_payment_method: int | None = None
+
+    # Telegram
+    telegram_bot_token: str | None = None
+    support_username: str | None = None
+
+    # VPS & VPN
+    vps_provider: str | None = None
+    timeweb_api_token: str | None = None
+    aeza_api_token: str | None = None
+    pq_hosting_api_token: str | None = None
+    vps_reality_sni: str | None = None
+
+    # Automation
     registration_worker_enabled: bool | None = None
 
 

@@ -32,13 +32,14 @@ beforeEach(() => {
 });
 
 describe('theme registry', () => {
-  it('ships exactly the five commercial themes', () => {
+  it('ships exactly the six commercial themes (3 dark, 3 light)', () => {
     expect(THEME_IDS).toEqual([
       'onyx-neon',
-      'vercel-mono',
       'linear-indigo',
-      'solana-cyber',
+      'sunset-crimson',
       'nordic-mist',
+      'emerald-spring',
+      'solar-amber',
     ]);
   });
 
@@ -86,9 +87,9 @@ describe('theme registry', () => {
 
 describe('normalizeTheme', () => {
   it('accepts known ids and rejects everything else', () => {
-    expect(isTheme('solana-cyber')).toBe(true);
+    expect(isTheme('sunset-crimson')).toBe(true);
     expect(isTheme('nope')).toBe(false);
-    expect(normalizeTheme('vercel-mono')).toBe('vercel-mono');
+    expect(normalizeTheme('emerald-spring')).toBe('emerald-spring');
     expect(normalizeTheme('removed-theme')).toBe(DEFAULT_THEME);
     expect(normalizeTheme(undefined)).toBe(DEFAULT_THEME);
     expect(normalizeTheme(null, 'nordic-mist')).toBe('nordic-mist');
@@ -103,8 +104,8 @@ describe('normalizeTheme', () => {
 describe('persistence', () => {
   it('round-trips through localStorage', () => {
     expect(storedTheme()).toBeNull();
-    storeTheme('solana-cyber');
-    expect(storedTheme()).toBe('solana-cyber');
+    storeTheme('sunset-crimson');
+    expect(storedTheme()).toBe('sunset-crimson');
   });
 
   it('ignores a stale id left by a removed theme', () => {
@@ -119,7 +120,7 @@ describe('persistence', () => {
       .mockImplementation(() => {
         throw new Error('QuotaExceededError');
       });
-    expect(() => storeTheme('vercel-mono')).not.toThrow();
+    expect(() => storeTheme('emerald-spring')).not.toThrow();
     spy.mockRestore();
   });
 });
@@ -130,16 +131,16 @@ describe('applyThemeAttribute', () => {
     expect(document.documentElement.dataset.theme).toBe('nordic-mist');
     expect(document.documentElement.style.colorScheme).toBe('light');
 
-    applyThemeAttribute('solana-cyber');
-    expect(document.documentElement.dataset.theme).toBe('solana-cyber');
+    applyThemeAttribute('sunset-crimson');
+    expect(document.documentElement.dataset.theme).toBe('sunset-crimson');
     expect(document.documentElement.style.colorScheme).toBe('dark');
   });
 });
 
 describe('initialTheme', () => {
   it('prefers the saved choice over the client colour scheme', () => {
-    storeTheme('vercel-mono');
-    expect(initialTheme('light')).toBe('vercel-mono');
+    storeTheme('emerald-spring');
+    expect(initialTheme('light')).toBe('emerald-spring');
   });
 
   it('falls back to the light theme on a light client', () => {
@@ -152,10 +153,10 @@ describe('initialTheme', () => {
 describe('applyTheme (Telegram bridge)', () => {
   it('honours an explicit choice over the client scheme', () => {
     window.Telegram = { WebApp: { colorScheme: 'light' } };
-    storeTheme('solana-cyber');
+    storeTheme('sunset-crimson');
     // A themeChanged event must not discard what the user picked.
-    expect(applyTheme()).toBe('solana-cyber');
-    expect(document.documentElement.dataset.theme).toBe('solana-cyber');
+    expect(applyTheme()).toBe('sunset-crimson');
+    expect(document.documentElement.dataset.theme).toBe('sunset-crimson');
   });
 
   it('uses the light theme for a light client with no saved choice', () => {
@@ -186,11 +187,11 @@ describe('ThemePicker', () => {
   });
 
   it('marks the active theme as selected', async () => {
-    render(<ThemePicker theme="solana-cyber" onSelect={() => {}} />);
+    render(<ThemePicker theme="sunset-crimson" onSelect={() => {}} />);
     await userEvent.click(screen.getByTestId('theme-trigger'));
     const option = screen
       .getByTestId('theme-menu')
-      .querySelector('[data-theme-option="solana-cyber"]');
+      .querySelector('[data-theme-option="sunset-crimson"]');
     expect(option).toHaveAttribute('aria-selected', 'true');
   });
 
@@ -229,13 +230,13 @@ describe('TMA theme switching', () => {
     render(<App />);
     await userEvent.click(await screen.findByTestId('theme-trigger'));
     await userEvent.click(
-      screen.getByTestId('theme-menu').querySelector('[data-theme-option="vercel-mono"]'),
+      screen.getByTestId('theme-menu').querySelector('[data-theme-option="emerald-spring"]'),
     );
 
-    expect(document.documentElement.dataset.theme).toBe('vercel-mono');
-    expect(window.localStorage.getItem('dynadot.theme')).toBe('vercel-mono');
+    expect(document.documentElement.dataset.theme).toBe('emerald-spring');
+    expect(window.localStorage.getItem('dynadot.theme')).toBe('emerald-spring');
     await waitFor(() =>
-      expect(setTheme).toHaveBeenCalledWith(TELEGRAM_ID, 'vercel-mono'),
+      expect(setTheme).toHaveBeenCalledWith(TELEGRAM_ID, 'emerald-spring'),
     );
   });
 
@@ -257,12 +258,12 @@ describe('TMA theme switching', () => {
     render(<App />);
     await userEvent.click(await screen.findByTestId('theme-trigger'));
     await userEvent.click(
-      screen.getByTestId('theme-menu').querySelector('[data-theme-option="solana-cyber"]'),
+      screen.getByTestId('theme-menu').querySelector('[data-theme-option="sunset-crimson"]'),
     );
 
     // Optimistic: a failed PATCH must not revert what the user sees.
-    expect(document.documentElement.dataset.theme).toBe('solana-cyber');
-    expect(window.localStorage.getItem('dynadot.theme')).toBe('solana-cyber');
+    expect(document.documentElement.dataset.theme).toBe('sunset-crimson');
+    expect(window.localStorage.getItem('dynadot.theme')).toBe('sunset-crimson');
   });
 
   it('does not let a late profile response override a fresh choice', async () => {
@@ -277,12 +278,12 @@ describe('TMA theme switching', () => {
     render(<App />);
     await userEvent.click(await screen.findByTestId('theme-trigger'));
     await userEvent.click(
-      screen.getByTestId('theme-menu').querySelector('[data-theme-option="vercel-mono"]'),
+      screen.getByTestId('theme-menu').querySelector('[data-theme-option="emerald-spring"]'),
     );
 
     resolveUser({ language: 'ru', theme: 'linear-indigo' });
     await waitFor(() =>
-      expect(document.documentElement.dataset.theme).toBe('vercel-mono'),
+      expect(document.documentElement.dataset.theme).toBe('emerald-spring'),
     );
   });
 });

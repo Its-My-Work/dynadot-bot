@@ -18,48 +18,24 @@
  * in `models.enums.Theme`. Tests assert the three lists match.
  * ======================================================================== */
 
-/* Default: Onyx Neon — near-black surfaces, one restrained electric accent. */
+/* Default: Cyber Neon — near-black surfaces, electric cyan accent. */
 :root,
 :root[data-theme='onyx-neon'] {
   --c-bg: 8 9 10;
-  --c-surface: 16 16 19;
-  --c-elevated: 24 24 28;
-  --c-line: 38 38 44;
-  --c-ink: 244 244 246;
-  --c-muted: 154 154 165;
-  --c-faint: 104 104 116;
-  --c-accent: 94 134 255;
-  /* Dark ink on the bright accent, not white: white-on-#5e86ff is only 3.3:1
-   * and every primary button in the app uses this pair. Keeping the accent
-   * bright (rather than darkening it to carry white text) preserves its
-   * contrast when used as link/icon colour on the near-black background. */
-  --c-accent-ink: 8 9 10;
-  --c-ok: 62 198 128;
-  --c-warn: 234 179 8;
-  --c-danger: 244 94 94;
+  --c-surface: 16 17 22;
+  --c-elevated: 25 27 36;
+  --c-line: 40 43 58;
+  --c-ink: 245 248 255;
+  --c-muted: 150 158 178;
+  --c-faint: 95 102 120;
+  --c-accent: 0 240 255;
+  --c-accent-ink: 5 12 18;
+  --c-ok: 0 230 153;
+  --c-warn: 255 197 61;
+  --c-danger: 255 77 106;
 }
 
-/* Vercel Mono — pure greyscale, white as the accent. Maximum contrast, zero
- * chroma: the accent is the absence of colour, so status colours do all the
- * semantic work. */
-:root[data-theme='vercel-mono'] {
-  --c-bg: 0 0 0;
-  --c-surface: 10 10 10;
-  --c-elevated: 23 23 23;
-  --c-line: 38 38 38;
-  --c-ink: 250 250 250;
-  --c-muted: 161 161 170;
-  --c-faint: 115 115 115;
-  --c-accent: 255 255 255;
-  --c-accent-ink: 0 0 0;
-  --c-ok: 45 164 78;
-  --c-warn: 245 166 35;
-  --c-danger: 232 64 64;
-}
-
-/* Linear Indigo — cool blue-tinted greys with a violet accent. Surfaces carry
- * a few points of blue so the indigo accent reads as part of the palette
- * rather than sitting on top of neutral grey. */
+/* Linear Indigo — cool blue-tinted greys with a violet accent. */
 :root[data-theme='linear-indigo'] {
   --c-bg: 15 16 23;
   --c-surface: 22 23 33;
@@ -69,32 +45,29 @@
   --c-muted: 152 155 178;
   --c-faint: 108 111 133;
   --c-accent: 139 127 255;
-  /* Dark ink for the same reason as onyx-neon: white on this violet is 3.2:1. */
   --c-accent-ink: 12 10 24;
   --c-ok: 76 199 140;
   --c-warn: 240 180 41;
   --c-danger: 235 87 87;
 }
 
-/* Solana Cyber — deep purple-black with a mint/green accent. The accent is
- * light, so `--c-accent-ink` is dark: white-on-mint fails contrast. */
-:root[data-theme='solana-cyber'] {
-  --c-bg: 10 7 18;
-  --c-surface: 19 13 32;
-  --c-elevated: 29 20 48;
-  --c-line: 52 36 82;
-  --c-ink: 243 240 250;
-  --c-muted: 166 155 192;
-  --c-faint: 120 108 148;
-  --c-accent: 20 241 149;
-  --c-accent-ink: 7 10 8;
-  --c-ok: 20 241 149;
-  --c-warn: 255 193 71;
-  --c-danger: 255 93 122;
+/* Sunset Crimson — deep volcanic coal with a vibrant crimson flame accent. */
+:root[data-theme='sunset-crimson'] {
+  --c-bg: 18 12 15;
+  --c-surface: 27 19 24;
+  --c-elevated: 38 27 34;
+  --c-line: 60 42 53;
+  --c-ink: 252 242 245;
+  --c-muted: 188 156 167;
+  --c-faint: 130 102 113;
+  --c-accent: 255 51 102;
+  --c-accent-ink: 18 12 15;
+  --c-ok: 34 197 94;
+  --c-warn: 245 158 11;
+  --c-danger: 239 68 68;
 }
 
-/* Nordic Mist — the one light theme. Also what Telegram's light colour scheme
- * maps onto, so a user on a light client is never shown a dark app. */
+/* Nordic Mist — clean Scandinavian arctic porcelain with royal cobalt blue. */
 :root[data-theme='nordic-mist'] {
   --c-bg: 247 248 250;
   --c-surface: 255 255 255;
@@ -108,6 +81,38 @@
   --c-ok: 26 148 95;
   --c-warn: 181 125 10;
   --c-danger: 204 54 54;
+}
+
+/* Emerald Spring — fresh sage-mint light porcelain with deep vivid emerald. */
+:root[data-theme='emerald-spring'] {
+  --c-bg: 244 249 246;
+  --c-surface: 255 255 255;
+  --c-elevated: 234 243 238;
+  --c-line: 209 228 218;
+  --c-ink: 18 36 28;
+  --c-muted: 74 105 90;
+  --c-faint: 120 152 136;
+  --c-accent: 4 120 87;
+  --c-accent-ink: 255 255 255;
+  --c-ok: 4 120 87;
+  --c-warn: 217 119 6;
+  --c-danger: 220 38 38;
+}
+
+/* Solar Amber — warm sun-drenched ivory with radiant golden amber. */
+:root[data-theme='solar-amber'] {
+  --c-bg: 254 250 245;
+  --c-surface: 255 255 255;
+  --c-elevated: 251 242 231;
+  --c-line: 240 224 205;
+  --c-ink: 43 27 16;
+  --c-muted: 115 85 60;
+  --c-faint: 179 146 120;
+  --c-accent: 194 65 12;
+  --c-accent-ink: 255 255 255;
+  --c-ok: 22 163 74;
+  --c-warn: 217 119 6;
+  --c-danger: 220 38 38;
 }
 
 /* Telegram's light colour scheme, kept as an alias for backwards
