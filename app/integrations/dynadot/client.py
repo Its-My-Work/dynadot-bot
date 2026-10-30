@@ -77,7 +77,13 @@ class DynadotClient:
     # ------------------------------------------------------------------ setup
 
     async def start(self) -> None:
-        if self._client is None:
+        if (
+            self._client is None
+            or str(self._client.base_url).rstrip("/")
+            != str(self._settings.dynadot_base_url).rstrip("/")
+        ):
+            if self._client is not None and self._owns_client:
+                await self._client.aclose()
             self._client = httpx.AsyncClient(
                 base_url=self._settings.dynadot_base_url,
                 timeout=httpx.Timeout(self._settings.dynadot_timeout_seconds),
@@ -85,6 +91,28 @@ class DynadotClient:
             )
             self._owns_client = True
         await self._queue.start()
+
+    def update_config(
+        self,
+        *,
+        api_key: str | None = None,
+        api_secret: str | None = None,
+        base_url: str | None = None,
+    ) -> None:
+        """Dynamically update client configuration and force HTTP client re-creation."""
+        from pydantic import SecretStr
+
+        if api_key:
+            self._settings.dynadot_api_key = SecretStr(api_key)
+        if api_secret:
+            self._settings.dynadot_api_secret = SecretStr(api_secret)
+        if base_url:
+            self._settings.dynadot_base_url = base_url
+        # If client base URL changed, reset client so it reconnects on next call
+        if self._client is not None and str(self._client.base_url).rstrip("/") != str(
+            self._settings.dynadot_base_url
+        ).rstrip("/"):
+            self._client = None
 
     async def aclose(self) -> None:
         await self._queue.stop()
@@ -147,7 +175,11 @@ class DynadotClient:
         request_id: str | None,
     ) -> dict[str, Any]:
         api_key, api_secret = self._credentials()
-        if self._client is None:
+        if (
+            self._client is None
+            or str(self._client.base_url).rstrip("/")
+            != str(self._settings.dynadot_base_url).rstrip("/")
+        ):
             await self.start()
         assert self._client is not None
 

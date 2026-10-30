@@ -803,6 +803,65 @@ function KeyBadge({ configured, language }) {
   );
 }
 
+function TestConnectionButton({ provider, label, language }) {
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState(null);
+  const isRu = language === 'ru';
+
+  async function handleTest() {
+    setTesting(true);
+    setResult(null);
+    try {
+      const res = await api.testConnection(provider);
+      setResult(res);
+    } catch {
+      setResult({
+        ok: false,
+        message: isRu
+          ? 'Сетевая ошибка при проверке API'
+          : 'Network error during connection test',
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <button
+        type="button"
+        onClick={handleTest}
+        disabled={testing}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+      >
+        {testing ? <Spinner className="h-3 w-3" /> : <span>⚡</span>}
+        <span>
+          {testing
+            ? isRu
+              ? 'Проверка соединения…'
+              : 'Testing connection…'
+            : isRu
+              ? `Проверить подключение ${label ? `(${label})` : ''}`
+              : `Test connection ${label ? `(${label})` : ''}`}
+        </span>
+      </button>
+
+      {result ? (
+        <div
+          className={`rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+            result.ok
+              ? 'border-ok/30 bg-ok/10 text-ok'
+              : 'border-danger/30 bg-danger/10 text-danger'
+          }`}
+        >
+          <span className="mr-1.5 font-bold">{result.ok ? '✓' : '✕'}</span>
+          {result.message}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Settings({ language }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1049,6 +1108,8 @@ function Settings({ language }) {
               />
             </div>
           </div>
+
+          <TestConnectionButton provider="dynadot" label="Dynadot API" language={language} />
         </div>
 
         {/* 3. Platega Payment Gateway */}
@@ -1090,6 +1151,8 @@ function Settings({ language }) {
               />
             </div>
           </div>
+
+          <TestConnectionButton provider="platega" label="Platega" language={language} />
         </div>
 
         {/* 4. VPS Providers */}
@@ -1180,6 +1243,12 @@ function Settings({ language }) {
               />
             </div>
           </div>
+
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-line/50">
+            <TestConnectionButton provider="timeweb" label="Timeweb" language={language} />
+            <TestConnectionButton provider="aeza" label="Aeza" language={language} />
+            <TestConnectionButton provider="pq_hosting" label="PQ.Hosting" language={language} />
+          </div>
         </div>
 
         {/* 5. Telegram Bot & Support */}
@@ -1221,6 +1290,8 @@ function Settings({ language }) {
               />
             </div>
           </div>
+
+          <TestConnectionButton provider="telegram" label="Telegram Bot" language={language} />
         </div>
 
         {/* 6. Worker & System */}

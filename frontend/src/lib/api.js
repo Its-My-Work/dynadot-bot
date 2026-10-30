@@ -210,6 +210,8 @@ export const api = {
   adminSettings: () => request('/admin/settings'),
   updateAdminSettings: (data) =>
     request('/admin/settings', { method: 'PATCH', body: data }),
+  testConnection: (provider) =>
+    request(`/admin/test-connection/${provider}`, { method: 'POST' }),
 
   // --- vps & vpn -----------------------------------------------------------
   vpsLocations: () => request('/servers/locations'),

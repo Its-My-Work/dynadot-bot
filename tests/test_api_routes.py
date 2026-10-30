@@ -618,3 +618,13 @@ def test_admin_settings_get_and_patch(client):
     updated = patch_resp.json()
     assert updated["usd_to_rub_rate"] == 99.5
     assert updated["default_markup_percent"] == 30.0
+
+
+def test_admin_test_connection_endpoint(client):
+    # Unconfigured telegram returns ok=False
+    resp = client.post("/api/v1/admin/test-connection/telegram")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["provider"] == "telegram"
+    assert "ok" in data
+    assert "message" in data

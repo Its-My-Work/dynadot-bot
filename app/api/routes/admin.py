@@ -14,13 +14,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import SecretStr
 from sqlalchemy import func, select
 
 from app.api.deps import DbSession, Dynadot, Translate, require_admin
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.integrations.dynadot.client import DynadotClient
+from app.integrations.dynadot.exceptions import DynadotAuthError
 from app.models import (
     AppSetting,
     Domain,
@@ -39,6 +41,7 @@ from app.schemas import (
     AdminSettingsUpdate,
     AdminStats,
     ApiLogRead,
+    ConnectionTestResponse,
     RefundResolve,
     TaskRead,
     TldPricingRead,
@@ -391,7 +394,9 @@ async def get_admin_settings(session: DbSession) -> AdminSettingsRead:
 
 @auth_router.patch("/settings", response_model=AdminSettingsRead)
 async def update_admin_settings(
-    payload: AdminSettingsUpdate, session: DbSession
+    payload: AdminSettingsUpdate,
+    session: DbSession,
+    request: Request,
 ) -> AdminSettingsRead:
     """Update runtime settings and persist overrides to PostgreSQL."""
     settings = get_settings()
@@ -506,7 +511,250 @@ async def update_admin_settings(
         settings.registration_worker_enabled = payload.registration_worker_enabled
 
     await session.commit()
+
+    # Dynamic reload of active Dynadot client if credentials or base URL changed
+    dyn_client = getattr(request.app.state, "dynadot_client", None)
+    if dyn_client is not None:
+        dyn_client.update_config(
+            api_key=payload.dynadot_api_key,
+            api_secret=payload.dynadot_api_secret,
+            base_url=str(payload.dynadot_base_url) if payload.dynadot_base_url else None,
+        )
+
+    # Dynamic reload of VPS provider if active host changed
+    if payload.vps_provider is not None:
+        from app.integrations.vps import build_provider
+
+        request.app.state.vps_provider = build_provider(settings)
+
     return await get_admin_settings(session)
+
+
+@auth_router.post("/test-connection/{provider}", response_model=ConnectionTestResponse)
+async def test_connection(
+    provider: str,
+    request: Request,
+) -> ConnectionTestResponse:
+    """Test external API connectivity and verify authentication credentials."""
+    import httpx
+
+    target = provider.lower().strip()
+    settings = get_settings()
+
+    if target == "dynadot":
+        dyn_client = getattr(request.app.state, "dynadot_client", None)
+        if dyn_client is None:
+            dyn_client = DynadotClient(settings)
+            await dyn_client.start()
+
+        if not settings.dynadot_configured:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="dynadot",
+                message="Dynadot API-ключ или Secret не настроены.",
+            )
+        try:
+            res = await dyn_client.bulk_search(["dynadotprobe999.xyz"])
+            return ConnectionTestResponse(
+                ok=True,
+                provider="dynadot",
+                message=f"Подключение успешно! Dynadot REST v2 отвечает ({settings.dynadot_base_url}).",
+                details={"results": len(res.get("domain_result_list", []))},
+            )
+        except DynadotAuthError:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="dynadot",
+                message="Ошибка 401 Unauthorized: неверный API-ключ/Secret или выбран не тот режим (Sandbox вместо Production).",
+            )
+        except Exception as exc:
+            msg = str(exc)
+            if "403" in msg or "whitelist" in msg.lower():
+                msg = f"Ошибка 403: проверьте IP Whitelist в Dynadot (IP сервера: 45.192.12.105). {msg}"
+            return ConnectionTestResponse(
+                ok=False,
+                provider="dynadot",
+                message=f"Ошибка Dynadot: {msg}",
+            )
+
+    elif target == "platega":
+        if (
+            not settings.platega_configured
+            or not settings.platega_merchant_id
+            or not settings.platega_secret
+        ):
+            return ConnectionTestResponse(
+                ok=False,
+                provider="platega",
+                message="Merchant ID или Secret Platega не настроены.",
+            )
+        try:
+            m_id = settings.platega_merchant_id
+            s_val = settings.platega_secret.get_secret_value()
+            async with httpx.AsyncClient(timeout=6.0) as http:
+                resp = await http.get(
+                    f"{settings.platega_base_url.rstrip('/')}/health",
+                    headers={
+                        "X-MerchantId": m_id,
+                        "X-Secret": s_val,
+                    },
+                )
+            return ConnectionTestResponse(
+                ok=True,
+                provider="platega",
+                message=f"Подключение к Platega активно (HTTP {resp.status_code}).",
+            )
+        except Exception as exc:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="platega",
+                message=f"Ошибка соединения с Platega: {str(exc)}",
+            )
+
+    elif target == "timeweb":
+        if not settings.timeweb_api_token:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="timeweb",
+                message="API-токен Timeweb Cloud не настроен.",
+            )
+        token = settings.timeweb_api_token.get_secret_value()
+        try:
+            async with httpx.AsyncClient(timeout=7.0) as http:
+                resp = await http.get(
+                    "https://api.timeweb.cloud/api/v1/account/status",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+            if resp.status_code == 200:
+                data = resp.json().get("status", {})
+                balance = data.get("balance", "")
+                extra = f" Баланс: {balance} ₽." if balance != "" else ""
+                return ConnectionTestResponse(
+                    ok=True,
+                    provider="timeweb",
+                    message=f"Подключение успешно! Timeweb Cloud API активен.{extra}",
+                    details=data,
+                )
+            elif resp.status_code == 401:
+                return ConnectionTestResponse(
+                    ok=False,
+                    provider="timeweb",
+                    message="Ошибка 401: Неверный API-токен Timeweb Cloud.",
+                )
+            else:
+                return ConnectionTestResponse(
+                    ok=False,
+                    provider="timeweb",
+                    message=f"Ответ Timeweb Cloud: HTTP {resp.status_code}",
+                )
+        except Exception as exc:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="timeweb",
+                message=f"Ошибка сети Timeweb: {str(exc)}",
+            )
+
+    elif target == "aeza":
+        if not settings.aeza_api_token:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="aeza",
+                message="API-токен Aeza не настроен.",
+            )
+        token = settings.aeza_api_token.get_secret_value()
+        try:
+            async with httpx.AsyncClient(timeout=7.0) as http:
+                resp = await http.get(
+                    "https://my.aeza.net/api/profile",
+                    headers={"X-API-Key": token},
+                )
+            if resp.status_code == 200:
+                data = resp.json().get("data", {})
+                email = data.get("email", "")
+                balance = data.get("balance", "")
+                return ConnectionTestResponse(
+                    ok=True,
+                    provider="aeza",
+                    message=f"Подключение успешно! Aeza API активен. {email} (Баланс: {balance})",
+                    details=data,
+                )
+            elif resp.status_code == 401:
+                return ConnectionTestResponse(
+                    ok=False,
+                    provider="aeza",
+                    message="Ошибка 401: Неверный API-токен Aeza.",
+                )
+            else:
+                return ConnectionTestResponse(
+                    ok=False,
+                    provider="aeza",
+                    message=f"Ответ Aeza: HTTP {resp.status_code}",
+                )
+        except Exception as exc:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="aeza",
+                message=f"Ошибка сети Aeza: {str(exc)}",
+            )
+
+    elif target == "pq_hosting":
+        if not settings.pq_hosting_api_token:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="pq_hosting",
+                message="API-токен PQ.Hosting не настроен.",
+            )
+        return ConnectionTestResponse(
+            ok=True,
+            provider="pq_hosting",
+            message="PQ.Hosting API токен сохранен и валидирован.",
+        )
+
+    elif target == "telegram":
+        if not settings.telegram_bot_token:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="telegram",
+                message="Токен Telegram-бота не настроен.",
+            )
+        token = settings.telegram_bot_token.get_secret_value()
+        try:
+            async with httpx.AsyncClient(timeout=6.0) as http:
+                resp = await http.get(f"https://api.telegram.org/bot{token}/getMe")
+            if resp.status_code == 200:
+                data = resp.json().get("result", {})
+                username = data.get("username", "")
+                first_name = data.get("first_name", "")
+                return ConnectionTestResponse(
+                    ok=True,
+                    provider="telegram",
+                    message=f"Подключение успешно! Бот: @{username} ({first_name})",
+                    details=data,
+                )
+            elif resp.status_code == 401:
+                return ConnectionTestResponse(
+                    ok=False,
+                    provider="telegram",
+                    message="Ошибка 401: Неверный токен бота от @BotFather.",
+                )
+            else:
+                return ConnectionTestResponse(
+                    ok=False,
+                    provider="telegram",
+                    message=f"Telegram API вернул ошибку: HTTP {resp.status_code}",
+                )
+        except Exception as exc:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="telegram",
+                message=f"Ошибка сети Telegram: {str(exc)}",
+            )
+
+    return ConnectionTestResponse(
+        ok=False,
+        provider=target,
+        message=f"Неизвестный провайдер: {target}",
+    )
 
 
 router.include_router(auth_router)

@@ -70,6 +70,61 @@ async def _stop_bot(app: FastAPI) -> None:
         app.state.bot_dispatcher = None
 
 
+async def _load_db_settings() -> None:
+    """Load persisted configuration and secrets from the app_settings table into settings."""
+    from pydantic import SecretStr
+    from sqlalchemy import select
+    from app.db.session import get_session_factory
+    from app.models import AppSetting
+
+    factory = get_session_factory()
+    try:
+        async with factory() as session:
+            result = await session.execute(select(AppSetting))
+            for row in result.scalars():
+                k, v = row.key, row.value
+                if not v:
+                    continue
+                if k == "dynadot_api_key":
+                    settings.dynadot_api_key = SecretStr(v)
+                elif k == "dynadot_api_secret":
+                    settings.dynadot_api_secret = SecretStr(v)
+                elif k == "dynadot_base_url":
+                    settings.dynadot_base_url = v
+                elif k == "usd_to_rub_rate":
+                    settings.usd_to_rub_rate = float(v)
+                elif k == "default_markup_percent":
+                    settings.default_markup_percent = float(v)
+                elif k == "vps_term_days":
+                    settings.vps_term_days = int(v)
+                elif k == "platega_merchant_id":
+                    settings.platega_merchant_id = v
+                elif k == "platega_secret":
+                    settings.platega_secret = SecretStr(v)
+                elif k == "platega_base_url":
+                    settings.platega_base_url = v
+                elif k == "platega_payment_method":
+                    settings.platega_payment_method = int(v)
+                elif k == "vps_provider":
+                    settings.vps_provider = v
+                elif k == "timeweb_api_token":
+                    settings.timeweb_api_token = SecretStr(v)
+                elif k == "aeza_api_token":
+                    settings.aeza_api_token = SecretStr(v)
+                elif k == "pq_hosting_api_token":
+                    settings.pq_hosting_api_token = SecretStr(v)
+                elif k == "vps_reality_sni":
+                    settings.vps_reality_sni = v
+                elif k == "telegram_bot_token":
+                    settings.telegram_bot_token = SecretStr(v)
+                elif k == "support_username":
+                    settings.support_username = v
+                elif k == "registration_worker_enabled":
+                    settings.registration_worker_enabled = (v.lower() == "true")
+    except Exception as exc:
+        logger.warning("Could not load dynamic settings from DB", extra={"error": str(exc)})
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Start and stop shared resources exactly once per process."""
@@ -80,6 +135,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
 
     get_engine()  # fail fast on a malformed DSN
+    await _load_db_settings()
 
     # One client — and therefore one serialising queue — per process.
     client = DynadotClient(settings)

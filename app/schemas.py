@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -389,6 +390,13 @@ class AdminSettingsUpdate(BaseModel):
 
     # Automation
     registration_worker_enabled: bool | None = None
+
+
+class ConnectionTestResponse(BaseModel):
+    ok: bool
+    provider: str
+    message: str
+    details: dict[str, Any] | None = None
 
 
 # ------------------------------------------------------------------ vps / vpn
