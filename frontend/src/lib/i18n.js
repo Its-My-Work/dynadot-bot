@@ -153,6 +153,7 @@ const catalogues = {
     'vps.delete': 'Удалить',
     'vps.delete_confirm': 'Вы уверены, что хотите удалить этот сервер?',
     'vps.apps': 'Клиенты: Happ, v2rayNG, Streisand, Hiddify, FoXray',
+    'vps.download_client': 'Скачать приложение для подключения:',
   },
   en: {
     'app.title': 'Domains',
@@ -296,6 +297,7 @@ const catalogues = {
     'vps.delete': 'Delete',
     'vps.delete_confirm': 'Are you sure you want to delete this server?',
     'vps.apps': 'Clients: Happ, v2rayNG, Streisand, Hiddify, FoXray',
+    'vps.download_client': 'Download VPN client:',
   },
 };
 

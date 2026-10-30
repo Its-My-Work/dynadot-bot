@@ -78,10 +78,33 @@ export default function App() {
   }
 
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col">
+    <div className="mx-auto flex min-h-screen w-full max-w-md md:max-w-3xl flex-col">
       <AppBar>
-        <div className="mx-auto flex h-full max-w-md items-center justify-between px-4">
-          <Brand subtitle={t('app.subtitle')} />
+        <div className="mx-auto flex h-full w-full max-w-md md:max-w-3xl items-center justify-between px-4">
+          <div className="flex items-center gap-6">
+            <Brand subtitle={t('app.subtitle')} />
+            {/* Desktop Navigation inline in header */}
+            <div className="hidden md:flex items-center gap-1">
+              {TABS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setTab(item.id)}
+                  aria-current={tab === item.id ? 'page' : undefined}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                    tab === item.id
+                      ? 'bg-elevated text-ink shadow-sm'
+                      : 'text-muted hover:text-ink'
+                  }`}
+                >
+                  <span aria-hidden="true" className="text-sm">
+                    {item.icon}
+                  </span>
+                  <span>{t(item.labelKey)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <ThemePicker
               theme={theme}
@@ -93,7 +116,7 @@ export default function App() {
         </div>
       </AppBar>
 
-      <main className="flex-1 px-4 pb-24">
+      <main className="flex-1 px-4 pb-24 md:pb-12 pt-4">
         {candidate ? (
           <CheckoutScreen
             t={t}
@@ -122,7 +145,7 @@ export default function App() {
       {candidate ? null : (
         <nav
           className="fixed inset-x-0 bottom-0 z-40 border-t border-line
-            bg-bg/95 backdrop-blur"
+            bg-bg/95 backdrop-blur md:hidden"
         >
           <div className="mx-auto flex max-w-md">
             {TABS.map((item) => (

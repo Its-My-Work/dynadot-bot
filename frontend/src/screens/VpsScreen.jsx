@@ -198,6 +198,48 @@ export default function VpsScreen({ t, telegramId }) {
                 className="h-48 w-48"
               />
             </div>
+
+            {/* Direct App Store / Google Play links */}
+            <div className="mt-4 space-y-1.5 text-left">
+              <p className="text-[11px] font-semibold text-muted">
+                {t('vps.download_client') || 'Скачать приложение:'}
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                <a
+                  href="https://apps.apple.com/app/streisand/id6450534064"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-1 rounded-lg border border-line bg-elevated/60 px-2 py-1.5 text-ink transition-colors hover:border-accent hover:text-accent"
+                >
+                  <span>🍏 Streisand (iOS)</span>
+                </a>
+                <a
+                  href="https://apps.apple.com/app/happ-proxy-utility/id6504287215"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-1 rounded-lg border border-line bg-elevated/60 px-2 py-1.5 text-ink transition-colors hover:border-accent hover:text-accent"
+                >
+                  <span>🍏 Happ (iOS)</span>
+                </a>
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.v2ray.ang"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-1 rounded-lg border border-line bg-elevated/60 px-2 py-1.5 text-ink transition-colors hover:border-accent hover:text-accent"
+                >
+                  <span>🤖 v2rayNG (Android)</span>
+                </a>
+                <a
+                  href="https://github.com/hiddify/hiddify-next/releases"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-1 rounded-lg border border-line bg-elevated/60 px-2 py-1.5 text-ink transition-colors hover:border-accent hover:text-accent"
+                >
+                  <span>💻 Hiddify (PC/Mac)</span>
+                </a>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={() => setQrModalUrl(null)}
