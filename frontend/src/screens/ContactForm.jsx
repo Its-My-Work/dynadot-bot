@@ -23,11 +23,13 @@ const REQUIRED = [
 const EMPTY = {
   first_name: '',
   last_name: '',
+  organization: '',
   email: '',
   phone_country_code: '7',
   phone_number: '',
   address_line1: '',
   city: '',
+  state: '',
   zip_code: '',
   country: 'RU',
 };
@@ -51,17 +53,35 @@ export default function ContactForm({ t, onSubmit, onCancel, submitting = false 
   const validation = validateContact(values);
 
   function field(name, label, props = {}) {
+    const isRequired = REQUIRED.includes(name);
     const invalid = touched && validation.missing.includes(name);
     return (
       <label className="block">
-        <span className="mb-1.5 block text-xs font-medium text-muted">{label}</span>
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-xs font-medium text-muted">
+            {label}
+            {isRequired ? (
+              <span className="ml-1 text-danger font-bold" title={t('contact.required_mark')}>
+                *
+              </span>
+            ) : null}
+          </span>
+          <span
+            className={`text-[10px] uppercase tracking-wide font-medium ${
+              isRequired ? 'text-muted/60' : 'text-accent/80'
+            }`}
+          >
+            {isRequired ? t('contact.required_mark') : t('contact.optional_mark')}
+          </span>
+        </div>
         <input
-          className={`input ${invalid ? 'border-danger/60' : ''}`}
-          value={values[name]}
+          className={`input ${invalid ? 'border-danger/60 ring-1 ring-danger/30' : ''}`}
+          value={values[name] ?? ''}
           onChange={(event) =>
             setValues((current) => ({ ...current, [name]: event.target.value }))
           }
           aria-label={label}
+          aria-required={isRequired}
           aria-invalid={invalid || undefined}
           {...props}
         />
@@ -82,12 +102,20 @@ export default function ContactForm({ t, onSubmit, onCancel, submitting = false 
         });
       }}
     >
-      <p className="text-sm text-muted">{t('contact.hint')}</p>
+      <div className="rounded-lg border border-line bg-surface/50 p-3 space-y-1">
+        <p className="text-xs text-ink font-medium">{t('contact.hint')}</p>
+        <p className="text-[11px] text-muted flex items-center gap-1">
+          <span className="text-danger font-bold text-xs">*</span>
+          <span>{t('contact.icann_note')}</span>
+        </p>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         {field('first_name', t('contact.first_name'), { autoComplete: 'given-name' })}
         {field('last_name', t('contact.last_name'), { autoComplete: 'family-name' })}
       </div>
+
+      {field('organization', t('contact.organization'), { autoComplete: 'organization' })}
 
       {field('email', t('contact.email'), {
         type: 'email',
@@ -95,7 +123,7 @@ export default function ContactForm({ t, onSubmit, onCancel, submitting = false 
         autoComplete: 'email',
       })}
 
-      <div className="grid grid-cols-[6rem_1fr] gap-3">
+      <div className="grid grid-cols-[6.5rem_1fr] gap-3">
         {field('phone_country_code', t('contact.phone_cc'), { inputMode: 'tel' })}
         {field('phone_number', t('contact.phone'), {
           inputMode: 'tel',
@@ -107,10 +135,13 @@ export default function ContactForm({ t, onSubmit, onCancel, submitting = false 
 
       <div className="grid grid-cols-2 gap-3">
         {field('city', t('contact.city'), { autoComplete: 'address-level2' })}
-        {field('zip_code', t('contact.zip'), { autoComplete: 'postal-code' })}
+        {field('state', t('contact.state'), { autoComplete: 'address-level1' })}
       </div>
 
-      {field('country', t('contact.country'), { maxLength: 2 })}
+      <div className="grid grid-cols-2 gap-3">
+        {field('zip_code', t('contact.zip'), { autoComplete: 'postal-code' })}
+        {field('country', t('contact.country'), { maxLength: 2 })}
+      </div>
 
       {touched && !validation.ok ? (
         <p role="alert" className="text-sm text-danger">
