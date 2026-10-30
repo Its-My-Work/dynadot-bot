@@ -187,13 +187,30 @@ class TldPricingRead(ORMModel):
     fixed_price_rub: float | None = None
     is_enabled: bool
     is_featured: bool
+    retail_price_rub: float | None = None
+
+
+class TldPricingCreate(BaseModel):
+    tld: str
+    register_cost_usd: float = Field(default=0.0, ge=0)
+    markup_percent: float | None = Field(default=None, ge=0, le=1000)
+    fixed_price_rub: float | None = Field(default=None, ge=0)
+    is_enabled: bool = True
+    is_featured: bool = False
 
 
 class TldPricingUpdate(BaseModel):
+    register_cost_usd: float | None = Field(default=None, ge=0)
     markup_percent: float | None = Field(default=None, ge=0, le=1000)
     fixed_price_rub: float | None = Field(default=None, ge=0)
     is_enabled: bool | None = None
     is_featured: bool | None = None
+
+
+class TldSyncResponse(BaseModel):
+    ok: bool
+    synced_count: int
+    message: str
 
 
 class ApiLogRead(ORMModel):

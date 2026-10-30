@@ -388,7 +388,11 @@ class DynadotClient:
             res = await self._request(
                 "GET",
                 "/domains/bulk_search",
-                params={"domain_name_list": ",".join(chunk), "show_price": True},
+                params={
+                    "domain_name_list": ",".join(chunk),
+                    "show_price": True,
+                    "currency": "USD",
+                },
                 priority=Priority.LOW,
             )
             items = res.get("domain_result_list") or []

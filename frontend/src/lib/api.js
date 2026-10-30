@@ -50,10 +50,16 @@ function buildUrl(path, params) {
   return qs ? `${url}?${qs}` : url;
 }
 
-let adminToken =
-  typeof localStorage !== 'undefined' ? localStorage.getItem('dynadot_admin_token') : null;
+let adminToken = null;
 
 export function getAdminToken() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      return localStorage.getItem('dynadot_admin_token');
+    } catch {
+      // Ignored
+    }
+  }
   return adminToken;
 }
 
@@ -203,8 +209,13 @@ export const api = {
   adminTasks: (params) => request('/admin/tasks', { params }),
   retryTask: (taskId) => request(`/admin/tasks/${taskId}/retry`, { method: 'POST' }),
   adminPricing: () => request('/admin/tld-pricing'),
+  createPricing: (data) =>
+    request('/admin/tld-pricing', { method: 'POST', body: data }),
   updatePricing: (tld, patch) =>
     request(`/admin/tld-pricing/${tld}`, { method: 'PATCH', body: patch }),
+  deletePricing: (tld) =>
+    request(`/admin/tld-pricing/${tld}`, { method: 'DELETE' }),
+  syncTldPrices: () => request('/admin/sync-tld-prices', { method: 'POST' }),
   adminApiLogs: (params) => request('/admin/api-logs', { params }),
   queueStatus: () => request('/admin/queue-status'),
   adminSettings: () => request('/admin/settings'),

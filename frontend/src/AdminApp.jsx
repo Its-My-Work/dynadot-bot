@@ -253,10 +253,11 @@ function AdminLoginScreen({ onLogin, language, onToggleLang, theme, onSelectThem
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted">
-                {t('admin.auth.login')}
+              <label htmlFor="admin-username" className="mb-1 block text-xs font-medium text-muted">
+                {t('admin.auth.username')}
               </label>
               <input
+                id="admin-username"
                 type="text"
                 required
                 value={username}
@@ -266,10 +267,11 @@ function AdminLoginScreen({ onLogin, language, onToggleLang, theme, onSelectThem
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted">
+              <label htmlFor="admin-password" className="mb-1 block text-xs font-medium text-muted">
                 {t('admin.auth.password')}
               </label>
               <input
+                id="admin-password"
                 type="password"
                 required
                 autoFocus
@@ -368,18 +370,11 @@ function Refunds({ onResolved, language }) {
   useEffect(load, [load]);
 
   async function resolve(order) {
-    const isRu = language === 'ru';
-    const note = window.prompt(
-      isRu
-        ? `Пометить заказ #${order.id} возвращенным. Примечание:`
-        : `Mark refund as settled for ${order.domain_name}. Note (e.g. transfer id):`,
-      isRu ? 'Возврат средств клиенту через Platega' : 'Refund issued via gateway',
-    );
-    if (!note) return;
+    if (!confirm(`Mark refund as settled for ${order.domain_name}?`)) return;
 
     setBusyId(order.id);
     try {
-      await api.resolveRefund(order.id, note);
+      await api.resolveRefund(order.id, 'Refund issued via gateway');
       load();
       onResolved?.();
     } catch {
@@ -395,7 +390,7 @@ function Refunds({ onResolved, language }) {
     return (
       <EmptyState
         icon="✓"
-        title={language === 'ru' ? 'Нет ожидающих возвратов' : 'No refunds pending'}
+        title={language === 'ru' ? 'Нет ожидающих возвратов' : 'No pending refunds'}
       />
     );
   }
@@ -502,6 +497,8 @@ function Orders({ language }) {
             isRu ? 'Домен' : 'Domain',
             isRu ? 'Статус' : 'Status',
             isRu ? 'Сумма' : 'Price',
+            isRu ? 'Себестоимость' : 'Cost',
+            isRu ? 'Наценка' : 'Markup',
             isRu ? 'Создан' : 'Created',
           ]}
           rows={rows.map((order) => [
@@ -514,6 +511,16 @@ function Orders({ language }) {
             <StatusBadge key="s" status={order.status} label={order.status} />,
             <span key="p" className="tabular-nums">
               {money(order.price_rub)} ₽
+            </span>,
+            <span key="cost" className="tabular-nums text-muted">
+              {order.cost_usd !== null && order.cost_usd !== undefined
+                ? `$${Number(order.cost_usd).toFixed(2)}`
+                : '—'}
+            </span>,
+            <span key="m" className="tabular-nums text-muted">
+              {order.markup_percent !== null && order.markup_percent !== undefined
+                ? `${order.markup_percent}%`
+                : '—'}
             </span>,
             <span key="c" className="text-muted">
               {when(order.created_at, language)}
@@ -615,102 +622,356 @@ function Tasks({ onChange, language }) {
 function Pricing({ language }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
   const [savingTld, setSavingTld] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newTld, setNewTld] = useState('');
+  const [newCost, setNewCost] = useState('');
+  const [newMarkup, setNewMarkup] = useState('');
+  const [newFixed, setNewFixed] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const isRu = language === 'ru';
 
   const load = useCallback(() => {
     setError(null);
     api
       .adminPricing()
       .then((list) => setRows(Array.isArray(list) ? list : []))
-      .catch(() => setError('Could not load TLD pricing table.'));
-  }, []);
+      .catch(() => setError(isRu ? 'Не удалось загрузить цены TLD' : 'Could not load TLD pricing table.'));
+  }, [isRu]);
 
   useEffect(load, [load]);
 
   async function save(tld, patch) {
     setSavingTld(tld);
+    setError(null);
     try {
       const updated = await api.updatePricing(tld, patch);
       setRows((prev) =>
         prev ? prev.map((r) => (r.tld === tld ? { ...r, ...updated } : r)) : [],
       );
     } catch {
-      setError(`Could not update .${tld}`);
+      setError(isRu ? `Не удалось обновить .${tld}` : `Could not update .${tld}`);
     } finally {
       setSavingTld(null);
+    }
+  }
+
+  async function removeTld(tld) {
+    if (!confirm(isRu ? `Удалить зону .${tld}?` : `Delete zone .${tld}?`)) return;
+    setSavingTld(tld);
+    try {
+      await api.deletePricing(tld);
+      setRows((prev) => (prev ? prev.filter((r) => r.tld !== tld) : []));
+    } catch {
+      setError(isRu ? `Не удалось удалить .${tld}` : `Could not delete .${tld}`);
+    } finally {
+      setSavingTld(null);
+    }
+  }
+
+  async function syncWithDynadot() {
+    setSyncing(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await api.syncTldPrices();
+      setNotice(res.message || (isRu ? 'Цены синхронизированы' : 'Prices synced'));
+      load();
+    } catch (err) {
+      setError(isRu ? `Ошибка синхронизации: ${err.message}` : `Sync error: ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleAddTld(e) {
+    e.preventDefault();
+    const cleanTld = newTld.trim().replace(/^\./, '').toLowerCase();
+    if (!cleanTld) return;
+    setAdding(true);
+    setError(null);
+    try {
+      await api.createPricing({
+        tld: cleanTld,
+        register_cost_usd: Number(newCost) || 0,
+        markup_percent: newMarkup === '' ? null : Number(newMarkup),
+        fixed_price_rub: newFixed === '' ? null : Number(newFixed),
+        is_enabled: true,
+        is_featured: false,
+      });
+      setNewTld('');
+      setNewCost('');
+      setNewMarkup('');
+      setNewFixed('');
+      setShowAddForm(false);
+      load();
+    } catch (err) {
+      setError(isRu ? `Не удалось добавить зону: ${err.message}` : `Could not add zone: ${err.message}`);
+    } finally {
+      setAdding(false);
     }
   }
 
   if (error) return <ErrorNote message={error} onRetry={load} />;
   if (rows === null) return <SkeletonList rows={5} />;
 
-  const isRu = language === 'ru';
   return (
-    <>
-      <p className="mb-3 text-xs text-muted">
+    <div className="space-y-4">
+      {notice && (
+        <div className="rounded-lg border border-ok/30 bg-ok/10 p-3 text-xs text-ok flex justify-between items-center">
+          <span>✓ {notice}</span>
+          <button type="button" onClick={() => setNotice(null)} className="text-muted hover:text-ink font-bold">×</button>
+        </div>
+      )}
+
+      <p className="text-xs text-muted">
         {isRu
           ? 'Изменения применяются только к новым заказам — в существующих цена заморожена.'
           : 'Changes apply to new orders only — existing orders keep the price frozen.'}
       </p>
-      <Table
-        head={[
-          isRu ? 'Зона' : 'Zone',
-          isRu ? 'Себестоимость' : 'Cost',
-          isRu ? 'Наценка %' : 'Markup %',
-          isRu ? 'Фикс ₽' : 'Fixed ₽',
-          isRu ? 'Активен' : 'Enabled',
-          '',
-        ]}
-        rows={rows.map((row) => [
-          <span key="z" className="font-medium">
-            .{row.tld}
-          </span>,
-          <span key="c" className="tabular-nums text-muted">
-            ${Number(row.register_cost_usd || 0).toFixed(2)}
-          </span>,
-          <EditableNumber
-            key="m"
-            value={row.markup_percent}
-            onSave={(value) => save(row.tld, { markup_percent: value })}
-          />,
-          <EditableNumber
-            key="f"
-            value={row.fixed_price_rub}
-            onSave={(value) => save(row.tld, { fixed_price_rub: value })}
-          />,
+
+      {/* Pricing explanation */}
+      <div className="card p-3.5 space-y-1.5 text-xs text-muted">
+        <p className="font-medium text-ink flex items-center gap-1.5">
+          <span>⚙️</span>
+          <span>{isRu ? 'Логика формирования розничной цены' : 'Retail Pricing Formula'}</span>
+        </p>
+        <p>
+          {isRu
+            ? '1. Если задан «Фикс ₽» — клиент платит фиксированную цену (независимо от курса доллара).'
+            : '1. If "Fixed ₽" is set — customer pays this exact fixed amount.'}
+        </p>
+        <p>
+          {isRu
+            ? '2. Если «Фикс ₽» пуст — цена рассчитывается: Себестоимость $ × (1 + Наценка% / 100) × Курс USD.'
+            : '2. If "Fixed ₽" is empty — price is: Cost $ × (1 + Markup% / 100) × USD Rate.'}
+        </p>
+        <p>
+          {isRu
+            ? '3. Если «Наценка%» пуста — применяется базовая наценка из вкладки «Настройки».'
+            : '3. If "Markup%" is empty — default markup from "Settings" tab applies.'}
+        </p>
+      </div>
+
+      {/* Actions toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
           <button
-            key="e"
             type="button"
-            onClick={() => save(row.tld, { is_enabled: !row.is_enabled })}
-            className={`badge ${
-              row.is_enabled ? 'bg-ok/15 text-ok' : 'bg-muted/15 text-muted'
-            }`}
+            onClick={syncWithDynadot}
+            disabled={syncing}
+            className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5"
           >
-            {row.is_enabled ? 'on' : 'off'}
-          </button>,
-          savingTld === row.tld ? <Spinner key="s" className="h-3 w-3" /> : <span key="s" />,
-        ])}
-      />
-    </>
+            {syncing ? <Spinner className="h-3 w-3" /> : <span>🔄</span>}
+            <span>{isRu ? 'Синхронизировать себестоимость с Dynadot' : 'Sync wholesale costs from Dynadot'}</span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="btn-primary text-xs px-3 py-1.5"
+        >
+          {showAddForm ? (isRu ? '✕ Закрыть форму' : '✕ Cancel') : (isRu ? '+ Добавить зону TLD' : '+ Add TLD zone')}
+        </button>
+      </div>
+
+      {/* Add TLD form */}
+      {showAddForm && (
+        <form onSubmit={handleAddTld} className="card p-4 space-y-3 bg-surface/70 border border-line">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-ink">
+            {isRu ? 'Добавить новую доменную зону' : 'Add New TLD Zone'}
+          </h4>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label className="block text-[11px] text-muted mb-1">{isRu ? 'Зона (напр. ai, store)' : 'Zone (e.g. ai)'}</label>
+              <input
+                type="text"
+                placeholder="store"
+                value={newTld}
+                onChange={(e) => setNewTld(e.target.value)}
+                required
+                className="w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-muted mb-1">{isRu ? 'Себестоимость ($)' : 'Cost ($)'}</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="4.99"
+                value={newCost}
+                onChange={(e) => setNewCost(e.target.value)}
+                className="w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-muted mb-1">{isRu ? 'Наценка (%)' : 'Markup (%)'}</label>
+              <input
+                type="number"
+                placeholder="30"
+                value={newMarkup}
+                onChange={(e) => setNewMarkup(e.target.value)}
+                className="w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-muted mb-1">{isRu ? 'Или Фикс (₽)' : 'Or Fixed (₽)'}</label>
+              <input
+                type="number"
+                placeholder="590"
+                value={newFixed}
+                onChange={(e) => setNewFixed(e.target.value)}
+                className="w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowAddForm(false)}
+              className="btn-ghost text-xs px-3 py-1.5"
+            >
+              {isRu ? 'Отмена' : 'Cancel'}
+            </button>
+            <button
+              type="submit"
+              disabled={adding}
+              className="btn-primary text-xs px-3 py-1.5"
+            >
+              {adding ? <Spinner className="h-3 w-3" /> : null}
+              {isRu ? 'Сохранить зону' : 'Save Zone'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Pricing Table */}
+      {rows.length === 0 ? (
+        <p className="p-4 text-center text-xs text-muted">
+          {isRu ? 'Нет настроенных зон' : 'No zones configured'}
+        </p>
+      ) : (
+        <Table
+          head={[
+            isRu ? 'Зона' : 'Zone',
+            isRu ? 'Себестоимость $' : 'Cost $',
+            isRu ? 'Наценка %' : 'Markup %',
+            isRu ? 'Фикс ₽' : 'Fixed ₽',
+            isRu ? 'Цена клиента ₽' : 'Client Price ₽',
+            isRu ? 'В топе' : 'Featured',
+            isRu ? 'Активен' : 'Enabled',
+            '',
+          ]}
+          rows={rows.map((row) => [
+            <span key="z" className="font-semibold text-ink">
+              .{row.tld}
+            </span>,
+            <EditableNumber
+              key="c"
+              value={row.register_cost_usd}
+              step="0.01"
+              prefix="$"
+              onSave={(value) => save(row.tld, { register_cost_usd: value })}
+            />,
+            <EditableNumber
+              key="m"
+              value={row.markup_percent}
+              placeholder="Auto"
+              suffix="%"
+              onSave={(value) => save(row.tld, { markup_percent: value })}
+            />,
+            <EditableNumber
+              key="f"
+              value={row.fixed_price_rub}
+              placeholder="—"
+              suffix="₽"
+              onSave={(value) => save(row.tld, { fixed_price_rub: value })}
+            />,
+            <span key="ret" className="font-semibold tabular-nums text-ok">
+              {row.retail_price_rub !== undefined && row.retail_price_rub !== null
+                ? `${Number(row.retail_price_rub).toLocaleString('ru-RU')} ₽`
+                : '—'}
+            </span>,
+            <button
+              key="feat"
+              type="button"
+              title={isRu ? 'Показывать в чипсах поиска' : 'Show in search chips'}
+              onClick={() => save(row.tld, { is_featured: !row.is_featured })}
+              className={`badge cursor-pointer ${
+                row.is_featured ? 'bg-warn/15 text-warn' : 'bg-muted/15 text-muted'
+              }`}
+            >
+              {row.is_featured ? '★ ' + (isRu ? 'Топ' : 'Top') : '—'}
+            </button>,
+            <button
+              key="e"
+              type="button"
+              onClick={() => save(row.tld, { is_enabled: !row.is_enabled })}
+              className={`badge cursor-pointer ${
+                row.is_enabled ? 'bg-ok/15 text-ok' : 'bg-muted/15 text-muted'
+              }`}
+            >
+              {row.is_enabled ? (isRu ? 'Вкл' : 'on') : (isRu ? 'Выкл' : 'off')}
+            </button>,
+            <div key="act" className="flex items-center gap-1.5">
+              {savingTld === row.tld ? (
+                <Spinner className="h-3 w-3" />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => removeTld(row.tld)}
+                  title={isRu ? 'Удалить зону' : 'Delete'}
+                  className="text-muted hover:text-danger text-xs px-1.5 py-0.5 rounded cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>,
+          ])}
+        />
+      )}
+    </div>
   );
 }
 
-function EditableNumber({ value, onSave }) {
+function EditableNumber({ value, placeholder = '', prefix = '', suffix = '', step = '1', onSave }) {
   const [draft, setDraft] = useState(value ?? '');
 
+  useEffect(() => {
+    setDraft(value ?? '');
+  }, [value]);
+
   return (
-    <input
-      className="w-20 rounded-md border border-line bg-surface px-2 py-1 text-xs tabular-nums text-ink focus:border-accent focus:outline-none"
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={() => {
-        const next = draft === '' ? null : Number(draft);
-        if (next !== value) onSave(next);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur();
-      }}
-    />
+    <div className="inline-flex items-center gap-0.5">
+      {prefix ? <span className="text-muted text-[11px]">{prefix}</span> : null}
+      <input
+        type="text"
+        placeholder={placeholder}
+        className="w-20 rounded-md border border-line bg-surface px-2 py-1 text-xs tabular-nums text-ink focus:border-accent focus:outline-none"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          if (draft === '') {
+            if (value !== null && value !== undefined) onSave(null);
+            return;
+          }
+          const next = Number(draft);
+          if (Number.isNaN(next)) {
+            setDraft(value ?? '');
+            return;
+          }
+          if (next !== value) onSave(next);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+        }}
+      />
+      {suffix ? <span className="text-muted text-[11px]">{suffix}</span> : null}
+    </div>
   );
 }
 
@@ -757,8 +1018,12 @@ function ApiLogs({ language }) {
         <span key="m" className="font-mono text-xs">
           {log.method}
         </span>,
-        <span key="p" className="max-w-xs truncate font-mono text-xs text-muted" title={log.path}>
-          {log.path}
+        <span
+          key="p"
+          className="max-w-xs truncate font-mono text-xs text-muted"
+          title={log.endpoint || log.path}
+        >
+          {log.endpoint || log.path}
         </span>,
         <StatusBadge
           key="s"
@@ -769,7 +1034,7 @@ function ApiLogs({ language }) {
           {log.http_status ?? '—'}
         </span>,
         <span key="d" className="tabular-nums text-muted">
-          {log.duration_ms ? `${Math.round(log.duration_ms)} ms` : '—'}
+          {Math.round(log.duration_ms || 0)}
         </span>,
         <span key="a" className="tabular-nums text-muted">
           {log.attempt}

@@ -29,7 +29,7 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/domains", tags=["domains"])
 
 # Default zones shown in the TMA grid until admin pricing overrides them.
-DEFAULT_TLDS = ["com", "net", "org", "io", "dev", "ru"]
+DEFAULT_TLDS = ["com", "net", "org", "io", "xyz", "co"]
 
 
 def _apply_markup(cost_usd: float) -> float:
@@ -50,7 +50,8 @@ async def search_domains(
     Uses ``bulk_search`` so one queued request covers every zone, rather than
     N serialised single searches.
     """
-    name = payload.query
+    pricing_svc = PricingService(session, settings)
+    name = payload.query.strip().lower()
     if "." in name:
         base, _, tld = name.rpartition(".")
         if not base:
@@ -60,8 +61,12 @@ async def search_domains(
             )
         candidates = [f"{base}.{tld}"]
     else:
-        tlds = payload.tlds or DEFAULT_TLDS
-        candidates = [f"{name}.{tld.lstrip('.')}" for tld in tlds]
+        if payload.tlds:
+            tlds = [t_item.lstrip(".") for t_item in payload.tlds]
+        else:
+            enabled = await pricing_svc.enabled_tlds(DEFAULT_TLDS)
+            tlds = enabled if enabled else DEFAULT_TLDS
+        candidates = [f"{name}.{tld}" for tld in tlds]
 
     try:
         raw = await dynadot.bulk_search(candidates)
@@ -72,7 +77,8 @@ async def search_domains(
             detail=t("error.registrar_unavailable"),
         ) from exc
 
-    results = [_to_result(item, t) for item in _iter_search_items(raw, candidates)]
+    items = _iter_search_items(raw, candidates)
+    results = [await _to_result(item, t, pricing_svc) for item in items]
     return DomainSearchResponse(query=name, results=results)
 
 
@@ -144,24 +150,73 @@ def _iter_search_items(raw: dict, candidates: list[str]) -> list[dict]:
     return [{"domain_name": c, "available": None} for c in candidates]
 
 
-def _to_result(item: dict, t) -> DomainSearchResult:
+async def _to_result(
+    item: dict, t: Translate, pricing_svc: PricingService
+) -> DomainSearchResult:
     domain = str(item.get("domain_name") or item.get("domain") or "")
-    available = item.get("available")
-    if isinstance(available, str):
-        available = available.lower() in ("yes", "true", "1")
+    tld = domain.rpartition(".")[2].lower()
 
-    price_usd = item.get("price") or item.get("register_price")
-    try:
-        price_usd = float(price_usd) if price_usd is not None else None
-    except (TypeError, ValueError):
+    available_raw = item.get("available")
+    available = False
+    if isinstance(available_raw, str):
+        available = available_raw.strip().lower() in ("yes", "true", "1")
+    elif isinstance(available_raw, bool):
+        available = available_raw
+
+    # Dynadot returns "premium": "no" or "yes" or bool
+    prem_raw = item.get("premium") or item.get("is_premium")
+    is_premium = False
+    if isinstance(prem_raw, str):
+        is_premium = prem_raw.strip().lower() in ("yes", "true", "1")
+    elif isinstance(prem_raw, bool):
+        is_premium = prem_raw
+
+    # Extract wholesale registration price in USD
+    cost_usd: float | None = None
+    price_list = item.get("price_list")
+    if isinstance(price_list, list) and len(price_list) > 0:
+        p1 = next(
+            (p for p in price_list if "1 year" in str(p.get("unit", "")).lower()),
+            price_list[0],
+        )
+        reg_p = p1.get("registration_price") or p1.get("price")
+        if reg_p is not None:
+            try:
+                cost_usd = float(reg_p)
+            except (ValueError, TypeError):
+                cost_usd = None
+
+    if cost_usd is None:
+        raw_p = item.get("price") or item.get("register_price")
+        try:
+            cost_usd = float(raw_p) if raw_p is not None else None
+        except (ValueError, TypeError):
+            cost_usd = None
+
+    # Calculate resale price in RUB through PricingService
+    quote = await pricing_svc.quote(tld=tld, cost_usd=cost_usd or 0.0, years=1)
+
+    if available:
+        price_rub = quote.price_rub
+        price_usd = quote.cost_usd
+        if price_rub <= 0:
+            fallback_quote = await pricing_svc.quote(tld=tld, cost_usd=10.0, years=1)
+            price_rub = fallback_quote.price_rub
+            price_usd = fallback_quote.cost_usd
+    else:
+        price_rub = None
         price_usd = None
+
+    msg = t("search.available") if available else t("search.taken")
+    if available and is_premium:
+        msg = f"{t('search.available')} · {t('search.premium')}"
 
     return DomainSearchResult(
         domain=domain,
-        tld=domain.rpartition(".")[2],
-        available=bool(available),
-        is_premium=bool(item.get("is_premium") or item.get("premium")),
+        tld=tld,
+        available=available,
+        is_premium=is_premium,
         price_usd=price_usd,
-        price_rub=_apply_markup(price_usd) if price_usd else None,
-        message=t("search.available") if available else t("search.taken"),
+        price_rub=price_rub,
+        message=msg,
     )

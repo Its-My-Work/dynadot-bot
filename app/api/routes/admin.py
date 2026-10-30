@@ -44,8 +44,10 @@ from app.schemas import (
     ConnectionTestResponse,
     RefundResolve,
     TaskRead,
+    TldPricingCreate,
     TldPricingRead,
     TldPricingUpdate,
+    TldSyncResponse,
 )
 
 logger = get_logger(__name__)
@@ -80,13 +82,93 @@ async def admin_login(payload: AdminLoginRequest) -> AdminLoginResponse:
 
 # ------------------------------------------------------------------ pricing
 
+DEFAULT_TLD_SEEDS = [
+    {"tld": "com", "cost": 10.88, "fixed": 1290.0, "featured": True, "sort": 1},
+    {"tld": "net", "cost": 12.52, "fixed": 1490.0, "featured": True, "sort": 2},
+    {"tld": "org", "cost": 7.99, "fixed": 990.0, "featured": True, "sort": 3},
+    {"tld": "io", "cost": 28.89, "fixed": 3490.0, "featured": True, "sort": 4},
+    {"tld": "xyz", "cost": 1.99, "fixed": 390.0, "featured": True, "sort": 5},
+    {"tld": "co", "cost": 15.50, "fixed": 1790.0, "featured": True, "sort": 6},
+    {"tld": "info", "cost": 4.99, "fixed": 690.0, "featured": False, "sort": 7},
+    {"tld": "me", "cost": 8.99, "fixed": 1090.0, "featured": False, "sort": 8},
+    {"tld": "biz", "cost": 7.99, "fixed": 990.0, "featured": False, "sort": 9},
+]
+
+
+async def _attach_retail_price(pricing: TldPricing, session: DbSession) -> TldPricingRead:
+    from app.services.pricing import PricingService
+
+    svc = PricingService(session, get_settings())
+    quote = await svc.quote(
+        tld=pricing.tld,
+        cost_usd=float(pricing.register_cost_usd or 0.0),
+        years=1,
+    )
+    read_obj = TldPricingRead.model_validate(pricing)
+    read_obj.retail_price_rub = quote.price_rub
+    return read_obj
+
 
 @auth_router.get("/tld-pricing", response_model=list[TldPricingRead])
-async def list_tld_pricing(session: DbSession) -> list[TldPricing]:
-    result = await session.scalars(
-        select(TldPricing).order_by(TldPricing.sort_order, TldPricing.tld)
+async def list_tld_pricing(session: DbSession) -> list[TldPricingRead]:
+    items = list(
+        await session.scalars(
+            select(TldPricing).order_by(TldPricing.sort_order, TldPricing.tld)
+        )
     )
-    return list(result)
+    if not items:
+        for seed in DEFAULT_TLD_SEEDS:
+            row = TldPricing(
+                tld=seed["tld"],
+                register_cost_usd=seed["cost"],
+                fixed_price_rub=seed["fixed"],
+                is_featured=seed["featured"],
+                sort_order=seed["sort"],
+                is_enabled=True,
+            )
+            session.add(row)
+        await session.commit()
+        items = list(
+            await session.scalars(
+                select(TldPricing).order_by(TldPricing.sort_order, TldPricing.tld)
+            )
+        )
+
+    return [await _attach_retail_price(item, session) for item in items]
+
+
+@auth_router.post("/tld-pricing", response_model=TldPricingRead)
+async def create_tld_pricing(
+    payload: TldPricingCreate,
+    session: DbSession,
+    t: Translate,
+) -> TldPricingRead:
+    tld_clean = payload.tld.strip().lstrip(".").lower()
+    if not tld_clean:
+        raise HTTPException(status_code=400, detail="Invalid TLD")
+
+    existing = await session.scalar(
+        select(TldPricing).where(TldPricing.tld == tld_clean)
+    )
+    if existing:
+        for field, value in payload.model_dump(exclude={"tld"}).items():
+            setattr(existing, field, value)
+        await session.commit()
+        await session.refresh(existing)
+        return await _attach_retail_price(existing, session)
+
+    new_row = TldPricing(
+        tld=tld_clean,
+        register_cost_usd=payload.register_cost_usd,
+        markup_percent=payload.markup_percent,
+        fixed_price_rub=payload.fixed_price_rub,
+        is_enabled=payload.is_enabled,
+        is_featured=payload.is_featured,
+    )
+    session.add(new_row)
+    await session.commit()
+    await session.refresh(new_row)
+    return await _attach_retail_price(new_row, session)
 
 
 @auth_router.patch("/tld-pricing/{tld}", response_model=TldPricingRead)
@@ -95,14 +177,10 @@ async def update_tld_pricing(
     payload: TldPricingUpdate,
     session: DbSession,
     t: Translate,
-) -> TldPricing:
-    """Adjust the resale markup for one zone.
-
-    Existing orders are unaffected: their price was frozen at checkout, so a
-    markup change never retroactively alters what a customer owes.
-    """
+) -> TldPricingRead:
+    """Adjust resale markup or fixed price for one zone."""
     pricing = await session.scalar(
-        select(TldPricing).where(TldPricing.tld == tld.lstrip("."))
+        select(TldPricing).where(TldPricing.tld == tld.lstrip(".").lower())
     )
     if pricing is None:
         raise HTTPException(
@@ -114,7 +192,75 @@ async def update_tld_pricing(
 
     await session.commit()
     await session.refresh(pricing)
-    return pricing
+    return await _attach_retail_price(pricing, session)
+
+
+@auth_router.delete("/tld-pricing/{tld}")
+async def delete_tld_pricing(
+    tld: str,
+    session: DbSession,
+    t: Translate,
+) -> dict:
+    pricing = await session.scalar(
+        select(TldPricing).where(TldPricing.tld == tld.lstrip(".").lower())
+    )
+    if pricing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+    await session.delete(pricing)
+    await session.commit()
+    return {"ok": True, "tld": tld}
+
+
+@auth_router.post("/sync-tld-prices", response_model=TldSyncResponse)
+async def sync_tld_prices(
+    session: DbSession,
+    dynadot: Dynadot,
+) -> TldSyncResponse:
+    try:
+        data = await dynadot.get_tld_prices(currency="USD")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail=f"Failed to fetch prices from Dynadot: {exc}"
+        )
+
+    tld_price_list = data.get("tld_price_list") or []
+    if not tld_price_list:
+        return TldSyncResponse(ok=False, synced_count=0, message="Dynadot returned no price list")
+
+    price_map: dict[str, float] = {}
+    for item in tld_price_list:
+        raw_tld = str(item.get("tld") or "").lstrip(".").lower()
+        years_p = item.get("all_years_register_price")
+        cost = None
+        if isinstance(years_p, list) and len(years_p) > 0:
+            try:
+                cost = float(years_p[0])
+            except (ValueError, TypeError):
+                pass
+        if cost is None:
+            raw_reg = item.get("register_price") or item.get("registration_price")
+            try:
+                cost = float(raw_reg) if raw_reg is not None else None
+            except (ValueError, TypeError):
+                pass
+        if raw_tld and cost is not None:
+            price_map[raw_tld] = cost
+
+    existing_rows = list(await session.scalars(select(TldPricing)))
+    synced = 0
+    for row in existing_rows:
+        if row.tld in price_map:
+            row.register_cost_usd = price_map[row.tld]
+            synced += 1
+
+    await session.commit()
+    return TldSyncResponse(
+        ok=True,
+        synced_count=synced,
+        message=f"Успешно обновлена себестоимость для {synced} TLD зон из Dynadot API",
+    )
 
 
 # ------------------------------------------------------------------- orders

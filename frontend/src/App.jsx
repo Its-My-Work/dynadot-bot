@@ -52,7 +52,12 @@ export default function App() {
       })
       .catch(() => {
         // Fallback to getUser
-        api.getUser(telegramId).catch(() => {});
+        api
+          .getUser(telegramId)
+          .then((user) => {
+            if (user?.language) setLang(normalizeLanguage(user.language));
+          })
+          .catch(() => {});
       });
   }, [telegramId]);
 
@@ -84,26 +89,28 @@ export default function App() {
           <div className="flex items-center gap-6">
             <Brand subtitle={t('app.subtitle')} />
             {/* Desktop Navigation inline in header */}
-            <div className="hidden md:flex items-center gap-1">
-              {TABS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setTab(item.id)}
-                  aria-current={tab === item.id ? 'page' : undefined}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                    tab === item.id
-                      ? 'bg-elevated text-ink shadow-sm'
-                      : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  <span aria-hidden="true" className="text-sm">
-                    {item.icon}
-                  </span>
-                  <span>{t(item.labelKey)}</span>
-                </button>
-              ))}
-            </div>
+            {!candidate ? (
+              <div className="hidden md:flex items-center gap-1">
+                {TABS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setTab(item.id)}
+                    aria-current={tab === item.id ? 'page' : undefined}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      tab === item.id
+                        ? 'bg-elevated text-ink shadow-sm'
+                        : 'text-muted hover:text-ink'
+                    }`}
+                  >
+                    <span aria-hidden="true" className="text-sm">
+                      {item.icon}
+                    </span>
+                    <span>{t(item.labelKey)}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             <ThemePicker

@@ -31,6 +31,7 @@ beforeEach(() => {
   vi.spyOn(api, 'myDomains').mockResolvedValue([]);
   vi.spyOn(api, 'orders').mockResolvedValue([]);
   vi.spyOn(api, 'getUser').mockResolvedValue({ language: 'en' });
+  vi.spyOn(api, 'ensureUser').mockResolvedValue({ language: 'en' });
 });
 
 afterEach(() => {
@@ -62,23 +63,26 @@ describe('App', () => {
     const user = userEvent.setup();
 
     render(<App />);
-    await user.click(await screen.findByRole('button', { name: /My domains/ }));
+    const domainBtns = await screen.findAllByRole('button', { name: /My domains/ });
+    await user.click(domainBtns[0]);
 
     expect(await screen.findByText('You have no domains yet.')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Orders/ }));
+    const orderBtns = await screen.findAllByRole('button', { name: /Orders/ });
+    await user.click(orderBtns[0]);
     expect(await screen.findByText('No orders yet.')).toBeInTheDocument();
   });
 
   it('adopts the language saved in the user profile', async () => {
     insideTelegram({ language_code: 'ru' });
     api.getUser.mockResolvedValue({ language: 'en' });
+    api.ensureUser.mockResolvedValue({ language: 'en' });
 
     render(<App />);
 
     // The profile preference was set explicitly in the bot, so it beats the
     // Telegram client locale.
-    expect(await screen.findByText('My domains')).toBeInTheDocument();
+    expect((await screen.findAllByText('My domains')).length).toBeGreaterThan(0);
   });
 
   it('persists a language switch to the backend', async () => {
@@ -90,7 +94,7 @@ describe('App', () => {
     await user.click(await screen.findByRole('button', { name: 'Switch language' }));
 
     await waitFor(() => expect(setLang).toHaveBeenCalledWith(555, 'ru'));
-    expect(await screen.findByText('Мои домены')).toBeInTheDocument();
+    expect((await screen.findAllByText('Мои домены')).length).toBeGreaterThan(0);
   });
 
   it('still switches the UI when persisting the language fails', async () => {
@@ -103,7 +107,7 @@ describe('App', () => {
     render(<App />);
     await user.click(await screen.findByRole('button', { name: 'Switch language' }));
 
-    expect(await screen.findByText('Мои домены')).toBeInTheDocument();
+    expect((await screen.findAllByText('Мои домены')).length).toBeGreaterThan(0);
   });
 
   it('brands the 48px app bar with the D monogram', async () => {
@@ -132,7 +136,7 @@ describe('App', () => {
 
     await user.click(toggle);
 
-    expect(await screen.findByText('Мои домены')).toBeInTheDocument();
+    expect((await screen.findAllByText('Мои домены')).length).toBeGreaterThan(0);
     expect(
       await screen.findByRole('button', { name: 'Switch language' }),
     ).toHaveTextContent('EN');
