@@ -190,10 +190,12 @@ class Settings(BaseSettings):
         )
 
 
-@lru_cache
 def get_settings() -> Settings:
-    """Cached settings accessor (safe to use as a FastAPI dependency)."""
-    return Settings()
+    """Return the application settings singleton."""
+    return settings
 
 
-settings = get_settings()
+# Backwards compatibility for test fixtures calling get_settings.cache_clear()
+get_settings.cache_clear = lambda: None  # type: ignore[attr-defined]
+
+settings = Settings()
