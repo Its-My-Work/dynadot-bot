@@ -310,7 +310,7 @@ export default function SearchScreen({ t, onSelect }) {
       setCatalogLoading(true);
       try {
         const res = await api.catalog();
-        setCatalogItems(res.items || []);
+        setCatalogItems(Array.isArray(res) ? res : (res?.items || []));
       } catch {
         setCatalogItems([]);
       } finally {
