@@ -343,7 +343,6 @@ export default function SearchScreen({ t, onSelect }) {
         <div className="rounded-xl border border-accent/25 bg-accent/5 p-3.5 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-accent flex items-center gap-1.5">
-              <span>✨</span>
               {aiKeywords.length > 1 ? t('search.ai_concept_title') : t('search.ai_suggestions_title')}
             </span>
             {aiLoading && (
