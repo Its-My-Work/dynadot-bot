@@ -6,7 +6,9 @@ with the pricing service.
 
 from __future__ import annotations
 
+import os
 import time
+import httpx
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
@@ -18,6 +20,8 @@ from app.integrations.dynadot.exceptions import DynadotError
 from app.models.domain import Domain
 from app.models.user import User
 from app.schemas import (
+    AiSuggestRequest,
+    AiSuggestResponse,
     CatalogTldItem,
     DomainRead,
     DomainSearchRequest,
@@ -167,6 +171,84 @@ async def search_domains(
         has_more=has_more,
         total_available_zones=total_zones,
     )
+
+
+@router.post("/ai-suggest", response_model=AiSuggestResponse)
+async def ai_suggest_domains(
+    payload: AiSuggestRequest,
+    dynadot: Dynadot,
+    session: DbSession,
+    t: Translate,
+) -> AiSuggestResponse:
+    """Generate smart creative brandable domain suggestions using AI and verify real-time availability."""
+    raw_query = payload.query.strip().lower()
+    if not raw_query:
+        return AiSuggestResponse(query="", suggestions=[])
+
+    pricing_svc = PricingService(session, settings)
+    api_key = settings.omniroute_api_key.get_secret_value() if settings.omniroute_api_key else None
+    if not api_key:
+        api_key = os.environ.get("HERMES_CUSTOM_OMNIROUTE_ITSMYWORK_VIP_API_KEY") or os.environ.get("HERMES_CUSTOM_OMNIROUTE_MANAGE_API_KEY")
+
+    suggested_domains: list[str] = []
+
+    if api_key:
+        try:
+            prompt = (
+                f"You are a domain name branding expert. Suggest 6 creative, short, modern domain names in zones (.com, .io, .co, .pro, .store, .app, .tech, .ai) for the user business concept '{raw_query}'. "
+                f"If user input is in Russian, transliterate or translate to catchy English or Latin branding. "
+                f"Return ONLY a comma-separated list of domain names (e.g. name1.pro, name2.io, name3.com), nothing else."
+            )
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                res = await client.post(
+                    f"{settings.omniroute_base_url.rstrip('/')}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": settings.omniroute_model or "fast",
+                        "messages": [
+                            {"role": "system", "content": "You are a domain name branding expert. Return ONLY a comma-separated list of domain names."},
+                            {"role": "user", "content": prompt},
+                        ],
+                        "max_tokens": 100,
+                        "temperature": 0.7,
+                    },
+                )
+                if res.status_code == 200:
+                    text = res.json()["choices"][0]["message"]["content"]
+                    for part in text.split(","):
+                        cand = part.strip().strip("'\"` ").lower()
+                        if "." in cand and len(cand) < 60:
+                            suggested_domains.append(cand)
+        except Exception as exc:
+            logger.warning("AI domain suggestion call failed", extra={"error": str(exc)})
+
+    # Fallback if AI returned fewer than 3 domains
+    if len(suggested_domains) < 3:
+        clean_name = raw_query.split(".")[0].replace(" ", "")
+        suggested_domains.extend([
+            f"get{clean_name}.com",
+            f"{clean_name}app.com",
+            f"{clean_name}.io",
+            f"{clean_name}.co",
+            f"{clean_name}.pro",
+        ])
+
+    unique_candidates = list(dict.fromkeys(suggested_domains))[:8]
+
+    # Check live availability via Dynadot bulk search
+    try:
+        raw = await dynadot.bulk_search(unique_candidates)
+    except Exception as exc:
+        logger.warning("bulk_search for AI suggestions failed", extra={"error": str(exc)})
+        raw = {"domain_result_list": []}
+
+    items = _iter_search_items(raw, unique_candidates)
+    results = [await _to_result(item, t, pricing_svc) for item in items]
+
+    # Return only available domains with valid price
+    available_only = [r for r in results if r.available and r.price_rub is not None][:5]
+
+    return AiSuggestResponse(query=raw_query, suggestions=available_only)
 
 
 @router.get("/catalog", response_model=list[CatalogTldItem])

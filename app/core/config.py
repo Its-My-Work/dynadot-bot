@@ -107,6 +107,11 @@ class Settings(BaseSettings):
     telegram_admin_ids: Annotated[list[int], NoDecode] = []
     support_username: str | None = None
 
+    # --- OmniRoute (AI Smart Suggestions) ----------------------------------
+    omniroute_base_url: str = "http://main_omniroute:20128/v1"
+    omniroute_api_key: SecretStr | None = None
+    omniroute_model: str = "fast"
+
     @field_validator("telegram_admin_ids", mode="before")
     @classmethod
     def _split_admin_ids(cls, value: object) -> object:

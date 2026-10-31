@@ -159,6 +159,12 @@ export const api = {
       },
       signal,
     }),
+  aiSuggest: (query, signal) =>
+    request('/domains/ai-suggest', {
+      method: 'POST',
+      body: { query },
+      signal,
+    }),
 
   // --- domains ------------------------------------------------------------
   myDomains: (telegramId) => request('/domains/mine', { params: { telegram_id: telegramId } }),

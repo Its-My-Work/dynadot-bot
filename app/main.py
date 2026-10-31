@@ -117,6 +117,12 @@ async def _load_db_settings() -> None:
                     settings.vps_reality_sni = v
                 elif k == "telegram_bot_token":
                     settings.telegram_bot_token = SecretStr(v)
+                elif k == "omniroute_base_url":
+                    settings.omniroute_base_url = v
+                elif k == "omniroute_api_key":
+                    settings.omniroute_api_key = SecretStr(v)
+                elif k == "omniroute_model":
+                    settings.omniroute_model = v
                 elif k == "support_username":
                     settings.support_username = v
                 elif k == "registration_worker_enabled":

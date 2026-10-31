@@ -38,6 +38,8 @@ export default function SearchScreen({ t, onSelect }) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [results, setResults] = useState(null);
   const [alternatives, setAlternatives] = useState([]);
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -67,6 +69,8 @@ export default function SearchScreen({ t, onSelect }) {
       if (!clean) {
         setResults(null);
         setAlternatives([]);
+        setAiSuggestions([]);
+        setAiLoading(false);
         setHasMore(false);
         setError(null);
         setLoading(false);
@@ -92,7 +96,25 @@ export default function SearchScreen({ t, onSelect }) {
         if (clean !== lastSearchedRef.current.query) {
           setResults(null);
           setAlternatives([]);
+          setAiSuggestions([]);
         }
+      }
+
+      // Trigger AI suggestions asynchronously in the background
+      if (!append && clean !== lastSearchedRef.current.query) {
+        setAiLoading(true);
+        api.aiSuggest(clean, controller.signal)
+          .then((res) => {
+            if (abortRef.current === controller) {
+              setAiSuggestions(res?.suggestions || []);
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            if (abortRef.current === controller) {
+              setAiLoading(false);
+            }
+          });
       }
 
       try {
@@ -288,24 +310,41 @@ export default function SearchScreen({ t, onSelect }) {
         </div>
       </div>
 
-      {/* Smart .com Alternatives Suggestion */}
-      {alternatives.length > 0 && (
-        <div className="card space-y-2 border-accent/30 bg-accent/5 p-3">
-          <p className="text-xs font-semibold text-accent">
-            {t('search.alternatives_title')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {alternatives.map((alt) => (
-              <button
-                key={alt}
-                type="button"
-                onClick={() => handleSelectAlternative(alt)}
-                className="badge cursor-pointer border border-accent/30 bg-card px-2.5 py-1 text-xs font-medium hover:border-accent hover:text-accent"
-              >
-                {alt} ↗
-              </button>
-            ))}
+      {/* AI Smart Available Suggestions */}
+      {(aiSuggestions.length > 0 || aiLoading) && (
+        <div className="rounded-xl border border-accent/25 bg-accent/5 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-accent flex items-center gap-1.5">
+              <span>✨</span>
+              {t('search.ai_suggestions_title')}
+            </span>
+            {aiLoading && (
+              <span className="text-[11px] text-muted flex items-center gap-1.5 animate-pulse">
+                <Spinner />
+                <span>{t('search.ai_loading')}</span>
+              </span>
+            )}
           </div>
+          {aiSuggestions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {aiSuggestions.map((s) => (
+                <button
+                  key={s.domain}
+                  type="button"
+                  onClick={() => {
+                    haptic('medium');
+                    onSelect(s);
+                  }}
+                  className="badge cursor-pointer border border-accent/30 bg-card hover:border-accent hover:bg-accent/10 px-3 py-1.5 text-xs font-medium text-ink flex items-center gap-2 shadow-2xs transition-all"
+                >
+                  <span className="font-semibold text-accent">{s.domain}</span>
+                  <span className="text-muted">·</span>
+                  <span className="font-bold text-ink">{Number(s.price_rub).toLocaleString('ru-RU')} ₽</span>
+                  <span className="text-accent text-[11px]">🛒</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -349,106 +388,53 @@ export default function SearchScreen({ t, onSelect }) {
         />
       ) : null}
 
-      {/* Results Filter & Sort Toolbar (Always visible directly above domain results) */}
+      {/* Results Header (Airy, single-line toolbar directly above list) */}
       {results !== null && (
-        <div className="card space-y-2.5 border-card-border/70 bg-card/60 p-3 text-xs shadow-2xs">
-          {/* Top Line: Results counter & Quick Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-ink">
-                {t('search.results_count', { count: filteredResults.length })}
+        <div className="flex items-center justify-between text-xs px-1 pt-1">
+          <div className="flex items-center gap-2">
+            <span className="text-muted font-medium">
+              {t('search.results_count', { count: filteredResults.length })}
+            </span>
+            {loading && (
+              <span className="flex items-center gap-1.5 text-accent font-semibold animate-pulse">
+                <Spinner />
+                {t('search.updating_zones')}
               </span>
-              {loading && (
-                <span className="flex items-center gap-1.5 text-accent font-semibold animate-pulse">
-                  <Spinner />
-                  {t('search.updating_zones')}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 ml-auto">
-              {/* Only Available Toggle Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  haptic('light');
-                  setFilterOnlyAvail(!filterOnlyAvail);
-                }}
-                className={`badge cursor-pointer border px-2.5 py-1 text-xs font-medium transition-colors ${
-                  filterOnlyAvail
-                    ? 'border-accent bg-accent text-accent-ink font-semibold'
-                    : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-                }`}
-              >
-                {filterOnlyAvail ? '✓ ' : ''}{t('search.filter_only_available')}
-              </button>
-
-              {/* Sort Dropdown */}
-              <select
-                value={filterSort}
-                onChange={(e) => {
-                  haptic('light');
-                  setFilterSort(e.target.value);
-                }}
-                aria-label="Сортировка"
-                className="input py-1 px-2 text-xs bg-card border-card-border rounded font-medium cursor-pointer"
-              >
-                <option value="default">{t('search.filter_sort_recommended')}</option>
-                <option value="cheap">{t('search.filter_sort_cheap')}</option>
-                <option value="expensive">{t('search.filter_sort_expensive')}</option>
-                <option value="az">{t('search.filter_sort_az')}</option>
-              </select>
-            </div>
+            )}
           </div>
 
-          {/* Bottom Line: Price Chips & Zone Search Input */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-card-border/40 pt-2">
-            {/* Quick Price Filter Chips */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {[
-                { max: 0, label: t('search.filter_all_prices') },
-                { max: 700, label: t('search.filter_under_700') },
-                { max: 1500, label: t('search.filter_under_1500') },
-                { max: 3000, label: t('search.filter_under_3000') },
-              ].map((p) => (
-                <button
-                  key={p.max}
-                  type="button"
-                  onClick={() => {
-                    haptic('light');
-                    setFilterPriceMax(p.max);
-                  }}
-                  className={`badge cursor-pointer border px-2.5 py-1 text-xs transition-colors ${
-                    filterPriceMax === p.max
-                      ? 'border-accent bg-accent/20 text-accent font-semibold border-2'
-                      : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2">
+            {/* Only Available Toggle Button */}
+            <button
+              type="button"
+              onClick={() => {
+                haptic('light');
+                setFilterOnlyAvail(!filterOnlyAvail);
+              }}
+              className={`badge cursor-pointer border px-2.5 py-1 text-xs font-medium transition-colors ${
+                filterOnlyAvail
+                  ? 'border-accent bg-accent text-accent-ink font-semibold'
+                  : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+              }`}
+            >
+              {filterOnlyAvail ? '✓ ' : ''}{t('search.filter_only_available')}
+            </button>
 
-            {/* Quick Zone Filter Input & Reset Button */}
-            <div className="flex items-center gap-1.5 ml-auto">
-              <input
-                type="text"
-                placeholder={t('search.filter_tld_search')}
-                value={filterTldQuery}
-                onChange={(e) => setFilterTldQuery(e.target.value)}
-                className="input py-1 px-2 text-xs w-36 sm:w-44"
-              />
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  title={t('search.filter_reset')}
-                  className="badge cursor-pointer border border-card-border text-muted hover:text-accent hover:border-accent px-2 py-1 text-xs"
-                >
-                  ✕ {t('search.filter_reset')}
-                </button>
-              )}
-            </div>
+            {/* Sort Dropdown */}
+            <select
+              value={filterSort}
+              onChange={(e) => {
+                haptic('light');
+                setFilterSort(e.target.value);
+              }}
+              aria-label="Сортировка"
+              className="badge py-1 px-2 text-xs bg-card border-card-border text-ink rounded font-medium cursor-pointer"
+            >
+              <option value="default">{t('search.filter_sort_recommended')}</option>
+              <option value="cheap">{t('search.filter_sort_cheap')}</option>
+              <option value="expensive">{t('search.filter_sort_expensive')}</option>
+              <option value="az">{t('search.filter_sort_az')}</option>
+            </select>
           </div>
         </div>
       )}

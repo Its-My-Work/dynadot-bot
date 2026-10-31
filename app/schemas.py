@@ -140,8 +140,18 @@ class DomainSearchResponse(BaseModel):
     query: str
     results: list[DomainSearchResult]
     alternatives: list[str] = Field(default_factory=list)
+    ai_suggestions: list[DomainSearchResult] = Field(default_factory=list)
     has_more: bool = False
     total_available_zones: int = 0
+
+
+class AiSuggestRequest(BaseModel):
+    query: str
+
+
+class AiSuggestResponse(BaseModel):
+    query: str
+    suggestions: list[DomainSearchResult]
 
 
 class CatalogTldItem(BaseModel):

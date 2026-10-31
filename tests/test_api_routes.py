@@ -291,6 +291,15 @@ def test_zones_endpoint_reflects_admin_configuration(client):
     assert client.get("/api/v1/domains/zones").json() == ["io"]
 
 
+def test_ai_suggest_domains_returns_fallback_or_suggestions(client):
+    res = client.post("/api/v1/domains/ai-suggest", json={"query": "testbrand"})
+    assert res.status_code == 200
+    data = res.json()
+    assert "query" in data
+    assert "suggestions" in data
+    assert isinstance(data["suggestions"], list)
+
+
 def test_my_domains_lists_only_the_users_domains(client):
     async def seed():
         async with _session_factory()() as session:
