@@ -55,10 +55,12 @@ export default function SearchScreen({ t, onSelect }) {
   const [filterSort, setFilterSort] = useState('default'); // default, cheap, expensive, az
   const [filterOnlyAvail, setFilterOnlyAvail] = useState(false);
   const [filterTldQuery, setFilterTldQuery] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
 
   const abortRef = useRef(null);
   const timerRef = useRef(null);
   const offsetRef = useRef(0);
+  const lastSearchedRef = useRef({ query: '', category: '' });
 
   const runSearch = useCallback(
     async (rawQuery, category, append = false) => {
@@ -70,11 +72,16 @@ export default function SearchScreen({ t, onSelect }) {
         setError(null);
         setLoading(false);
         setLoadingMore(false);
+        setIsTyping(false);
+        lastSearchedRef.current = { query: '', category: '' };
         return;
       }
 
+      setIsTyping(false);
+
+      const controller = new AbortController();
       abortRef.current?.abort();
-      abortRef.current = new AbortController();
+      abortRef.current = controller;
 
       if (append) {
         setLoadingMore(true);
@@ -82,15 +89,22 @@ export default function SearchScreen({ t, onSelect }) {
         setLoading(true);
         setError(null);
         offsetRef.current = 0;
+        // If searching a new domain name, clear old results so user never sees stale data
+        if (clean !== lastSearchedRef.current.query) {
+          setResults(null);
+          setAlternatives([]);
+        }
       }
 
       try {
         const currentOffset = append ? offsetRef.current : 0;
-        const res = await api.search(clean, null, abortRef.current.signal, {
+        const res = await api.search(clean, null, controller.signal, {
           category: category !== 'all' ? category : null,
           offset: currentOffset,
           limit: 15,
         });
+
+        if (abortRef.current !== controller) return;
 
         const newItems = res?.results ?? [];
         if (append) {
@@ -103,11 +117,12 @@ export default function SearchScreen({ t, onSelect }) {
         } else {
           setResults(newItems);
           setAlternatives(res?.alternatives ?? []);
+          lastSearchedRef.current = { query: clean, category };
           offsetRef.current = newItems.length;
         }
         setHasMore(Boolean(res?.has_more));
       } catch (err) {
-        if (err.name === 'AbortError') return;
+        if (abortRef.current !== controller || err.name === 'AbortError') return;
         if (err instanceof ApiError && err.status === 422) {
           setError(t('search.invalid'));
         } else if (err instanceof ApiError && err.status === 0) {
@@ -116,8 +131,10 @@ export default function SearchScreen({ t, onSelect }) {
           setError(t('buy.registrar_down'));
         }
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (abortRef.current === controller) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [t],
@@ -125,6 +142,27 @@ export default function SearchScreen({ t, onSelect }) {
 
   useEffect(() => {
     clearTimeout(timerRef.current);
+    const clean = sanitizeQuery(query);
+    if (!clean) {
+      setIsTyping(false);
+      setResults(null);
+      setAlternatives([]);
+      setHasMore(false);
+      setError(null);
+      setLoading(false);
+      lastSearchedRef.current = { query: '', category: '' };
+      return;
+    }
+
+    if (
+      clean === lastSearchedRef.current.query &&
+      activeCategory === lastSearchedRef.current.category
+    ) {
+      setIsTyping(false);
+      return;
+    }
+
+    setIsTyping(true);
     timerRef.current = setTimeout(
       () => runSearch(query, activeCategory, false),
       DEBOUNCE_MS,
@@ -230,16 +268,24 @@ export default function SearchScreen({ t, onSelect }) {
           placeholder={t('search.placeholder')}
           aria-label={t('search.placeholder')}
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            const clean = sanitizeQuery(event.target.value);
+            if (clean && clean !== lastSearchedRef.current.query) {
+              setIsTyping(true);
+            }
+          }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
+              event.preventDefault();
               clearTimeout(timerRef.current);
+              setIsTyping(false);
               runSearch(query, activeCategory, false);
             }
           }}
         />
         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted">
-          {loading ? <Spinner /> : <span aria-hidden="true">⌕</span>}
+          {loading || isTyping ? <Spinner /> : <span aria-hidden="true">⌕</span>}
         </div>
       </div>
 

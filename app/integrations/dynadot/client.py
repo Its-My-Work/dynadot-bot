@@ -376,38 +376,76 @@ class DynadotClient:
         )
 
     async def bulk_search(self, domains: list[str]) -> dict[str, Any]:
-        """Availability for many domains — chunked to 5-domain cap and queried in parallel."""
+        """Availability for many domains — with in-memory TTL caching and 5-domain chunking."""
         if not domains:
             return {"domain_result_list": []}
 
-        chunk_size = 5
-        chunks = [domains[i : i + chunk_size] for i in range(0, len(domains), chunk_size)]
+        if not hasattr(self, "_bulk_search_cache"):
+            self._bulk_search_cache: dict[str, tuple[dict[str, Any], float]] = {}
 
-        async def fetch_chunk(chunk: list[str]) -> list[dict[str, Any]]:
-            try:
-                res = await self._request(
-                    "GET",
-                    "/domains/bulk_search",
-                    params={
-                        "domain_name_list": ",".join(chunk),
-                        "show_price": True,
-                        "currency": "USD",
-                    },
-                    priority=Priority.LOW,
-                )
-                return res.get("domain_result_list") or []
-            except Exception as exc:
-                logger.warning(
-                    "bulk_search chunk failed", extra={"chunk": chunk, "error": str(exc)}
-                )
-                return [{"domain_name": d, "available": None} for d in chunk]
+        now = time.monotonic()
+        # Clean expired cache items (> 90 seconds)
+        expired = [k for k, (_, t) in self._bulk_search_cache.items() if (now - t) > 90.0]
+        for k in expired:
+            self._bulk_search_cache.pop(k, None)
 
-        chunk_results = await asyncio.gather(*(fetch_chunk(c) for c in chunks))
-        merged_results: list[dict[str, Any]] = []
-        for items in chunk_results:
-            merged_results.extend(items)
+        cached_results: dict[str, dict[str, Any]] = {}
+        missing_domains: list[str] = []
 
-        return {"domain_result_list": merged_results}
+        for d in domains:
+            d_norm = d.strip().lower()
+            if d_norm in self._bulk_search_cache and (now - self._bulk_search_cache[d_norm][1]) < 90.0:
+                cached_results[d_norm] = self._bulk_search_cache[d_norm][0]
+            else:
+                missing_domains.append(d)
+
+        if missing_domains:
+            chunk_size = 5
+            chunks = [
+                missing_domains[i : i + chunk_size]
+                for i in range(0, len(missing_domains), chunk_size)
+            ]
+
+            async def fetch_chunk(chunk: list[str]) -> list[dict[str, Any]]:
+                try:
+                    res = await self._request(
+                        "GET",
+                        "/domains/bulk_search",
+                        params={
+                            "domain_name_list": ",".join(chunk),
+                            "show_price": True,
+                            "currency": "USD",
+                        },
+                        priority=Priority.LOW,
+                    )
+                    items = res.get("domain_result_list") or []
+                    for item in items:
+                        dname = str(item.get("domain_name") or "").lower()
+                        if dname:
+                            self._bulk_search_cache[dname] = (item, time.monotonic())
+                    return items
+                except Exception as exc:
+                    logger.warning(
+                        "bulk_search chunk failed", extra={"chunk": chunk, "error": str(exc)}
+                    )
+                    return [{"domain_name": d, "available": None} for d in chunk]
+
+            chunk_results = await asyncio.gather(*(fetch_chunk(c) for c in chunks))
+            for items in chunk_results:
+                for it in items:
+                    dname = str(it.get("domain_name") or "").lower()
+                    if dname:
+                        cached_results[dname] = it
+
+        ordered_list: list[dict[str, Any]] = []
+        for d in domains:
+            d_norm = d.strip().lower()
+            if d_norm in cached_results:
+                ordered_list.append(cached_results[d_norm])
+            else:
+                ordered_list.append({"domain_name": d_norm, "available": None})
+
+        return {"domain_result_list": ordered_list}
 
     async def get_tld_prices(self, currency: str = "USD") -> dict[str, Any]:
         return await self._request(

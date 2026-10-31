@@ -128,7 +128,11 @@ class DynadotQueue:
                 name=name,
             )
         )
-        return await future
+        try:
+            return await future
+        except asyncio.CancelledError:
+            future.cancel()
+            raise
 
     @property
     def pending(self) -> int:
@@ -145,6 +149,8 @@ class DynadotQueue:
                 if item.future.cancelled():
                     continue
                 await self._limiter.acquire()
+                if item.future.cancelled():
+                    continue
                 result = await item.operation()
                 if not item.future.done():
                     item.future.set_result(result)
