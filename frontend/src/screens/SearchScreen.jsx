@@ -564,23 +564,37 @@ export default function SearchScreen({ t, onSelect }) {
                 })}
 
                 {/* Custom selected zones from 800+ catalog */}
-                {selectedAiZones
-                  .filter((z) => !POPULAR_AI_ZONES.includes(z))
-                  .map((customZone) => (
-                    <span
-                      key={customZone}
-                      className="badge px-2 py-1 text-xs border border-accent bg-accent/20 text-accent font-bold font-mono flex items-center gap-1.5 shadow-2xs"
+                {selectedAiZones.length > 10 ? (
+                  <span className="badge px-2.5 py-1 text-xs border border-accent bg-accent/20 text-accent font-bold flex items-center gap-1.5 shadow-2xs">
+                    <span>✓ Выбрано зон: {selectedAiZones.length}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAiZones([])}
+                      className="hover:text-ink cursor-pointer text-xs ml-1"
+                      title="Сбросить"
                     >
-                      .{customZone}
-                      <button
-                        type="button"
-                        onClick={() => toggleAiZone(customZone)}
-                        className="hover:text-ink cursor-pointer text-xs"
+                      ✕
+                    </button>
+                  </span>
+                ) : (
+                  selectedAiZones
+                    .filter((z) => !POPULAR_AI_ZONES.includes(z))
+                    .map((customZone) => (
+                      <span
+                        key={customZone}
+                        className="badge px-2 py-1 text-xs border border-accent bg-accent/20 text-accent font-bold font-mono flex items-center gap-1.5 shadow-2xs"
                       >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
+                        .{customZone}
+                        <button
+                          type="button"
+                          onClick={() => toggleAiZone(customZone)}
+                          className="hover:text-ink cursor-pointer text-xs"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))
+                )}
               </div>
 
               {/* Quick inline input to add any zone */}
