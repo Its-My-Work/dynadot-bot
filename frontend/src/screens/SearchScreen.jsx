@@ -365,7 +365,7 @@ export default function SearchScreen({ t, onSelect }) {
     } catch {
       // Aborted or error
     } finally {
-      if (aiPollingAbortRef.current === controller) {
+      if (!aiPollingAbortRef.current || aiPollingAbortRef.current === controller) {
         setAiLoading(false);
         setAiPollingProgress(null);
         aiPollingAbortRef.current = null;
