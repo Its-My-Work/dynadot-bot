@@ -83,15 +83,41 @@ async def admin_login(payload: AdminLoginRequest) -> AdminLoginResponse:
 # ------------------------------------------------------------------ pricing
 
 DEFAULT_TLD_SEEDS = [
+    # Top Featured
     {"tld": "com", "cost": 10.88, "fixed": 1290.0, "featured": True, "sort": 1},
     {"tld": "net", "cost": 12.52, "fixed": 1490.0, "featured": True, "sort": 2},
     {"tld": "org", "cost": 7.99, "fixed": 990.0, "featured": True, "sort": 3},
     {"tld": "io", "cost": 28.89, "fixed": 3490.0, "featured": True, "sort": 4},
-    {"tld": "xyz", "cost": 1.99, "fixed": 390.0, "featured": True, "sort": 5},
-    {"tld": "co", "cost": 15.50, "fixed": 1790.0, "featured": True, "sort": 6},
-    {"tld": "info", "cost": 4.99, "fixed": 690.0, "featured": False, "sort": 7},
-    {"tld": "me", "cost": 8.99, "fixed": 1090.0, "featured": False, "sort": 8},
-    {"tld": "biz", "cost": 7.99, "fixed": 990.0, "featured": False, "sort": 9},
+    {"tld": "ai", "cost": 65.00, "fixed": 7990.0, "featured": True, "sort": 5},
+    {"tld": "xyz", "cost": 1.99, "fixed": 390.0, "featured": True, "sort": 6},
+    {"tld": "co", "cost": 15.50, "fixed": 1790.0, "featured": True, "sort": 7},
+    {"tld": "pro", "cost": 3.99, "fixed": 590.0, "featured": True, "sort": 8},
+    {"tld": "store", "cost": 2.99, "fixed": 490.0, "featured": True, "sort": 9},
+    # AI & Tech
+    {"tld": "tech", "cost": 4.99, "fixed": 690.0, "featured": False, "sort": 10},
+    {"tld": "app", "cost": 14.50, "fixed": 1690.0, "featured": False, "sort": 11},
+    {"tld": "cloud", "cost": 3.99, "fixed": 590.0, "featured": False, "sort": 12},
+    {"tld": "space", "cost": 1.99, "fixed": 390.0, "featured": False, "sort": 13},
+    # Budget & Web
+    {"tld": "site", "cost": 2.49, "fixed": 390.0, "featured": False, "sort": 14},
+    {"tld": "online", "cost": 2.99, "fixed": 450.0, "featured": False, "sort": 15},
+    {"tld": "fun", "cost": 1.99, "fixed": 350.0, "featured": False, "sort": 16},
+    {"tld": "icu", "cost": 1.99, "fixed": 350.0, "featured": False, "sort": 17},
+    {"tld": "website", "cost": 2.49, "fixed": 390.0, "featured": False, "sort": 18},
+    {"tld": "top", "cost": 1.99, "fixed": 350.0, "featured": False, "sort": 19},
+    # Business & E-commerce
+    {"tld": "shop", "cost": 3.99, "fixed": 590.0, "featured": False, "sort": 20},
+    {"tld": "biz", "cost": 7.99, "fixed": 990.0, "featured": False, "sort": 21},
+    {"tld": "info", "cost": 4.99, "fixed": 690.0, "featured": False, "sort": 22},
+    {"tld": "agency", "cost": 5.99, "fixed": 890.0, "featured": False, "sort": 23},
+    {"tld": "vip", "cost": 4.99, "fixed": 690.0, "featured": False, "sort": 24},
+    # Creative & Personal
+    {"tld": "me", "cost": 8.99, "fixed": 1090.0, "featured": False, "sort": 25},
+    {"tld": "life", "cost": 3.99, "fixed": 590.0, "featured": False, "sort": 26},
+    {"tld": "art", "cost": 5.99, "fixed": 890.0, "featured": False, "sort": 27},
+    {"tld": "design", "cost": 7.99, "fixed": 1190.0, "featured": False, "sort": 28},
+    {"tld": "digital", "cost": 4.99, "fixed": 690.0, "featured": False, "sort": 29},
+    {"tld": "club", "cost": 3.99, "fixed": 590.0, "featured": False, "sort": 30},
 ]
 
 
@@ -116,8 +142,10 @@ async def list_tld_pricing(session: DbSession) -> list[TldPricingRead]:
             select(TldPricing).order_by(TldPricing.sort_order, TldPricing.tld)
         )
     )
-    if not items:
-        for seed in DEFAULT_TLD_SEEDS:
+    existing_tlds = {item.tld for item in items}
+    added = False
+    for seed in DEFAULT_TLD_SEEDS:
+        if seed["tld"] not in existing_tlds:
             row = TldPricing(
                 tld=seed["tld"],
                 register_cost_usd=seed["cost"],
@@ -127,6 +155,8 @@ async def list_tld_pricing(session: DbSession) -> list[TldPricingRead]:
                 is_enabled=True,
             )
             session.add(row)
+            added = True
+    if added:
         await session.commit()
         items = list(
             await session.scalars(

@@ -6,13 +6,14 @@ is decided once by the middleware rather than at each call site.
 
 from __future__ import annotations
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 
 from app.bot.keyboards import (
     LANGUAGE_CALLBACK_PREFIX,
+    domain_search_results,
     language_menu,
     main_menu,
     web_app_supported,
@@ -21,9 +22,11 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.session import get_session_factory
 from app.i18n import Translator, available_languages
+from app.integrations.dynadot import DynadotClient
 from app.models.enums import Language
 from app.models.order import Order
 from app.models.user import User
+from app.services.pricing import PricingService
 
 logger = get_logger(__name__)
 
@@ -162,6 +165,93 @@ async def _render_orders(t: Translator, user: User | None) -> str:
     return "\n".join(lines)
 
 
+# Text search handler for direct query in chat
+@router.message(F.text & ~F.text.startswith("/"))
+async def msg_domain_search(message: Message, bot: Bot, t: Translator) -> None:
+    raw_query = (message.text or "").strip().lower()
+    clean = raw_query.lstrip(".").replace(" ", "")
+    if not clean or len(clean) > 63:
+        return
+
+    # Check popular zones for telegram output
+    tlds = ["com", "xyz", "org", "net", "io", "ai", "store", "pro"]
+    if "." in clean:
+        candidates = [clean]
+        domain_base = clean.split(".")[0]
+    else:
+        candidates = [f"{clean}.{tld}" for tld in tlds]
+        domain_base = clean
+
+    wait_msg = await message.answer(f"🔍 Проверяем зоны для «{clean}»..." if t.language == "ru" else f"🔍 Searching zones for '{clean}'...")
+
+    try:
+        from app.integrations.dynadot.client import DynadotClient
+        dynadot = DynadotClient(settings)
+        try:
+            raw = await dynadot.bulk_search(candidates)
+            items = raw.get("domain_result_list") or []
+        finally:
+            await dynadot.aclose()
+
+        async with get_session_factory()() as session:
+            pricing_svc = PricingService(session, settings)
+            parsed_results = []
+            for item in items:
+                domain_name = item.get("domain_name", "")
+                d_tld = domain_name.rsplit(".", 1)[-1] if "." in domain_name else ""
+                avail_raw = item.get("available")
+                is_avail = avail_raw in (True, "yes", "true", "1")
+                price_list = item.get("price_list") or []
+                cost = 0.0
+                if price_list and isinstance(price_list, list):
+                    try:
+                        cost = float(price_list[0].get("registration_price") or 0.0)
+                    except (ValueError, TypeError):
+                        cost = 0.0
+                quote = await pricing_svc.quote(tld=d_tld, cost_usd=cost, years=1)
+                parsed_results.append({
+                    "domain": domain_name,
+                    "tld": d_tld,
+                    "available": is_avail,
+                    "price_rub": quote.price_rub,
+                })
+
+        # Format message
+        lines = [f"🔍 <b>Результаты для {domain_base}</b>\n" if t.language == "ru" else f"🔍 <b>Search results for {domain_base}</b>\n"]
+        for res in parsed_results:
+            d_name = res["domain"]
+            if res["available"]:
+                p_rub = f"{int(res['price_rub']):,} ₽".replace(",", " ")
+                lines.append(f"🟢 <b>{d_name}</b> — <b>{p_rub}</b>")
+            else:
+                lines.append(f"❌ <s>{d_name}</s> — занят" if t.language == "ru" else f"❌ <s>{d_name}</s> — taken")
+
+        text = "\n".join(lines)
+        kb = domain_search_results(
+            domain_results=parsed_results,
+            query=domain_base,
+            tma_url=settings.tma_url,
+            language=t.language,
+        )
+        await bot.edit_message_text(
+            text=text,
+            chat_id=message.chat.id,
+            message_id=wait_msg.message_id,
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    except Exception as exc:
+        logger.warning("telegram text domain search failed", extra={"error": str(exc)})
+        await bot.edit_message_text(
+            text="Не удалось проверить домен прямо сейчас. Попробуйте в приложении:"
+            if t.language == "ru"
+            else "Failed to search domains. Try via the app:",
+            chat_id=message.chat.id,
+            message_id=wait_msg.message_id,
+            reply_markup=main_menu(t.language, settings.tma_url),
+        )
+
+
 # Registered last: an earlier catch-all would shadow every command above.
 @router.message(F.text.startswith("/"))
 async def cmd_unknown(message: Message, t: Translator) -> None:
@@ -169,12 +259,7 @@ async def cmd_unknown(message: Message, t: Translator) -> None:
 
 
 def build_router() -> Router:
-    """Return a fresh router with every handler registered.
-
-    aiogram forbids attaching one router to two dispatchers, so each
-    dispatcher needs its own instance. Registration order mirrors the module
-    above: the ``/``-prefixed catch-all goes last or it shadows every command.
-    """
+    """Return a fresh router with every handler registered."""
     fresh = Router(name="main")
 
     fresh.message.register(cmd_start, CommandStart())
@@ -190,4 +275,5 @@ def build_router() -> Router:
     )
 
     fresh.message.register(cmd_unknown, F.text.startswith("/"))
+    fresh.message.register(msg_domain_search, F.text & ~F.text.startswith("/"))
     return fresh

@@ -146,10 +146,17 @@ export const api = {
 
   // --- search -------------------------------------------------------------
   zones: () => request('/domains/zones'),
-  search: (query, tlds, signal) =>
+  catalog: () => request('/domains/catalog'),
+  search: (query, tlds, signal, options = {}) =>
     request('/domains/search', {
       method: 'POST',
-      body: { query, tlds: tlds?.length ? tlds : null },
+      body: {
+        query,
+        tlds: tlds?.length ? tlds : null,
+        category: options.category || null,
+        offset: options.offset || 0,
+        limit: options.limit || 15,
+      },
       signal,
     }),
 

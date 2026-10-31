@@ -16,6 +16,7 @@ from app.integrations.dynadot.exceptions import DynadotError
 from app.models.domain import Domain
 from app.models.user import User
 from app.schemas import (
+    CatalogTldItem,
     DomainRead,
     DomainSearchRequest,
     DomainSearchResponse,
@@ -28,8 +29,21 @@ from app.services.registration import RegistrationService
 logger = get_logger(__name__)
 router = APIRouter(prefix="/domains", tags=["domains"])
 
-# Default zones shown in the TMA grid until admin pricing overrides them.
-DEFAULT_TLDS = ["com", "net", "org", "io", "xyz", "co"]
+TLD_CATEGORIES: dict[str, list[str]] = {
+    "all": [
+        "com", "net", "org", "co", "io", "ai", "xyz", "pro", "store",
+        "tech", "app", "cloud", "space", "site", "online", "fun", "icu",
+        "website", "top", "shop", "biz", "info", "agency", "vip", "me",
+        "life", "art", "design", "digital", "club",
+    ],
+    "popular": ["com", "net", "org", "co", "io", "ai", "xyz", "pro", "store"],
+    "tech": ["ai", "io", "tech", "app", "cloud", "space", "digital"],
+    "business": ["pro", "store", "shop", "biz", "co", "agency", "vip"],
+    "budget": ["xyz", "site", "online", "fun", "icu", "website", "top"],
+    "creative": ["me", "art", "design", "life", "club", "info"],
+}
+
+DEFAULT_TLDS = TLD_CATEGORIES["all"]
 
 
 def _apply_markup(cost_usd: float) -> float:
@@ -45,13 +59,10 @@ async def search_domains(
     session: DbSession,
     t: Translate,
 ) -> DomainSearchResponse:
-    """Check availability of a name across the selected zones.
-
-    Uses ``bulk_search`` so one queued request covers every zone, rather than
-    N serialised single searches.
-    """
+    """Check availability of a name across zones with category and pagination support."""
     pricing_svc = PricingService(session, settings)
     name = payload.query.strip().lower()
+
     if "." in name:
         base, _, tld = name.rpartition(".")
         if not base:
@@ -60,13 +71,23 @@ async def search_domains(
                 detail=t("search.invalid_name"),
             )
         candidates = [f"{base}.{tld}"]
+        total_zones = 1
+        has_more = False
     else:
         if payload.tlds:
-            tlds = [t_item.lstrip(".") for t_item in payload.tlds]
+            pool = [t_item.lstrip(".") for t_item in payload.tlds]
+        elif payload.category and payload.category in TLD_CATEGORIES:
+            pool = TLD_CATEGORIES[payload.category]
         else:
             enabled = await pricing_svc.enabled_tlds(DEFAULT_TLDS)
-            tlds = enabled if enabled else DEFAULT_TLDS
-        candidates = [f"{name}.{tld}" for tld in tlds]
+            pool = enabled if enabled else DEFAULT_TLDS
+
+        total_zones = len(pool)
+        offset = max(0, payload.offset or 0)
+        limit = min(30, max(5, payload.limit or 15))
+        sliced_tlds = pool[offset : offset + limit]
+        candidates = [f"{name}.{tld}" for tld in sliced_tlds]
+        has_more = (offset + limit) < total_zones
 
     try:
         raw = await dynadot.bulk_search(candidates)
@@ -79,7 +100,63 @@ async def search_domains(
 
     items = _iter_search_items(raw, candidates)
     results = [await _to_result(item, t, pricing_svc) for item in items]
-    return DomainSearchResponse(query=name, results=results)
+
+    alternatives: list[str] = []
+    if "." not in name and (payload.offset or 0) == 0:
+        com_result = next((r for r in results if r.tld == "com"), None)
+        if com_result and not com_result.available:
+            alternatives = [
+                f"get{name}.com",
+                f"{name}app.com",
+                f"the{name}.com",
+                f"{name}hub.com",
+            ]
+
+    return DomainSearchResponse(
+        query=name,
+        results=results,
+        alternatives=alternatives,
+        has_more=has_more,
+        total_available_zones=total_zones,
+    )
+
+
+@router.get("/catalog", response_model=list[CatalogTldItem])
+async def list_catalog(
+    session: DbSession,
+) -> list[CatalogTldItem]:
+    """Catalog of all zones with current retail prices for browsing."""
+    from app.models.domain import TldPricing
+
+    pricing_svc = PricingService(session, settings)
+    rows = list(
+        await session.scalars(
+            select(TldPricing)
+            .where(TldPricing.is_enabled.is_(True))
+            .order_by(TldPricing.sort_order, TldPricing.tld)
+        )
+    )
+
+    def get_cat(tld: str) -> str:
+        for cat, list_tlds in TLD_CATEGORIES.items():
+            if cat != "all" and tld in list_tlds:
+                return cat
+        return "other"
+
+    items: list[CatalogTldItem] = []
+    for r in rows:
+        quote = await pricing_svc.quote(
+            tld=r.tld, cost_usd=float(r.register_cost_usd or 0.0), years=1
+        )
+        items.append(
+            CatalogTldItem(
+                tld=r.tld,
+                price_rub=quote.price_rub,
+                category=get_cat(r.tld),
+                is_featured=r.is_featured,
+            )
+        )
+    return items
 
 
 @router.get("/zones", response_model=list[str])

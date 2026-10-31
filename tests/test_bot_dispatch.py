@@ -39,21 +39,23 @@ class RecordingSession(BaseSession):
 
     async def make_request(self, bot, method, timeout=None):
         self.requests.append(method)
-        if isinstance(method, SendMessage):
-            return Message(
-                message_id=999,
-                date=datetime.now(UTC),
-                chat=Chat(id=method.chat_id, type="private"),
-                text=method.text,
-            )
-        return True
+        return Message(
+            message_id=999,
+            date=datetime.now(UTC),
+            chat=Chat(id=getattr(method, "chat_id", 700001), type="private"),
+            text=getattr(method, "text", ""),
+        )
 
     async def stream_content(self, *args, **kwargs):  # pragma: no cover
         yield b""
 
     @property
     def sent_texts(self) -> list[str]:
-        return [m.text for m in self.requests if isinstance(m, SendMessage)]
+        texts: list[str] = []
+        for m in self.requests:
+            if hasattr(m, "text"):
+                texts.append(m.text)
+        return texts
 
 
 @pytest_asyncio.fixture
@@ -183,12 +185,23 @@ async def test_the_catch_all_does_not_shadow_real_commands(harness):
 
 
 @pytest.mark.asyncio
-async def test_plain_text_is_not_answered_by_the_command_catch_all(harness):
-    """Only messages starting with `/` are treated as commands."""
+async def test_plain_text_triggers_domain_search_not_catch_all(harness, monkeypatch):
+    """Plain text queries trigger domain search flow, not the / command catch-all."""
     bot, dispatcher, recording, _ = harness
+    import app.integrations.dynadot.client as dyn_client_module
 
-    await dispatcher.feed_update(bot, make_update("just chatting"))
-    assert recording.sent_texts == []
+    async def fake_bulk_search(self, domains):
+        return {"domain_result_list": [{"domain_name": d, "available": True} for d in domains]}
+
+    async def fake_aclose(self):
+        pass
+
+    monkeypatch.setattr(dyn_client_module.DynadotClient, "bulk_search", fake_bulk_search)
+    monkeypatch.setattr(dyn_client_module.DynadotClient, "aclose", fake_aclose)
+
+    await dispatcher.feed_update(bot, make_update("mybeststartup"))
+    assert len(recording.sent_texts) > 0
+    assert Translator("ru")("bot.unknown_command") not in recording.sent_texts[0]
 
 
 @pytest.mark.asyncio

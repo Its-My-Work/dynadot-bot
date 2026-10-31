@@ -93,3 +93,58 @@ def payment_keyboard(
             ]
         ]
     )
+
+
+def domain_search_results(
+    domain_results: list[dict],
+    query: str,
+    tma_url: str | None,
+    language: str,
+) -> InlineKeyboardMarkup:
+    """Inline keyboard for domain search results in Telegram."""
+    rows: list[list[InlineKeyboardButton]] = []
+
+    buy_buttons: list[InlineKeyboardButton] = []
+    for item in domain_results:
+        if item.get("available") and item.get("price_rub"):
+            domain = item["domain"]
+            price = int(item["price_rub"])
+            tld = item.get("tld", "")
+            btn_text = f"🛒 Купить .{tld} ({price} ₽)" if language == "ru" else f"🛒 Buy .{tld} ({price} ₽)"
+            target_url = f"{tma_url}?domain={domain}" if tma_url else "https://dynadot.itsmywork.vip"
+            if web_app_supported(target_url):
+                buy_buttons.append(
+                    InlineKeyboardButton(
+                        text=btn_text,
+                        web_app=WebAppInfo(url=target_url),
+                    )
+                )
+            else:
+                buy_buttons.append(
+                    InlineKeyboardButton(
+                        text=btn_text,
+                        url=target_url,
+                    )
+                )
+            if len(buy_buttons) >= 3:
+                break
+
+    for b in buy_buttons:
+        rows.append([b])
+
+    all_zones_url = f"{tma_url}?q={query}" if tma_url else "https://dynadot.itsmywork.vip"
+    btn_all_text = (
+        f"🌐 Все зоны и цены для «{query}»"
+        if language == "ru"
+        else f"🌐 All zones for '{query}'"
+    )
+    if web_app_supported(all_zones_url):
+        rows.append(
+            [InlineKeyboardButton(text=btn_all_text, web_app=WebAppInfo(url=all_zones_url))]
+        )
+    else:
+        rows.append(
+            [InlineKeyboardButton(text=btn_all_text, url=all_zones_url)]
+        )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)

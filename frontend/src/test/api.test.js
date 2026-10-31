@@ -86,7 +86,7 @@ describe('request building', () => {
 
     await api.search('mysite', []);
 
-    expect(JSON.parse(spy.mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse(spy.mock.calls[0][1].body)).toMatchObject({
       query: 'mysite',
       tlds: null,
     });

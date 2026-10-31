@@ -141,7 +141,7 @@ def test_build_router_registers_every_handler():
     from app.bot.handlers import build_router
 
     built = build_router()
-    assert len(built.message.handlers) == 5
+    assert len(built.message.handlers) == 6
     assert len(built.callback_query.handlers) == 4
 
 

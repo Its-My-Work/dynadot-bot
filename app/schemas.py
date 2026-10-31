@@ -116,6 +116,9 @@ class ContactRead(ORMModel, ContactBase):
 class DomainSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=253)
     tlds: list[str] | None = None
+    category: str | None = None
+    offset: int = 0
+    limit: int = 15
 
     @field_validator("query")
     @classmethod
@@ -136,6 +139,16 @@ class DomainSearchResult(BaseModel):
 class DomainSearchResponse(BaseModel):
     query: str
     results: list[DomainSearchResult]
+    alternatives: list[str] = Field(default_factory=list)
+    has_more: bool = False
+    total_available_zones: int = 0
+
+
+class CatalogTldItem(BaseModel):
+    tld: str
+    price_rub: float
+    category: str
+    is_featured: bool = False
 
 
 # ---------------------------------------------------------------- domains

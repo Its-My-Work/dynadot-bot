@@ -40,18 +40,19 @@ describe('SearchScreen', () => {
     expect(await screen.findByText('Start with a domain name')).toBeInTheDocument();
   });
 
-  it('loads the admin-configured zone chips', async () => {
+  it('loads category filter chips and catalog button', async () => {
     render(<SearchScreen t={t} onSelect={vi.fn()} />);
 
-    expect(await screen.findByText('.com')).toBeInTheDocument();
-    expect(screen.getByText('.io')).toBeInTheDocument();
+    expect(await screen.findByText('All zones')).toBeInTheDocument();
+    expect(screen.getByText('🔥 Top')).toBeInTheDocument();
+    expect(screen.getByText('🤖 AI & IT')).toBeInTheDocument();
+    expect(screen.getByText('📚 All 800+ Zones Catalog')).toBeInTheDocument();
   });
 
   it('still renders when the zone list fails to load', async () => {
     api.zones.mockRejectedValue(new ApiError('boom', { status: 500 }));
     render(<SearchScreen t={t} onSelect={vi.fn()} />);
 
-    // The backend falls back to its own defaults when we send no zones.
     expect(await screen.findByText('Start with a domain name')).toBeInTheDocument();
   });
 
@@ -195,17 +196,17 @@ describe('SearchScreen', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('passes the selected zone filter to the backend', async () => {
+  it('passes the selected category filter to the backend', async () => {
     const searchSpy = vi.spyOn(api, 'search').mockResolvedValue({ results: [] });
     const user = userEvent.setup();
 
     render(<SearchScreen t={t} onSelect={vi.fn()} />);
     await user.type(screen.getByLabelText('Enter a domain name'), 'zoned');
-    await user.click(await screen.findByText('.io'));
+    await user.click(await screen.findByText('🤖 AI & IT'));
 
     await waitFor(() => {
       const last = searchSpy.mock.calls.at(-1);
-      expect(last[1]).toEqual(['io']);
+      expect(last[3]).toMatchObject({ category: 'tech' });
     });
   });
 

@@ -376,26 +376,35 @@ class DynadotClient:
         )
 
     async def bulk_search(self, domains: list[str]) -> dict[str, Any]:
-        """Availability for many domains — chunked to Dynadot's 5-domain cap."""
+        """Availability for many domains — chunked to 5-domain cap and queried in parallel."""
         if not domains:
             return {"domain_result_list": []}
 
         chunk_size = 5
-        merged_results: list[dict[str, Any]] = []
+        chunks = [domains[i : i + chunk_size] for i in range(0, len(domains), chunk_size)]
 
-        for i in range(0, len(domains), chunk_size):
-            chunk = domains[i : i + chunk_size]
-            res = await self._request(
-                "GET",
-                "/domains/bulk_search",
-                params={
-                    "domain_name_list": ",".join(chunk),
-                    "show_price": True,
-                    "currency": "USD",
-                },
-                priority=Priority.LOW,
-            )
-            items = res.get("domain_result_list") or []
+        async def fetch_chunk(chunk: list[str]) -> list[dict[str, Any]]:
+            try:
+                res = await self._request(
+                    "GET",
+                    "/domains/bulk_search",
+                    params={
+                        "domain_name_list": ",".join(chunk),
+                        "show_price": True,
+                        "currency": "USD",
+                    },
+                    priority=Priority.LOW,
+                )
+                return res.get("domain_result_list") or []
+            except Exception as exc:
+                logger.warning(
+                    "bulk_search chunk failed", extra={"chunk": chunk, "error": str(exc)}
+                )
+                return [{"domain_name": d, "available": None} for d in chunk]
+
+        chunk_results = await asyncio.gather(*(fetch_chunk(c) for c in chunks))
+        merged_results: list[dict[str, Any]] = []
+        for items in chunk_results:
             merged_results.extend(items)
 
         return {"domain_result_list": merged_results}
