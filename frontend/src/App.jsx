@@ -16,6 +16,7 @@ import {
 import CheckoutScreen from './screens/CheckoutScreen';
 import DomainsScreen from './screens/DomainsScreen';
 import OrdersScreen from './screens/OrdersScreen';
+import ProfileScreen from './screens/ProfileScreen';
 import SearchScreen from './screens/SearchScreen';
 import VpsScreen from './screens/VpsScreen';
 import { AppBar, Brand, LangToggle, ThemePicker } from './components/ui';
@@ -26,6 +27,7 @@ const TABS = [
   { id: 'vps', labelKey: 'nav.vps', icon: '⚡' },
   { id: 'domains', labelKey: 'nav.domains', icon: '◇' },
   { id: 'orders', labelKey: 'nav.orders', icon: '▤' },
+  { id: 'profile', labelKey: 'nav.profile', icon: '👤' },
 ];
 
 export default function App() {
@@ -144,6 +146,9 @@ export default function App() {
             ) : null}
             {tab === 'orders' ? (
               <OrdersScreen t={t} telegramId={telegramId} />
+            ) : null}
+            {tab === 'profile' ? (
+              <ProfileScreen t={t} telegramId={telegramId} />
             ) : null}
           </>
         )}

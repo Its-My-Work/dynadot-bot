@@ -104,6 +104,10 @@ class ContactCreate(ContactBase):
     is_default: bool = False
 
 
+class ContactUpdate(ContactBase):
+    is_default: bool = False
+
+
 class ContactRead(ORMModel, ContactBase):
     id: str
     is_default: bool

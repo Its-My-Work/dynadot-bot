@@ -13,7 +13,7 @@ from sqlalchemy import select, update
 
 from app.api.deps import DbSession, Translate
 from app.models.user import ContactProfile, User
-from app.schemas import ContactCreate, ContactRead
+from app.schemas import ContactCreate, ContactRead, ContactUpdate
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 
@@ -91,6 +91,31 @@ async def set_default_contact(
         .values(is_default=False)
     )
     profile.is_default = True
+    await session.commit()
+    await session.refresh(profile)
+    return profile
+
+
+@router.put("/{contact_id}", response_model=ContactRead)
+async def update_contact(
+    contact_id: str,
+    payload: ContactUpdate,
+    session: DbSession,
+    t: Translate,
+) -> ContactProfile:
+    """Update an existing registrant contact profile."""
+    profile = await session.scalar(
+        select(ContactProfile).where(ContactProfile.id == contact_id)
+    )
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+
+    for field_name, value in payload.model_dump().items():
+        if field_name != "is_default":
+            setattr(profile, field_name, value)
+
     await session.commit()
     await session.refresh(profile)
     return profile

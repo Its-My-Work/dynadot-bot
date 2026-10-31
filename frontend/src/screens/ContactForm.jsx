@@ -46,8 +46,14 @@ export function validateContact(values) {
   return { ok: true, missing: [] };
 }
 
-export default function ContactForm({ t, onSubmit, onCancel, submitting = false }) {
-  const [values, setValues] = useState(EMPTY);
+export default function ContactForm({
+  t,
+  onSubmit,
+  onCancel,
+  submitting = false,
+  initialValues = null,
+}) {
+  const [values, setValues] = useState(() => ({ ...EMPTY, ...initialValues }));
   const [touched, setTouched] = useState(false);
 
   const validation = validateContact(values);

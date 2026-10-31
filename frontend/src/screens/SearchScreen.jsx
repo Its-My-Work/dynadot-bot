@@ -61,7 +61,6 @@ export default function SearchScreen({ t, onSelect }) {
   // Client-side advanced filters on results
   const [filterPriceMax, setFilterPriceMax] = useState(0); // 0 = all
   const [filterSort, setFilterSort] = useState('default'); // default, cheap, expensive, az
-  const [filterOnlyAvail, setFilterOnlyAvail] = useState(false);
   const [filterTldQuery, setFilterTldQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
@@ -69,6 +68,7 @@ export default function SearchScreen({ t, onSelect }) {
   const timerRef = useRef(null);
   const offsetRef = useRef(0);
   const lastSearchedRef = useRef({ query: '', category: '' });
+  const sentinelRef = useRef(null);
 
   const runSearch = useCallback(
     async (rawQuery, category, append = false) => {
@@ -245,7 +245,6 @@ export default function SearchScreen({ t, onSelect }) {
 
   // Apply client filters and sorting
   let filteredResults = (results ?? []).filter((r) => {
-    if (filterOnlyAvail && !r.available) return false;
     if (filterPriceMax > 0 && r.price_rub && r.price_rub > filterPriceMax) return false;
     if (filterTldQuery.trim()) {
       const cleanTld = filterTldQuery.trim().toLowerCase().replace(/^\.+/, '');
@@ -271,14 +270,32 @@ export default function SearchScreen({ t, onSelect }) {
   const available = filteredResults.filter((r) => r.available);
   const taken = filteredResults.filter((r) => !r.available);
 
+  // Auto-scroll infinite loading observer
+  useEffect(() => {
+    if (!hasMore || loadingMore || loading) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          runSearch(query, activeCategory, true);
+        }
+      },
+      { rootMargin: '300px' },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, query, activeCategory, runSearch]);
+
   const hasActiveFilters =
-    filterPriceMax > 0 || filterSort !== 'default' || filterOnlyAvail || Boolean(filterTldQuery.trim());
+    filterPriceMax > 0 || filterSort !== 'default' || Boolean(filterTldQuery.trim());
 
   const resetFilters = () => {
     haptic('light');
     setFilterPriceMax(0);
     setFilterSort('default');
-    setFilterOnlyAvail(false);
     setFilterTldQuery('');
   };
 
@@ -411,22 +428,6 @@ export default function SearchScreen({ t, onSelect }) {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Only Available Toggle Button */}
-            <button
-              type="button"
-              onClick={() => {
-                haptic('light');
-                setFilterOnlyAvail(!filterOnlyAvail);
-              }}
-              className={`badge cursor-pointer border px-2.5 py-1 text-xs font-medium transition-colors ${
-                filterOnlyAvail
-                  ? 'border-accent bg-accent text-accent-ink font-semibold'
-                  : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-              }`}
-            >
-              {filterOnlyAvail ? '✓ ' : ''}{t('search.filter_only_available')}
-            </button>
-
             {/* Sort Dropdown */}
             <select
               value={filterSort}
@@ -491,17 +492,23 @@ export default function SearchScreen({ t, onSelect }) {
         ) : null}
       </div>
 
-      {/* Load More Button */}
+      {/* Infinite Scroll Sentinel / Load More */}
       {hasMore && (
-        <div className="pt-2 text-center">
-          <button
-            type="button"
-            disabled={loadingMore}
-            onClick={loadMore}
-            className="btn-secondary w-full py-2.5 text-sm font-medium"
-          >
-            {loadingMore ? <Spinner /> : t('search.load_more')}
-          </button>
+        <div ref={sentinelRef} className="pt-2 pb-4 text-center">
+          {loadingMore ? (
+            <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted font-medium animate-pulse">
+              <Spinner />
+              <span>{t('search.updating_zones')}</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={loadMore}
+              className="btn-ghost w-full py-2 text-xs font-medium text-muted hover:text-ink cursor-pointer border border-card-border/60"
+            >
+              {t('search.load_more')}
+            </button>
+          )}
         </div>
       )}
 

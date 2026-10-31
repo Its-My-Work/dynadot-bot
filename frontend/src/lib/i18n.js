@@ -20,6 +20,7 @@ const catalogues = {
     'nav.search': 'Поиск',
     'nav.domains': 'Мои домены',
     'nav.orders': 'Заказы',
+    'nav.profile': 'Профиль',
 
     'search.placeholder': 'Введите имя домена',
     'search.action': 'Найти',
@@ -146,6 +147,18 @@ const catalogues = {
     'domains.renew_desc': 'Продлить домен ещё на 1 год без перерывов в работе.',
     'domains.renew_btn': 'Продлить на 1 год через СБП',
 
+    'profile.title': 'Мой профиль',
+    'profile.verified': 'Готов к регистрации',
+    'profile.whois_title': 'Данные владельца доменов (WHOIS)',
+    'profile.whois_desc': 'Эти данные автоматически подставляются при покупке любых международных доменов без необходимости вводить их заново. Данные надёжно защищены и не передаются третьим лицам.',
+    'profile.owner_data': 'Профиль владельца',
+    'profile.edit_btn': 'Изменить данные',
+    'profile.create_btn': 'Заполнить профиль',
+    'profile.edit_title': 'Редактирование профиля владельца',
+    'profile.create_title': 'Создание профиля владельца',
+    'profile.empty_prompt': 'У вас пока не заполнен профиль владельца. Заполните его один раз, чтобы мгновенно покупать домены в 1 клик.',
+    'profile.saved': 'Данные профиля успешно сохранены!',
+
     'orders.empty': 'Заказов пока нет.',
     'orders.retry_pay': 'Оплатить',
 
@@ -249,6 +262,7 @@ const catalogues = {
     'nav.search': 'Search',
     'nav.domains': 'My domains',
     'nav.orders': 'Orders',
+    'nav.profile': 'Profile',
 
     'search.placeholder': 'Enter a domain name',
     'search.action': 'Search',
@@ -374,6 +388,18 @@ const catalogues = {
     'domains.renew_title': 'Renew Registration',
     'domains.renew_desc': 'Extend domain registration for another 1 year.',
     'domains.renew_btn': 'Renew for 1 Year via SBP',
+
+    'profile.title': 'My Profile',
+    'profile.verified': 'Ready for registration',
+    'profile.whois_title': 'Domain Owner Data (WHOIS)',
+    'profile.whois_desc': 'This data is automatically used when registering international domains so you never have to re-enter it. It is protected by default.',
+    'profile.owner_data': 'Owner Profile',
+    'profile.edit_btn': 'Edit Data',
+    'profile.create_btn': 'Fill Profile',
+    'profile.edit_title': 'Edit Owner Profile',
+    'profile.create_title': 'Create Owner Profile',
+    'profile.empty_prompt': 'You have not set up your owner profile yet. Fill it once to register domains in 1 click.',
+    'profile.saved': 'Profile data saved successfully!',
 
     'orders.empty': 'No orders yet.',
     'orders.retry_pay': 'Pay',

@@ -209,6 +209,11 @@ export const api = {
       params: { telegram_id: telegramId },
       body: contact,
     }),
+  updateContact: (contactId, contact) =>
+    request(`/contacts/${contactId}`, {
+      method: 'PUT',
+      body: contact,
+    }),
 
   // --- orders -------------------------------------------------------------
   createOrder: (telegramId, order) =>

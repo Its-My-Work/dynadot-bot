@@ -206,10 +206,17 @@ async def ai_suggest_domains(
 
     if api_key:
         try:
+            brand_base = raw_query.split(".")[0].replace(" ", "").strip()
             prompt = (
-                f"You are a domain name branding expert. Suggest 6 creative, short, modern domain names in zones (.com, .io, .co, .pro, .store, .app, .tech, .ai) for the user business concept '{raw_query}'. "
-                f"If user input is in Russian, transliterate or translate to catchy English or Latin branding. "
-                f"Return ONLY a comma-separated list of domain names (e.g. name1.pro, name2.io, name3.com), nothing else."
+                f"You are an elite domain name branding expert. A user searched for the domain brand '{brand_base}'.\n"
+                f"Suggest 12 high-quality alternative domain names that preserve the user's original brand identity '{brand_base}'.\n"
+                f"Guidelines:\n"
+                f"1. Every single domain MUST directly contain '{brand_base}' or its clear root.\n"
+                f"2. Add popular tech startup prefixes (get, the, try, use) or suffixes (app, hq, hub, lab, dev, tech, online) with popular TLDs.\n"
+                f"3. Examples of valid patterns: get{brand_base}.com, {brand_base}app.com, {brand_base}.io, {brand_base}.co, {brand_base}.pro, {brand_base}.tech, {brand_base}hq.com, {brand_base}.space, try{brand_base}.com, {brand_base}.online, {brand_base}.org, {brand_base}.net.\n"
+                f"4. If input is Russian, transliterate it first to Latin letters.\n"
+                f"5. NEVER suggest random words that discard the brand (e.g. NEVER suggest 'show.store' or 'deal.shop'). Keep the brand identity.\n"
+                f"Return ONLY a clean comma-separated list of domain names, nothing else."
             )
             async with httpx.AsyncClient(timeout=8.0) as client:
                 res = await client.post(
@@ -218,17 +225,17 @@ async def ai_suggest_domains(
                     json={
                         "model": settings.omniroute_model or "fast",
                         "messages": [
-                            {"role": "system", "content": "You are a domain name branding expert. Return ONLY a comma-separated list of domain names."},
+                            {"role": "system", "content": "You are a domain name branding expert. Return ONLY a comma-separated list of domain names that keep the user's brand name."},
                             {"role": "user", "content": prompt},
                         ],
-                        "max_tokens": 100,
-                        "temperature": 0.7,
+                        "max_tokens": 150,
+                        "temperature": 0.3,
                     },
                 )
                 if res.status_code == 200:
                     text = res.json()["choices"][0]["message"]["content"]
                     for part in text.split(","):
-                        cand = part.strip().strip("'\"` ").lower()
+                        cand = part.strip().strip("'\"` \n").lower()
                         if "." in cand and len(cand) < 60:
                             suggested_domains.append(cand)
         except Exception as exc:
