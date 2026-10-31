@@ -140,6 +140,7 @@ async def search_domains(
 @router.get("/catalog", response_model=list[CatalogTldItem])
 async def list_catalog(
     session: DbSession,
+    dynadot: Dynadot,
 ) -> list[CatalogTldItem]:
     """Catalog of all zones with current retail prices for browsing."""
     from app.models.domain import TldPricing
@@ -159,8 +160,12 @@ async def list_catalog(
                 return cat
         return "other"
 
+    # If DB only has initial seed (<= 35 zones), dynamically fetch full Dynadot TLD prices and augment!
     items: list[CatalogTldItem] = []
+    seen_tlds: set[str] = set()
+
     for r in rows:
+        seen_tlds.add(r.tld)
         quote = await pricing_svc.quote(
             tld=r.tld, cost_usd=float(r.register_cost_usd or 0.0), years=1
         )
@@ -172,6 +177,43 @@ async def list_catalog(
                 is_featured=r.is_featured,
             )
         )
+
+    try:
+        data = await dynadot.get_tld_prices(currency="USD")
+        tld_price_list = data.get("tld_price_list") or []
+        for item in tld_price_list:
+            raw_tld = str(item.get("tld") or "").lstrip(".").lower()
+            if not raw_tld or raw_tld in seen_tlds:
+                continue
+            years_p = item.get("all_years_register_price")
+            cost = None
+            if isinstance(years_p, list) and len(years_p) > 0:
+                try:
+                    cost = float(years_p[0])
+                except (ValueError, TypeError):
+                    pass
+            if cost is None:
+                raw_reg = item.get("register_price") or item.get("registration_price")
+                try:
+                    cost = float(raw_reg) if raw_reg is not None else None
+                except (ValueError, TypeError):
+                    pass
+            if cost is not None:
+                quote = await pricing_svc.quote(tld=raw_tld, cost_usd=cost, years=1)
+                items.append(
+                    CatalogTldItem(
+                        tld=raw_tld,
+                        price_rub=quote.price_rub,
+                        category=get_cat(raw_tld),
+                        is_featured=False,
+                    )
+                )
+                seen_tlds.add(raw_tld)
+    except Exception as exc:
+        logger.warning("could not fetch live dynadot full catalog", extra={"error": str(exc)})
+
+    # Sort featured first, then alphabetical by TLD
+    items.sort(key=lambda x: (not x.is_featured, x.tld))
     return items
 
 

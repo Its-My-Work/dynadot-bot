@@ -279,17 +279,31 @@ async def sync_tld_prices(
             price_map[raw_tld] = cost
 
     existing_rows = list(await session.scalars(select(TldPricing)))
+    existing_map = {row.tld: row for row in existing_rows}
     synced = 0
-    for row in existing_rows:
-        if row.tld in price_map:
-            row.register_cost_usd = price_map[row.tld]
+    # Update existing
+    for tld, cost in price_map.items():
+        if tld in existing_map:
+            existing_map[tld].register_cost_usd = cost
+            synced += 1
+        else:
+            # Add all other 800+ TLDs as catalog items!
+            new_row = TldPricing(
+                tld=tld,
+                register_cost_usd=cost,
+                fixed_price_rub=None,
+                is_featured=False,
+                sort_order=500,
+                is_enabled=True,
+            )
+            session.add(new_row)
             synced += 1
 
     await session.commit()
     return TldSyncResponse(
         ok=True,
         synced_count=synced,
-        message=f"Успешно обновлена себестоимость для {synced} TLD зон из Dynadot API",
+        message=f"Успешно синхронизировано {synced} TLD зон из каталога Dynadot API",
     )
 
 
