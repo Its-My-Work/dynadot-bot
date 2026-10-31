@@ -20,6 +20,7 @@ import StatusBadge from '../components/StatusBadge';
 import { ErrorNote, Spinner } from '../components/ui';
 
 const POLL_MS = 3000;
+const PAYMENT_TIMEOUT_S = 15 * 60; // 15 minutes
 
 /** Order statuses after which polling is pointless. */
 export const TERMINAL_STATUSES = [
@@ -52,6 +53,98 @@ export function statusMessage(status, t) {
   }
 }
 
+/** Step indicator: 1 → 2 → 3 */
+function StepIndicator({ step }) {
+  const steps = ['Данные', 'Оплата', 'Готово'];
+  return (
+    <div className="flex items-center justify-center gap-0">
+      {steps.map((label, i) => {
+        const n = i + 1;
+        const done = n < step;
+        const active = n === step;
+        return (
+          <div key={n} className="flex items-center">
+            <div className="flex flex-col items-center gap-0.5">
+              <div
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
+                  done
+                    ? 'bg-ok text-white'
+                    : active
+                      ? 'bg-accent text-accent-ink'
+                      : 'bg-elevated text-muted'
+                }`}
+              >
+                {done ? '✓' : n}
+              </div>
+              <span
+                className={`text-[10px] font-medium ${active ? 'text-ink' : 'text-muted'}`}
+              >
+                {label}
+              </span>
+            </div>
+            {i < steps.length - 1 ? (
+              <div
+                className={`mb-3.5 h-px w-8 transition-colors ${done ? 'bg-ok' : 'bg-line'}`}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Counts down from PAYMENT_TIMEOUT_S; returns formatted mm:ss string or null when expired. */
+function usePaymentTimer(active) {
+  const [remaining, setRemaining] = useState(PAYMENT_TIMEOUT_S);
+
+  useEffect(() => {
+    if (!active) return;
+    setRemaining(PAYMENT_TIMEOUT_S);
+    const id = setInterval(() => {
+      setRemaining((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [active]);
+
+  if (!active) return null;
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/** СБП + Мир trust badge row */
+function PaymentTrustBadge() {
+  return (
+    <div className="flex items-center justify-center gap-3 rounded-xl border border-line/60 bg-elevated/40 px-4 py-2.5">
+      {/* СБП logo — stylized */}
+      <div className="flex items-center gap-1">
+        <svg width="26" height="16" viewBox="0 0 26 16" fill="none" aria-label="СБП">
+          <rect width="26" height="16" rx="3" fill="#1C3F6E" />
+          <path d="M5 8.5 L9 4 L13 8.5 L9 13Z" fill="#00B4D8" />
+          <path d="M11 8.5 L15 4 L19 8.5 L15 13Z" fill="#00CBA8" />
+          <path d="M17 8.5 L21 5 L21 12Z" fill="#00E5FF" />
+        </svg>
+        <span className="text-[10px] font-semibold text-muted">СБП</span>
+      </div>
+      <div className="h-4 w-px bg-line" />
+      {/* Мир logo */}
+      <div className="flex items-center gap-1">
+        <svg width="28" height="16" viewBox="0 0 28 16" fill="none" aria-label="Мир">
+          <rect width="28" height="16" rx="3" fill="#4DB45E" />
+          <text x="4" y="11.5" fontSize="8" fontWeight="700" fill="white" fontFamily="Arial">МИР</text>
+        </svg>
+        <span className="text-[10px] font-semibold text-muted">Мир</span>
+      </div>
+      <div className="h-4 w-px bg-line" />
+      <div className="flex items-center gap-1 text-[10px] text-muted">
+        <span className="text-ok">🔒</span>
+        <span>Безопасная оплата</span>
+      </div>
+    </div>
+  );
+}
+
 export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
   const [years, setYears] = useState(1);
   const [needsContact, setNeedsContact] = useState(false);
@@ -61,6 +154,10 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const pollRef = useRef(null);
+
+  const paymentActive =
+    order && !isTerminal(order.status) && order.status !== 'registering' && order.status !== 'paid';
+  const timerDisplay = usePaymentTimer(paymentActive);
 
   // Does this customer already have saved owner details? Decided once, before
   // anything is charged, so the form never interrupts a payment.
@@ -178,9 +275,11 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
     );
   }
 
+  // Step 1: contact form
   if (needsContact) {
     return (
       <div className="space-y-4">
+        <StepIndicator step={1} />
         <Header domain={candidate.domain} price={candidate.price_rub} t={t} onBack={onDone} />
         <h2 className="text-sm font-medium">{t('buy.owner')}</h2>
         {error ? <ErrorNote message={error} /> : null}
@@ -189,10 +288,14 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
     );
   }
 
+  // Step 3: order tracking
   if (order) {
     const message = statusMessage(order.status, t);
+    const isDone = order.status === 'completed';
+    const step = isDone || isTerminal(order.status) ? 3 : 2;
     return (
       <div className="space-y-4">
+        <StepIndicator step={step} />
         <Header domain={order.domain_name} price={order.price_rub} t={t} onBack={onDone} />
 
         <div className="card space-y-3 p-4">
@@ -200,6 +303,16 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
             <span className="text-sm text-muted">{t('buy.title')}</span>
             <StatusBadge status={order.status} label={t(`status.${order.status}`)} />
           </div>
+
+          {/* Payment countdown timer */}
+          {timerDisplay ? (
+            <div className="flex items-center justify-between rounded-lg border border-warn/30 bg-warn/10 px-3 py-2">
+              <span className="text-xs text-warn">Время на оплату</span>
+              <span className="font-mono text-sm font-bold tabular-nums text-warn">
+                {timerDisplay}
+              </span>
+            </div>
+          ) : null}
 
           <p
             className={`text-sm ${
@@ -215,7 +328,8 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
             {message.text}
           </p>
 
-          {!isTerminal(order.status) && order.status !== 'paid' &&
+          {!isTerminal(order.status) &&
+          order.status !== 'paid' &&
           order.status !== 'registering' ? (
             <div className="grid grid-cols-2 gap-2">
               {payment?.payment_url ? (
@@ -246,13 +360,17 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
           ) : null}
         </div>
 
+        {!isTerminal(order.status) ? <PaymentTrustBadge /> : null}
+
         {error ? <ErrorNote message={error} /> : null}
       </div>
     );
   }
 
+  // Step 2: order form
   return (
     <div className="space-y-4">
+      <StepIndicator step={2} />
       <Header
         domain={candidate.domain}
         price={candidate.price_rub * years}
@@ -297,6 +415,8 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
         </div>
       </div>
 
+      <PaymentTrustBadge />
+
       {error ? <ErrorNote message={error} /> : null}
 
       <button
@@ -312,6 +432,10 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
               price: formatPrice(candidate.price_rub * years, t.language),
             })}
       </button>
+
+      <p className="text-center text-[11px] text-muted">
+        Оплата через СБП или карту Мир · Без комиссий
+      </p>
     </div>
   );
 }

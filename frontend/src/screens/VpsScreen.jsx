@@ -10,6 +10,19 @@ import { formatDate } from '../lib/i18n';
 import StatusBadge from '../components/StatusBadge';
 import { EmptyState, ErrorNote, SkeletonList, Spinner, Toast } from '../components/ui';
 
+// Ping estimates to Russia (ms) per datacenter city
+const PING_RU = {
+  nl: 55,
+  pl: 35,
+  kz: 18,
+  fi: 28,
+  de: 48,
+  tr: 22,
+  lt: 32,
+  lv: 30,
+  ee: 35,
+};
+
 export default function VpsScreen({ t, telegramId }) {
   const [mode, setMode] = useState('order'); // 'order' | 'my'
   const [locations, setLocations] = useState(null);
@@ -267,22 +280,37 @@ export default function VpsScreen({ t, telegramId }) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {locations?.map((loc) => {
                 const active = selectedLoc === loc.code;
+                const ping = PING_RU[loc.code];
                 return (
                   <button
                     key={loc.code}
                     type="button"
                     onClick={() => setSelectedLoc(loc.code)}
-                    className={`flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
+                    className={`relative flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
                       active
                         ? 'border-accent bg-accent/10 shadow-sm'
                         : 'border-line bg-surface hover:border-faint'
                     }`}
                   >
-                    <span className="text-2xl">{loc.flag || '🌐'}</span>
-                    <span className="mt-1.5 text-xs font-semibold text-ink">
+                    {loc.hit ? (
+                      <span className="absolute right-2 top-2 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none text-accent-ink">
+                        Хит
+                      </span>
+                    ) : null}
+                    <span className="text-2xl leading-none">{loc.flag || '🌐'}</span>
+                    <span className="mt-1.5 text-xs font-semibold text-ink leading-tight">
                       {loc.name}
                     </span>
                     <span className="text-[11px] text-muted">{loc.label || loc.code}</span>
+                    {ping !== undefined ? (
+                      <span
+                        className={`mt-1 text-[10px] font-medium tabular-nums ${
+                          ping <= 25 ? 'text-ok' : ping <= 45 ? 'text-warn' : 'text-muted'
+                        }`}
+                      >
+                        ~{ping} мс до РФ
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -297,17 +325,23 @@ export default function VpsScreen({ t, telegramId }) {
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
               {presets?.map((p) => {
                 const active = selectedPreset === p.code;
+                const isPopular = p.code === 'standard';
                 return (
                   <button
                     key={p.code}
                     type="button"
                     onClick={() => setSelectedPreset(p.code)}
-                    className={`flex flex-col justify-between rounded-xl border p-3.5 text-left transition-all ${
+                    className={`relative flex flex-col justify-between rounded-xl border p-3.5 text-left transition-all ${
                       active
                         ? 'border-accent bg-accent/10 shadow-sm'
                         : 'border-line bg-surface hover:border-faint'
                     }`}
                   >
+                    {isPopular ? (
+                      <span className="absolute right-2.5 top-2.5 rounded-full bg-warn/20 px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none text-warn">
+                        Хит
+                      </span>
+                    ) : null}
                     <div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-ink">{p.name}</span>
@@ -320,7 +354,12 @@ export default function VpsScreen({ t, telegramId }) {
                           • {p.cpu} vCPU · {Math.round(p.ram_mb / 1024)} GB RAM
                         </div>
                         <div>• {p.disk_gb} GB NVMe SSD</div>
-                        <div>• Безлимитный трафик 1 Gbps</div>
+                        <div className="flex items-center gap-1">
+                          <span>• Безлимитный трафик</span>
+                          <span className="rounded bg-accent/15 px-1 py-0.5 text-[9px] font-semibold text-accent leading-none">
+                            1 Gbps
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </button>

@@ -306,25 +306,45 @@ function Overview({ stats, language }) {
     {
       label: isRu ? 'Выручка' : 'Revenue',
       value: `${money(stats.revenue_rub)} ₽`,
+      delta: stats.revenue_delta_pct,
       tone: 'ok',
+      icon: '💰',
     },
-    { label: isRu ? 'Выполнено' : 'Completed', value: stats.orders_completed },
+    {
+      label: isRu ? 'Выполнено' : 'Completed',
+      value: stats.orders_completed,
+      delta: stats.orders_completed_delta_pct,
+      icon: '✓',
+    },
     {
       label: isRu ? 'Ожидают оплаты' : 'Awaiting payment',
       value: stats.orders_awaiting_payment,
+      icon: '⏳',
     },
     {
       label: isRu ? 'Ожидают возврата' : 'Refunds pending',
       value: stats.refunds_pending,
       tone: stats.refunds_pending > 0 ? 'warn' : undefined,
+      icon: '↩',
     },
-    { label: isRu ? 'Активные домены' : 'Active domains', value: stats.domains_active },
-    { label: isRu ? 'Пользователи' : 'Users', value: stats.users },
-    { label: isRu ? 'В очереди' : 'Queued tasks', value: stats.tasks_queued },
+    {
+      label: isRu ? 'Активные домены' : 'Active domains',
+      value: stats.domains_active,
+      delta: stats.domains_delta_pct,
+      icon: '🌐',
+    },
+    {
+      label: isRu ? 'Пользователи' : 'Users',
+      value: stats.users,
+      delta: stats.users_delta_pct,
+      icon: '👤',
+    },
+    { label: isRu ? 'В очереди' : 'Queued tasks', value: stats.tasks_queued, icon: '⚙' },
     {
       label: isRu ? 'Сбои (Dead Letter)' : 'Dead letter',
       value: stats.tasks_dead_letter,
       tone: stats.tasks_dead_letter > 0 ? 'danger' : undefined,
+      icon: '✕',
     },
   ];
 
@@ -332,7 +352,10 @@ function Overview({ stats, language }) {
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {cards.map((card) => (
         <div key={card.label} className="card p-4">
-          <p className="text-xs text-muted">{card.label}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted">{card.label}</p>
+            <span className="text-base leading-none opacity-60">{card.icon}</span>
+          </div>
           <p
             className={`mt-1 text-2xl font-semibold tabular-nums ${
               card.tone === 'ok'
@@ -344,8 +367,17 @@ function Overview({ stats, language }) {
                     : 'text-ink'
             }`}
           >
-            {card.value}
+            {card.value ?? '—'}
           </p>
+          {card.delta !== null && card.delta !== undefined ? (
+            <p
+              className={`mt-0.5 text-[11px] font-medium tabular-nums ${
+                card.delta >= 0 ? 'text-ok' : 'text-danger'
+              }`}
+            >
+              {card.delta >= 0 ? '+' : ''}{card.delta}% vs вчера
+            </p>
+          ) : null}
         </div>
       ))}
     </div>
@@ -462,6 +494,18 @@ function Orders({ language }) {
     'cancelled',
   ];
 
+  const STATUS_COLORS = {
+    draft: 'bg-muted/15 text-muted',
+    awaiting_payment: 'bg-warn/15 text-warn',
+    paid: 'bg-accent/15 text-accent',
+    registering: 'bg-accent/15 text-accent',
+    completed: 'bg-ok/15 text-ok',
+    failed: 'bg-danger/15 text-danger',
+    refund_required: 'bg-warn/20 text-warn',
+    refunded: 'bg-muted/15 text-muted',
+    cancelled: 'bg-muted/15 text-muted',
+  };
+
   const isRu = language === 'ru';
   return (
     <div className="space-y-3">
@@ -473,8 +517,12 @@ function Orders({ language }) {
             onClick={() => setStatus(key)}
             className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
               status === key
-                ? 'bg-elevated text-ink shadow-sm'
-                : 'text-muted hover:text-ink'
+                ? key === ''
+                  ? 'bg-elevated text-ink shadow-sm'
+                  : `shadow-sm ${STATUS_COLORS[key] || 'bg-elevated text-ink'} ring-1 ring-inset ring-current/20`
+                : key === ''
+                  ? 'text-muted hover:text-ink'
+                  : `${STATUS_COLORS[key] || 'text-muted'} opacity-50 hover:opacity-100`
             }`}
           >
             {key === '' ? (isRu ? 'Все заказы' : 'All') : key}

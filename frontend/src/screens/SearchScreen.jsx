@@ -576,24 +576,58 @@ export default function SearchScreen({ t, onSelect }) {
 function ResultRow({ result, t, onSelect }) {
   const buyable = result.available && onSelect;
   const price = formatPrice(result.price_rub, t.language);
+
+  const dotIndex = result.domain.indexOf('.');
+  const tldPart = dotIndex !== -1 ? result.domain.slice(dotIndex) : '';
+
+  const isBargain = result.available && !result.is_premium && result.price_rub && result.price_rub <= 700;
+
   return (
     <li>
       <div className="card flex items-center justify-between gap-3 px-4 py-3">
-        <div className="min-w-0">
-          <p className="truncate font-medium">{result.domain}</p>
-          <p className="text-xs text-muted">
-            {result.available ? t('search.available') : t('search.taken')}
-            {result.is_premium ? ` · ${t('search.premium')}` : ''}
-          </p>
+        <div className="min-w-0 flex-1">
+          {/* Domain name as full text + TLD badge on same row */}
+          <p className="truncate font-bold text-ink text-base">{result.domain}</p>
+
+          {/* Status + TLD badge row */}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {tldPart && (
+              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-accent/15 text-accent tracking-wide">
+                {tldPart}
+              </span>
+            )}
+            {result.is_premium ? (
+              <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-warn/15 text-warn">
+                <span aria-hidden="true">★</span>
+                <span>{t('search.premium')}</span>
+              </span>
+            ) : result.available ? (
+              <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-ok/15 text-ok">
+                <span aria-hidden="true">●</span>
+                <span>{t('search.available')}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-card-border/40 text-faint">
+                <span aria-hidden="true">✕</span>
+                <span>{t('search.taken')}</span>
+              </span>
+            )}
+            {isBargain && (
+              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-ok/15 text-ok">
+                🔥 {t('search.bargain')}
+              </span>
+            )}
+          </div>
         </div>
 
         {buyable ? (
           <button
             type="button"
             onClick={onSelect}
-            className="btn-primary shrink-0 px-3 py-2 text-sm"
+            className="btn-primary shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm font-bold"
             aria-label={`${result.domain} — ${price} RUB`}
           >
+            <span aria-hidden="true">🛒</span>
             {price} ₽
           </button>
         ) : (
