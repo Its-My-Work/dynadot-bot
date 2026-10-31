@@ -55,7 +55,6 @@ export default function SearchScreen({ t, onSelect }) {
   // AI Brand Drawer (Option 1)
   const [aiOpen, setAiOpen] = useState(false);
   const [aiConceptInput, setAiConceptInput] = useState('');
-  const [aiCategory, setAiCategory] = useState('all');
   const [selectedAiZones, setSelectedAiZones] = useState([]);
   const [showAiCatalog, setShowAiCatalog] = useState(false);
   const [aiCustomZoneInput, setAiCustomZoneInput] = useState('');
@@ -454,7 +453,55 @@ export default function SearchScreen({ t, onSelect }) {
         </div>
       </div>
 
-      {/* Smart AI Brand Generator Drawer (Option 1) */}
+      {/* Categories Bar & Catalog Button (Single, unified category selector) */}
+      <div className="flex items-center justify-between gap-2 border-b border-card-border/50 pb-2">
+        <div className="no-scrollbar -mx-1 flex flex-1 gap-2 overflow-x-auto px-1 py-0.5">
+          {CATEGORIES.map((cat) => {
+            const isSelected = activeCategory === cat.id && selectedAiZones.length === 0;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => {
+                  setSelectedAiZones([]);
+                  handleCategoryChange(cat.id);
+                }}
+                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  isSelected
+                    ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
+                    : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+                }`}
+              >
+                {t(cat.labelKey)}
+              </button>
+            );
+          })}
+
+          {selectedAiZones.length > 0 && (
+            <span className="badge shrink-0 border-2 border-accent bg-accent/20 text-accent font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-xs">
+              <span>✓ {t('search.ai_custom_selection')} ({selectedAiZones.length})</span>
+              <button
+                type="button"
+                onClick={() => setSelectedAiZones([])}
+                className="hover:text-ink cursor-pointer ml-1 text-xs"
+                title="Сбросить"
+              >
+                ✕
+              </button>
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={openCatalog}
+          className="badge shrink-0 cursor-pointer border border-accent/40 bg-card px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
+        >
+          📚 {t('search.catalog_btn')}
+        </button>
+      </div>
+
+      {/* Smart AI Brand Drawer (Positioned below categories - clean and unified) */}
       <div className="rounded-xl border border-accent/25 bg-accent/5 overflow-hidden transition-all shadow-2xs">
         <button
           type="button"
@@ -471,7 +518,9 @@ export default function SearchScreen({ t, onSelect }) {
                 {t('search.ai_drawer_title')}
               </p>
               <p className="text-[11px] text-muted">
-                {t('search.ai_drawer_subtitle')}
+                {activeCategory !== 'all' && selectedAiZones.length === 0
+                  ? `${t('search.ai_drawer_subtitle')} · ${t(CATEGORIES.find((c) => c.id === activeCategory)?.labelKey)}`
+                  : t('search.ai_drawer_subtitle')}
               </p>
             </div>
           </div>
@@ -505,59 +554,6 @@ export default function SearchScreen({ t, onSelect }) {
                 {aiLoading ? <Spinner /> : <span>✨</span>}
                 <span>{t('search.ai_generate_btn')}</span>
               </button>
-            </div>
-
-            {/* Target Zones & Categories Selector (Matches regular search: Top, AI & IT, Business, Budget, Creative) */}
-            <div className="space-y-2 pt-0.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-muted font-medium">{t('search.ai_zones_label')}</span>
-                <button
-                  type="button"
-                  onClick={handleOpenAiCatalog}
-                  className="badge border border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent font-bold px-2 py-0.5 text-[11px] cursor-pointer flex items-center gap-1 transition-colors"
-                >
-                  <span>{t('search.ai_zones_custom_btn')}</span>
-                </button>
-              </div>
-
-              <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 py-0.5">
-                {CATEGORIES.map((cat) => {
-                  const isSelected = aiCategory === cat.id && selectedAiZones.length === 0;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => {
-                        haptic('light');
-                        setAiCategory(cat.id);
-                        setSelectedAiZones([]);
-                      }}
-                      className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        isSelected
-                          ? 'border-accent bg-accent/20 text-accent font-bold border-2 shadow-xs'
-                          : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-                      }`}
-                    >
-                      {t(cat.labelKey)}
-                    </button>
-                  );
-                })}
-
-                {/* Custom selected zones from 800+ catalog */}
-                {selectedAiZones.length > 0 && (
-                  <span className="badge shrink-0 border-2 border-accent bg-accent/20 text-accent font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-xs">
-                    <span>✓ {t('search.ai_custom_selection')} ({selectedAiZones.length})</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedAiZones([])}
-                      className="hover:text-ink cursor-pointer ml-1 text-xs"
-                      title="Сбросить"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                )}
-              </div>
             </div>
 
             {aiLoading && (
@@ -645,37 +641,6 @@ export default function SearchScreen({ t, onSelect }) {
             )}
           </div>
         )}
-      </div>
-
-      {/* Categories Bar & Catalog Button */}
-      <div className="flex items-center justify-between gap-2 border-b border-card-border/50 pb-2">
-        <div className="no-scrollbar -mx-1 flex flex-1 gap-2 overflow-x-auto px-1 py-0.5">
-          {CATEGORIES.map((cat) => {
-            const isSelected = activeCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => handleCategoryChange(cat.id)}
-                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  isSelected
-                    ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
-                    : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-                }`}
-              >
-                {t(cat.labelKey)}
-              </button>
-            );
-          })}
-        </div>
-
-        <button
-          type="button"
-          onClick={openCatalog}
-          className="badge shrink-0 cursor-pointer border border-accent/40 bg-card px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
-        >
-          📚 {t('search.catalog_btn')}
-        </button>
       </div>
 
       {/* Error state */}
