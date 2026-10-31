@@ -12,7 +12,7 @@ import secrets
 import time
 import httpx
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 
 from app.api.deps import DbSession, Dynadot, Translate
@@ -185,14 +185,33 @@ async def search_domains(
     )
 
 
+_AI_USER_LOCKS: dict[str, float] = {}
+_AI_MIN_INTERVAL_SECONDS = 1.0  # Cooldown between staged requests per client
+
+
 @router.post("/ai-suggest", response_model=AiSuggestResponse)
 async def ai_suggest_domains(
     payload: AiSuggestRequest,
     dynadot: Dynadot,
     session: DbSession,
     t: Translate,
+    request: Request,
 ) -> AiSuggestResponse:
     """Generate smart creative brandable domain suggestions using AI and verify real-time availability."""
+    # Prevent concurrent spam and flood per client
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    last_req = _AI_USER_LOCKS.get(client_ip, 0)
+    if now - last_req < _AI_MIN_INTERVAL_SECONDS:
+        # Clean expired keys
+        if len(_AI_USER_LOCKS) > 1000:
+            _AI_USER_LOCKS.clear()
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Слишком частые запросы к подбору. Подождите секунду.",
+        )
+    _AI_USER_LOCKS[client_ip] = now
+
     raw_query = payload.query.strip().lower()
     if not raw_query:
         return AiSuggestResponse(query="", suggestions=[])
@@ -205,6 +224,27 @@ async def ai_suggest_domains(
     suggested_domains: list[str] = []
     keywords: list[str] = []
     target_tlds = [t.lower().lstrip(".") for t in payload.tlds if t.strip()]
+
+    # If the client already passed pre-generated candidates for staged/chunked verification:
+    if payload.candidates:
+        unique_candidates = [c.strip().lower() for c in payload.candidates if "." in c][:25]
+        try:
+            raw = await dynadot.bulk_search(unique_candidates)
+        except Exception as exc:
+            logger.warning("bulk_search for staged candidates failed", extra={"error": str(exc)})
+            raw = {"domain_result_list": []}
+
+        items = _iter_search_items(raw, unique_candidates)
+        results = [await _to_result(item, t, pricing_svc) for item in items]
+        available_only = [r for r in results if r.available and r.price_rub is not None]
+        return AiSuggestResponse(
+            query=raw_query,
+            keywords=[],
+            candidates=unique_candidates,
+            suggestions=available_only,
+            total_checked=len(unique_candidates),
+        )
+
     tld_spec = (
         f"in these exact TLD zones ONLY: {', '.join('.' + t for t in target_tlds)}"
         if target_tlds
@@ -294,7 +334,13 @@ async def ai_suggest_domains(
     # Return only available domains with valid price
     available_only = [r for r in results if r.available and r.price_rub is not None][:6]
 
-    return AiSuggestResponse(query=raw_query, keywords=keywords, suggestions=available_only)
+    return AiSuggestResponse(
+        query=raw_query,
+        keywords=keywords,
+        candidates=unique_candidates,
+        suggestions=available_only,
+        total_checked=len(unique_candidates),
+    )
 
 
 @router.get("/catalog", response_model=list[CatalogTldItem])

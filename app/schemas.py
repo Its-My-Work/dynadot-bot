@@ -152,12 +152,15 @@ class DomainSearchResponse(BaseModel):
 class AiSuggestRequest(BaseModel):
     query: str
     tlds: list[str] = Field(default_factory=list)
+    candidates: list[str] = Field(default_factory=list)
 
 
 class AiSuggestResponse(BaseModel):
     query: str
     keywords: list[str] = Field(default_factory=list)
-    suggestions: list[DomainSearchResult]
+    candidates: list[str] = Field(default_factory=list)
+    suggestions: list[DomainSearchResult] = Field(default_factory=list)
+    total_checked: int = 0
 
 
 class CatalogTldItem(BaseModel):

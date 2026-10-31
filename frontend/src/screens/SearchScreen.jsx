@@ -61,6 +61,8 @@ export default function SearchScreen({ t, onSelect }) {
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiKeywords, setAiKeywords] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiPollingProgress, setAiPollingProgress] = useState(null);
+  const aiPollingAbortRef = useRef(null);
 
   // Catalog modal
   const [showCatalog, setShowCatalog] = useState(false);
@@ -279,20 +281,92 @@ export default function SearchScreen({ t, onSelect }) {
     return () => observer.disconnect();
   }, [hasMore, loadingMore, loading, query, activeCategory, runSearch]);
 
+  const stopAiPolling = () => {
+    haptic('medium');
+    aiPollingAbortRef.current?.abort();
+    aiPollingAbortRef.current = null;
+    setAiLoading(false);
+    setAiPollingProgress(null);
+  };
+
   const handleAiGenerate = async () => {
     const raw = aiConceptInput.trim();
     if (!raw) return;
     haptic('medium');
+
+    aiPollingAbortRef.current?.abort();
+    const controller = new AbortController();
+    aiPollingAbortRef.current = controller;
+
     setAiLoading(true);
+    setAiSuggestions([]);
+    setAiKeywords([]);
+    setAiPollingProgress(null);
+
+    const zones = selectedAiZones.length > 0 ? selectedAiZones : POPULAR_AI_ZONES;
+    const isMultiBatch = zones.length > 15;
+    const initialBatch = zones.slice(0, 15);
+
     try {
-      const res = await api.aiSuggest(raw, selectedAiZones);
-      setAiSuggestions(res?.suggestions || []);
-      setAiKeywords(res?.keywords || []);
+      const res = await api.aiSuggest(raw, initialBatch, [], controller.signal);
+      if (controller.signal.aborted) return;
+
+      const candidates = res?.candidates || [];
+      const keywords = res?.keywords || [];
+      const initialSuggestions = res?.suggestions || [];
+
+      setAiKeywords(keywords);
+      setAiSuggestions(initialSuggestions);
+
+      if (isMultiBatch && candidates.length > 0) {
+        const roots = Array.from(new Set(candidates.map((c) => c.split('.')[0])));
+        const remainingZones = zones.slice(15);
+        const chunkSize = 20;
+        let checkedCount = initialBatch.length;
+
+        setAiPollingProgress({ checked: checkedCount, total: zones.length });
+
+        for (let i = 0; i < remainingZones.length; i += chunkSize) {
+          if (controller.signal.aborted) break;
+          const chunk = remainingZones.slice(i, i + chunkSize);
+
+          const chunkCandidates = [];
+          for (const root of roots.slice(0, 2)) {
+            for (const tld of chunk) {
+              chunkCandidates.push(`${root}.${tld}`);
+            }
+          }
+
+          try {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            if (controller.signal.aborted) break;
+
+            const chunkRes = await api.aiSuggest(raw, chunk, chunkCandidates, controller.signal);
+            if (controller.signal.aborted) break;
+
+            if (chunkRes?.suggestions?.length > 0) {
+              setAiSuggestions((prev) => {
+                const existing = new Set(prev.map((s) => s.domain));
+                const newOnes = chunkRes.suggestions.filter((s) => !existing.has(s.domain));
+                return [...prev, ...newOnes];
+              });
+            }
+          } catch {
+            // continue next chunk
+          }
+
+          checkedCount += chunk.length;
+          setAiPollingProgress({ checked: Math.min(checkedCount, zones.length), total: zones.length });
+        }
+      }
     } catch {
-      setAiSuggestions([]);
-      setAiKeywords([]);
+      // Aborted or error
     } finally {
-      setAiLoading(false);
+      if (aiPollingAbortRef.current === controller) {
+        setAiLoading(false);
+        setAiPollingProgress(null);
+        aiPollingAbortRef.current = null;
+      }
     }
   };
 
@@ -523,9 +597,40 @@ export default function SearchScreen({ t, onSelect }) {
             </div>
 
             {aiLoading && (
-              <div className="flex items-center gap-2 text-xs text-accent animate-pulse py-1">
-                <Spinner />
-                <span>{t('search.ai_loading')}</span>
+              <div className="rounded-xl border border-accent/30 bg-accent/10 p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-accent flex items-center gap-2">
+                    <Spinner />
+                    <span>
+                      {aiPollingProgress
+                        ? t('search.ai_polling_progress', {
+                            checked: aiPollingProgress.checked,
+                            total: aiPollingProgress.total,
+                            count: aiSuggestions.length,
+                          })
+                        : t('search.ai_loading')}
+                    </span>
+                  </span>
+                  {aiPollingProgress && (
+                    <button
+                      type="button"
+                      onClick={stopAiPolling}
+                      className="badge bg-card border-card-border text-[11px] px-2.5 py-1 text-ink hover:text-accent cursor-pointer font-bold transition-colors"
+                    >
+                      ✕ {t('search.ai_polling_stop')}
+                    </button>
+                  )}
+                </div>
+                {aiPollingProgress && (
+                  <div className="w-full bg-card/70 h-2 rounded-full overflow-hidden p-0.5 border border-card-border/60">
+                    <div
+                      className="bg-accent h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: `${Math.max(5, Math.round((aiPollingProgress.checked / aiPollingProgress.total) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -779,10 +884,10 @@ export default function SearchScreen({ t, onSelect }) {
       {/* 800+ AI Zone Multi-Select Modal */}
       {showAiCatalog && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs sm:items-center p-0 sm:p-4">
-          <div className="card flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-card-border bg-card shadow-2xl">
-            <div className="flex items-center justify-between border-b border-card-border p-4">
+          <div className="card flex max-h-[68vh] w-full max-w-md sm:max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-card-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-card-border p-3.5">
               <div>
-                <h3 className="text-base font-semibold text-ink">
+                <h3 className="text-sm font-bold text-ink">
                   {t('search.ai_catalog_title')} (800+)
                 </h3>
                 <p className="text-[11px] text-muted">
@@ -817,6 +922,48 @@ export default function SearchScreen({ t, onSelect }) {
                 >
                   {t('search.filter_reset')}
                 </button>
+              )}
+            </div>
+
+            {/* Quick Actions (Select All / Deselect) */}
+            <div className="flex items-center justify-between px-3.5 py-2 bg-canvas/40 border-b border-card-border/60 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  haptic('light');
+                  const filtered = catalogItems.filter((item) =>
+                    !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase())
+                  );
+                  const allSelected = filtered.length > 0 && filtered.every((item) =>
+                    selectedAiZones.includes(item.tld.toLowerCase())
+                  );
+                  if (allSelected) {
+                    const filteredSet = new Set(filtered.map((i) => i.tld.toLowerCase()));
+                    setSelectedAiZones((prev) => prev.filter((z) => !filteredSet.has(z)));
+                  } else {
+                    const newZones = new Set([...selectedAiZones, ...filtered.map((i) => i.tld.toLowerCase())]);
+                    setSelectedAiZones(Array.from(newZones));
+                  }
+                }}
+                className="font-bold text-accent hover:underline cursor-pointer flex items-center gap-1.5"
+              >
+                <span>
+                  {catalogItems.filter((item) => !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase())).length > 0 &&
+                  catalogItems
+                    .filter((item) => !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase()))
+                    .every((item) => selectedAiZones.includes(item.tld.toLowerCase()))
+                    ? t('search.ai_catalog_deselect_all', {
+                        count: catalogItems.filter((item) => !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase())).length,
+                      })
+                    : t('search.ai_catalog_select_all', {
+                        count: catalogItems.filter((item) => !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase())).length,
+                      })}
+                </span>
+              </button>
+              {selectedAiZones.length > 0 && (
+                <span className="text-muted text-[11px] font-mono">
+                  {selectedAiZones.length} / {catalogItems.length}
+                </span>
               )}
             </div>
 
@@ -859,7 +1006,7 @@ export default function SearchScreen({ t, onSelect }) {
               )}
             </div>
 
-            <div className="p-3 border-t border-card-border flex items-center justify-between bg-card">
+            <div className="p-3.5 border-t border-card-border flex items-center justify-between bg-card">
               <span className="text-xs text-muted font-medium">
                 {selectedAiZones.length === 0
                   ? t('search.ai_zones_all')
@@ -871,9 +1018,13 @@ export default function SearchScreen({ t, onSelect }) {
                   haptic('medium');
                   setShowAiCatalog(false);
                 }}
-                className="btn-accent px-5 py-2 text-xs font-bold cursor-pointer shadow-xs"
+                className="btn-accent px-6 py-2.5 text-sm font-bold cursor-pointer shadow-md rounded-xl flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
-                {t('search.ai_catalog_apply')}
+                <span>{t('search.ai_catalog_apply')}</span>
+                <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-mono">
+                  {selectedAiZones.length === 0 ? 'Все' : selectedAiZones.length}
+                </span>
+                <span>✓</span>
               </button>
             </div>
           </div>
