@@ -13,6 +13,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -57,6 +58,7 @@ class Domain(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # Nameservers are stored denormalised (max 13 per the DNS spec) to avoid a
     # join for the common "show me my NS" read.
     nameservers: Mapped[str | None] = mapped_column(String(1024))
+    dns_records: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Expiry reminder bookkeeping so the bot does not spam the user.
     expiry_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -362,6 +362,61 @@ def test_nameserver_update_rejects_an_empty_list_at_the_schema(client):
     assert response.status_code == 422
 
 
+def test_domain_management_dns_presets_and_security(client, fake_dynadot):
+    async def seed():
+        async with _session_factory()() as session:
+            domain = Domain(name="managed.com", tld="com", status=DomainStatus.ACTIVE)
+            session.add(domain)
+            await session.commit()
+            return domain.id
+
+    domain_id = run(seed())
+
+    # 1. Get details
+    res = client.get(f"/api/v1/domains/{domain_id}/details")
+    assert res.status_code == 200
+    details = res.json()
+    assert details["name"] == "managed.com"
+    assert details["auth_code"].startswith("EPP-managed-com-")
+    assert len(details["dns_records"]) > 0
+
+    # 2. Update DNS records
+    dns_payload = {
+        "records": [
+            {"type": "A", "host": "@", "value": "1.2.3.4", "ttl": 300},
+            {"type": "CNAME", "host": "sub", "value": "managed.com", "ttl": 300},
+        ]
+    }
+    res_dns = client.put(f"/api/v1/domains/{domain_id}/dns", json=dns_payload)
+    assert res_dns.status_code == 200
+    assert len(res_dns.json()["dns_records"]) == 2
+    assert res_dns.json()["dns_records"][0]["value"] == "1.2.3.4"
+
+    # 3. Quick Presets (VPS and Telegram)
+    res_vps = client.post(
+        f"/api/v1/domains/{domain_id}/quick-preset",
+        json={"preset_type": "vps", "target": "8.8.8.8"},
+    )
+    assert res_vps.status_code == 200
+    assert any(r["value"] == "8.8.8.8" for r in res_vps.json()["dns_records"])
+
+    res_tg = client.post(
+        f"/api/v1/domains/{domain_id}/quick-preset",
+        json={"preset_type": "telegram", "target": "t.me/mychannel"},
+    )
+    assert res_tg.status_code == 200
+    assert any(r["value"] == "t.me" for r in res_tg.json()["dns_records"])
+
+    # 4. Privacy and Lock toggle
+    res_priv = client.put(f"/api/v1/domains/{domain_id}/privacy", json={"enabled": False})
+    assert res_priv.status_code == 200
+    assert res_priv.json()["privacy_enabled"] is False
+
+    res_lock = client.put(f"/api/v1/domains/{domain_id}/lock", json={"locked": False})
+    assert res_lock.status_code == 200
+    assert res_lock.json()["is_locked"] is False
+
+
 # --------------------------------------------------------------------- admin
 
 

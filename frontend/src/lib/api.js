@@ -168,6 +168,33 @@ export const api = {
 
   // --- domains ------------------------------------------------------------
   myDomains: (telegramId) => request('/domains/mine', { params: { telegram_id: telegramId } }),
+  domainDetails: (domainId) => request(`/domains/${domainId}/details`),
+  updateDns: (domainId, records) =>
+    request(`/domains/${domainId}/dns`, {
+      method: 'PUT',
+      body: { records },
+    }),
+  applyQuickPreset: (domainId, presetType, target) =>
+    request(`/domains/${domainId}/quick-preset`, {
+      method: 'POST',
+      body: { preset_type: presetType, target },
+    }),
+  togglePrivacy: (domainId, enabled) =>
+    request(`/domains/${domainId}/privacy`, {
+      method: 'PUT',
+      body: { enabled },
+    }),
+  toggleLock: (domainId, locked) =>
+    request(`/domains/${domainId}/lock`, {
+      method: 'PUT',
+      body: { locked },
+    }),
+  renewDomain: (domainId, telegramId, years = 1) =>
+    request(`/domains/${domainId}/renew`, {
+      method: 'POST',
+      body: { years },
+      params: { telegram_id: telegramId },
+    }),
   setNameservers: (domainId, nameservers) =>
     request(`/domains/${domainId}/nameservers`, {
       method: 'PUT',

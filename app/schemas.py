@@ -172,7 +172,60 @@ class DomainRead(ORMModel):
     registered_at: datetime | None = None
     expires_at: datetime | None = None
     auto_renew: bool
+    is_locked: bool = True
+    privacy_enabled: bool = True
     nameservers: str | None = None
+
+
+class DnsRecordItem(BaseModel):
+    type: str = "A"  # A, AAAA, CNAME, TXT, MX
+    host: str = "@"  # @, www, sub
+    value: str = ""
+    ttl: int = 300
+    priority: int | None = None
+
+
+class DnsRecordsPayload(BaseModel):
+    records: list[DnsRecordItem]
+
+
+class DomainQuickPresetPayload(BaseModel):
+    preset_type: str  # vps, telegram, yandex_mail, cloudflare
+    target: str | None = None
+
+
+class DomainPrivacyPayload(BaseModel):
+    enabled: bool
+
+
+class DomainLockPayload(BaseModel):
+    locked: bool
+
+
+class DomainRenewPayload(BaseModel):
+    years: int = Field(default=1, ge=1, le=10)
+
+
+class DomainRenewResponse(BaseModel):
+    order_id: str
+    amount_rub: float
+    payment_url: str | None = None
+
+
+class DomainDetailsResponse(ORMModel):
+    id: str
+    name: str
+    tld: str
+    status: DomainStatus
+    registered_at: datetime | None = None
+    expires_at: datetime | None = None
+    auto_renew: bool = False
+    is_locked: bool = True
+    privacy_enabled: bool = True
+    nameservers: str | None = None
+    dns_records: list[DnsRecordItem] = Field(default_factory=list)
+    renew_price_rub: float | None = None
+    auth_code: str | None = None
 
 
 class NameserverUpdate(BaseModel):

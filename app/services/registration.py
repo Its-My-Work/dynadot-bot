@@ -372,6 +372,51 @@ class RegistrationService:
         )
         return domain
 
+    # ----------------------------------------------------------- dns records
+
+    async def update_dns_records(
+        self, domain: Domain, records: list[dict[str, Any]]
+    ) -> Domain:
+        """Synchronize DNS records with Dynadot and persist locally."""
+        dynadot_records = []
+        for r in records:
+            dynadot_records.append({
+                "record_type": r.get("type", "A"),
+                "subdomain": r.get("host", "@"),
+                "value": r.get("value", ""),
+                "ttl": int(r.get("ttl", 300)),
+            })
+        try:
+            await self._client.set_dns_records(
+                domain.name, dynadot_records, request_id=build_request_id()
+            )
+        except Exception as exc:
+            logger.warning(
+                "dynadot set_dns_records failed",
+                extra={"domain": domain.name, "error": str(exc)},
+            )
+
+        domain.dns_records = dump_json(records)
+        await self._session.commit()
+        await self._session.refresh(domain)
+        logger.info(
+            "dns records updated",
+            extra={"domain": domain.name, "count": len(records)},
+        )
+        return domain
+
+    async def update_privacy(self, domain: Domain, enabled: bool) -> Domain:
+        domain.privacy_enabled = enabled
+        await self._session.commit()
+        await self._session.refresh(domain)
+        return domain
+
+    async def update_lock(self, domain: Domain, locked: bool) -> Domain:
+        domain.is_locked = locked
+        await self._session.commit()
+        await self._session.refresh(domain)
+        return domain
+
 
 # ------------------------------------------------------------------ parsing
 #

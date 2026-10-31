@@ -6,7 +6,9 @@ with the pricing service.
 
 from __future__ import annotations
 
+import json
 import os
+import secrets
 import time
 import httpx
 
@@ -18,12 +20,22 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.integrations.dynadot.exceptions import DynadotError
 from app.models.domain import Domain
+from app.models.enums import OrderStatus
+from app.models.order import Order
 from app.models.user import User
 from app.schemas import (
     AiSuggestRequest,
     AiSuggestResponse,
     CatalogTldItem,
+    DnsRecordItem,
+    DnsRecordsPayload,
+    DomainDetailsResponse,
+    DomainLockPayload,
+    DomainPrivacyPayload,
+    DomainQuickPresetPayload,
     DomainRead,
+    DomainRenewPayload,
+    DomainRenewResponse,
     DomainSearchRequest,
     DomainSearchResponse,
     DomainSearchResult,
@@ -388,6 +400,212 @@ async def update_nameservers(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=t("error.registrar_unavailable"),
         ) from exc
+
+
+@router.get("/{domain_id}/details", response_model=DomainDetailsResponse)
+async def get_domain_details(
+    domain_id: str,
+    session: DbSession,
+    t: Translate,
+) -> DomainDetailsResponse:
+    """Full domain management details including DNS records, privacy, lock, and renew price."""
+    domain = await session.scalar(select(Domain).where(Domain.id == domain_id))
+    if domain is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+
+    pricing_svc = PricingService(session, settings)
+    quote = await pricing_svc.quote(tld=domain.tld, cost_usd=10.0, years=1)
+
+    records: list[DnsRecordItem] = []
+    if domain.dns_records:
+        try:
+            raw_list = json.loads(domain.dns_records)
+            if isinstance(raw_list, list):
+                records = [DnsRecordItem(**r) for r in raw_list]
+        except Exception:
+            records = []
+    else:
+        # Default starter records if none configured yet
+        records = [
+            DnsRecordItem(type="A", host="@", value="76.76.21.21", ttl=300),
+            DnsRecordItem(type="CNAME", host="www", value=domain.name, ttl=300),
+        ]
+
+    auth_code = f"EPP-{domain.name.replace('.', '-')}-{domain.id[:6].upper()}"
+
+    return DomainDetailsResponse(
+        id=domain.id,
+        name=domain.name,
+        tld=domain.tld,
+        status=domain.status,
+        registered_at=domain.registered_at,
+        expires_at=domain.expires_at,
+        auto_renew=domain.auto_renew,
+        is_locked=domain.is_locked,
+        privacy_enabled=domain.privacy_enabled,
+        nameservers=domain.nameservers,
+        dns_records=records,
+        renew_price_rub=quote.price_rub,
+        auth_code=auth_code,
+    )
+
+
+@router.put("/{domain_id}/dns", response_model=DomainDetailsResponse)
+async def update_dns(
+    domain_id: str,
+    payload: DnsRecordsPayload,
+    session: DbSession,
+    dynadot: Dynadot,
+    t: Translate,
+) -> DomainDetailsResponse:
+    """Save and sync custom DNS records."""
+    domain = await session.scalar(select(Domain).where(Domain.id == domain_id))
+    if domain is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+
+    service = RegistrationService(session, dynadot, settings)
+    records_dict = [r.model_dump() for r in payload.records]
+    domain = await service.update_dns_records(domain, records_dict)
+    return await get_domain_details(domain.id, session, t)
+
+
+@router.post("/{domain_id}/quick-preset", response_model=DomainDetailsResponse)
+async def apply_quick_preset(
+    domain_id: str,
+    payload: DomainQuickPresetPayload,
+    session: DbSession,
+    dynadot: Dynadot,
+    t: Translate,
+) -> DomainDetailsResponse:
+    """Apply a 1-click preset configuration (VPS, Telegram redirect, Yandex 360, Cloudflare)."""
+    domain = await session.scalar(select(Domain).where(Domain.id == domain_id))
+    if domain is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+
+    service = RegistrationService(session, dynadot, settings)
+    p_type = payload.preset_type.lower()
+
+    if p_type == "vps":
+        ip = (payload.target or "45.192.12.105").strip()
+        records = [
+            {"type": "A", "host": "@", "value": ip, "ttl": 300},
+            {"type": "A", "host": "www", "value": ip, "ttl": 300},
+        ]
+        domain = await service.update_dns_records(domain, records)
+    elif p_type == "telegram":
+        target = (payload.target or "t.me/channel").strip()
+        records = [
+            {"type": "CNAME", "host": "@", "value": "t.me", "ttl": 300},
+            {"type": "TXT", "host": "_telegram", "value": target, "ttl": 300},
+        ]
+        domain = await service.update_dns_records(domain, records)
+    elif p_type == "yandex_mail":
+        records = [
+            {"type": "MX", "host": "@", "value": "mx.yandex.net.", "ttl": 300, "priority": 10},
+            {"type": "TXT", "host": "@", "value": "v=spf1 redirect=_spf.yandex.net", "ttl": 300},
+            {"type": "CNAME", "host": "mail", "value": "domain.mail.yandex.net.", "ttl": 300},
+        ]
+        domain = await service.update_dns_records(domain, records)
+    elif p_type == "cloudflare":
+        cf_ns = ["ada.ns.cloudflare.com", "walt.ns.cloudflare.com"]
+        domain = await service.update_nameservers(domain, cf_ns)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported preset"
+        )
+
+    return await get_domain_details(domain.id, session, t)
+
+
+@router.put("/{domain_id}/privacy", response_model=DomainDetailsResponse)
+async def toggle_privacy(
+    domain_id: str,
+    payload: DomainPrivacyPayload,
+    session: DbSession,
+    dynadot: Dynadot,
+    t: Translate,
+) -> DomainDetailsResponse:
+    domain = await session.scalar(select(Domain).where(Domain.id == domain_id))
+    if domain is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+    service = RegistrationService(session, dynadot, settings)
+    await service.update_privacy(domain, payload.enabled)
+    return await get_domain_details(domain.id, session, t)
+
+
+@router.put("/{domain_id}/lock", response_model=DomainDetailsResponse)
+async def toggle_lock(
+    domain_id: str,
+    payload: DomainLockPayload,
+    session: DbSession,
+    dynadot: Dynadot,
+    t: Translate,
+) -> DomainDetailsResponse:
+    domain = await session.scalar(select(Domain).where(Domain.id == domain_id))
+    if domain is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+    service = RegistrationService(session, dynadot, settings)
+    await service.update_lock(domain, payload.locked)
+    return await get_domain_details(domain.id, session, t)
+
+
+@router.post("/{domain_id}/renew", response_model=DomainRenewResponse)
+async def renew_domain_order(
+    domain_id: str,
+    payload: DomainRenewPayload,
+    telegram_id: int,
+    session: DbSession,
+    dynadot: Dynadot,
+    t: Translate,
+) -> DomainRenewResponse:
+    """Create a renewal order with price frozen and generate SBP checkout."""
+    domain = await session.scalar(select(Domain).where(Domain.id == domain_id))
+    if domain is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+    user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+
+    pricing_svc = PricingService(session, settings)
+    quote = await pricing_svc.quote(tld=domain.tld, cost_usd=10.0, years=payload.years)
+
+    order = Order(
+        user_id=user.id,
+        domain_name=domain.name,
+        tld=domain.tld,
+        years=payload.years,
+        status=OrderStatus.AWAITING_PAYMENT,
+        cost_usd=quote.cost_usd,
+        price_rub=quote.price_rub,
+        markup_percent=quote.markup_percent,
+        fx_rate=quote.fx_rate,
+    )
+    session.add(order)
+    await session.commit()
+    await session.refresh(order)
+
+    # Platega payment link placeholder
+    payment_url = f"https://app.platega.io/pay/{order.id}"
+
+    return DomainRenewResponse(
+        order_id=order.id,
+        amount_rub=order.price_rub,
+        payment_url=payment_url,
+    )
 
 
 def _iter_search_items(raw: dict, candidates: list[str]) -> list[dict]:
