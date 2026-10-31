@@ -50,7 +50,6 @@ export default function SearchScreen({ t, onSelect }) {
   const [catalogLoading, setCatalogLoading] = useState(false);
 
   // Client-side advanced filters on results
-  const [showFilters, setShowFilters] = useState(false);
   const [filterPriceMax, setFilterPriceMax] = useState(0); // 0 = all
   const [filterSort, setFilterSort] = useState('default'); // default, cheap, expensive, az
   const [filterOnlyAvail, setFilterOnlyAvail] = useState(false);
@@ -310,103 +309,102 @@ export default function SearchScreen({ t, onSelect }) {
         </div>
       )}
 
-      {/* Categories & Results Controls Header (above results list) */}
-      <div className="space-y-2 pt-1">
-        {/* Top actions bar: Filters toggle & Catalog */}
-        <div className="flex items-center justify-between gap-2 border-b border-card-border/50 pb-2">
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                haptic('light');
-                setShowFilters(!showFilters);
-              }}
-              className={`badge cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
-                showFilters || hasActiveFilters
-                  ? 'border-accent bg-accent text-accent-ink font-semibold shadow-xs'
-                  : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-              }`}
-            >
-              ⚙ {t('search.filter_btn')}
-              {hasActiveFilters && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent-ink animate-pulse" />}
-            </button>
-
-            {hasActiveFilters && (
+      {/* Categories Bar & Catalog Button */}
+      <div className="flex items-center justify-between gap-2 border-b border-card-border/50 pb-2">
+        <div className="no-scrollbar -mx-1 flex flex-1 gap-2 overflow-x-auto px-1 py-0.5">
+          {CATEGORIES.map((cat) => {
+            const isSelected = activeCategory === cat.id;
+            return (
               <button
+                key={cat.id}
                 type="button"
-                onClick={resetFilters}
-                className="text-xs text-muted hover:text-accent underline px-1 cursor-pointer"
+                onClick={() => handleCategoryChange(cat.id)}
+                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  isSelected
+                    ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
+                    : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+                }`}
               >
-                {t('search.filter_reset')}
+                {t(cat.labelKey)}
               </button>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={openCatalog}
-            className="badge cursor-pointer border border-accent/40 bg-card px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
-          >
-            📚 {t('search.catalog_btn')}
-          </button>
+            );
+          })}
         </div>
 
-        {/* Categories scrollable pill chips with loading spinner when changing category */}
-        <div className="relative">
-          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 py-1">
-            {CATEGORIES.map((cat) => {
-              const isSelected = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => handleCategoryChange(cat.id)}
-                  className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    isSelected
-                      ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
-                      : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-                  }`}
-                >
-                  {t(cat.labelKey)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={openCatalog}
+          className="badge shrink-0 cursor-pointer border border-accent/40 bg-card px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
+        >
+          📚 {t('search.catalog_btn')}
+        </button>
       </div>
 
-      {/* Advanced Filter Panel (collapsible) */}
-      {showFilters && (
-        <div className="card space-y-3 border-card-border bg-card/70 p-3.5 text-xs">
-          <div className="flex items-center justify-between border-b border-card-border/60 pb-2">
-            <span className="font-semibold text-ink">Настройки фильтрации</span>
-            {hasActiveFilters && (
+      {/* Error state */}
+      {error ? (
+        <ErrorNote
+          message={error}
+          retryLabel={t('common.retry')}
+          onRetry={() => runSearch(query, activeCategory, false)}
+        />
+      ) : null}
+
+      {/* Results Filter & Sort Toolbar (Always visible directly above domain results) */}
+      {results !== null && (
+        <div className="card space-y-2.5 border-card-border/70 bg-card/60 p-3 text-xs shadow-2xs">
+          {/* Top Line: Results counter & Quick Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-ink">
+                {t('search.results_count', { count: filteredResults.length })}
+              </span>
+              {loading && (
+                <span className="flex items-center gap-1.5 text-accent font-semibold animate-pulse">
+                  <Spinner />
+                  {t('search.updating_zones')}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              {/* Only Available Toggle Button */}
               <button
                 type="button"
-                onClick={resetFilters}
-                className="text-accent hover:underline font-medium cursor-pointer"
+                onClick={() => {
+                  haptic('light');
+                  setFilterOnlyAvail(!filterOnlyAvail);
+                }}
+                className={`badge cursor-pointer border px-2.5 py-1 text-xs font-medium transition-colors ${
+                  filterOnlyAvail
+                    ? 'border-accent bg-accent text-accent-ink font-semibold'
+                    : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+                }`}
               >
-                {t('search.filter_reset')}
+                {filterOnlyAvail ? '✓ ' : ''}{t('search.filter_only_available')}
               </button>
-            )}
+
+              {/* Sort Dropdown */}
+              <select
+                value={filterSort}
+                onChange={(e) => {
+                  haptic('light');
+                  setFilterSort(e.target.value);
+                }}
+                aria-label="Сортировка"
+                className="input py-1 px-2 text-xs bg-card border-card-border rounded font-medium cursor-pointer"
+              >
+                <option value="default">{t('search.filter_sort_recommended')}</option>
+                <option value="cheap">{t('search.filter_sort_cheap')}</option>
+                <option value="expensive">{t('search.filter_sort_expensive')}</option>
+                <option value="az">{t('search.filter_sort_az')}</option>
+              </select>
+            </div>
           </div>
 
-          {/* Filter by TLD */}
-          <div>
-            <label className="mb-1 block text-muted">Поиск конкретной зоны:</label>
-            <input
-              type="text"
-              placeholder={t('search.filter_tld_search')}
-              value={filterTldQuery}
-              onChange={(e) => setFilterTldQuery(e.target.value)}
-              className="input py-1.5 text-xs"
-            />
-          </div>
-
-          {/* Price Range Filter */}
-          <div>
-            <label className="mb-1.5 block text-muted">Ограничение по стоимости:</label>
-            <div className="flex flex-wrap gap-1.5">
+          {/* Bottom Line: Price Chips & Zone Search Input */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-card-border/40 pt-2">
+            {/* Quick Price Filter Chips */}
+            <div className="flex flex-wrap items-center gap-1.5">
               {[
                 { max: 0, label: t('search.filter_all_prices') },
                 { max: 700, label: t('search.filter_under_700') },
@@ -420,76 +418,38 @@ export default function SearchScreen({ t, onSelect }) {
                     haptic('light');
                     setFilterPriceMax(p.max);
                   }}
-                  className={`badge cursor-pointer border px-2.5 py-1 transition-colors ${
+                  className={`badge cursor-pointer border px-2.5 py-1 text-xs transition-colors ${
                     filterPriceMax === p.max
-                      ? 'border-accent bg-accent text-accent-ink font-semibold'
-                      : 'border-card-border bg-card text-muted hover:border-accent'
+                      ? 'border-accent bg-accent/20 text-accent font-semibold border-2'
+                      : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
                   }`}
                 >
                   {p.label}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Sort & Availability Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-card-border/60">
-            <div>
-              <label className="mb-1 block text-muted">Сортировка:</label>
-              <select
-                value={filterSort}
-                onChange={(e) => {
-                  haptic('light');
-                  setFilterSort(e.target.value);
-                }}
-                className="input py-1.5 text-xs bg-card"
-              >
-                <option value="default">{t('search.filter_sort_recommended')}</option>
-                <option value="cheap">{t('search.filter_sort_cheap')}</option>
-                <option value="expensive">{t('search.filter_sort_expensive')}</option>
-                <option value="az">{t('search.filter_sort_az')}</option>
-              </select>
-            </div>
-
-            <div className="flex items-center sm:justify-end gap-2 pt-3 sm:pt-4">
-              <label className="flex items-center gap-2 cursor-pointer text-ink font-medium">
-                <input
-                  type="checkbox"
-                  checked={filterOnlyAvail}
-                  onChange={(e) => {
-                    haptic('light');
-                    setFilterOnlyAvail(e.target.checked);
-                  }}
-                  className="rounded border-card-border text-accent focus:ring-accent"
-                />
-                {t('search.filter_only_available')}
-              </label>
+            {/* Quick Zone Filter Input & Reset Button */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              <input
+                type="text"
+                placeholder={t('search.filter_tld_search')}
+                value={filterTldQuery}
+                onChange={(e) => setFilterTldQuery(e.target.value)}
+                className="input py-1 px-2 text-xs w-36 sm:w-44"
+              />
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  title={t('search.filter_reset')}
+                  className="badge cursor-pointer border border-card-border text-muted hover:text-accent hover:border-accent px-2 py-1 text-xs"
+                >
+                  ✕ {t('search.filter_reset')}
+                </button>
+              )}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Error state */}
-      {error ? (
-        <ErrorNote
-          message={error}
-          retryLabel={t('common.retry')}
-          onRetry={() => runSearch(query, activeCategory, false)}
-        />
-      ) : null}
-
-      {/* Results Header with count and updating indicator */}
-      {results !== null && (
-        <div className="flex items-center justify-between text-xs text-muted px-1 py-1 bg-card/40 rounded-lg border border-card-border/40">
-          <span className="font-medium">
-            {t('search.results_count', { count: filteredResults.length })}
-          </span>
-          {loading && (
-            <span className="flex items-center gap-1.5 text-accent font-semibold animate-pulse">
-              <Spinner />
-              {t('search.updating_zones')}
-            </span>
-          )}
         </div>
       )}
 
