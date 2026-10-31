@@ -77,7 +77,7 @@ async def search_domains(
         if payload.tlds:
             pool = [t_item.lstrip(".") for t_item in payload.tlds]
         elif payload.category == "budget":
-            # Dynamically select all enabled TLDs where current retail price <= 500 RUB
+            # Dynamically select all enabled TLDs where current retail price <= 700 RUB
             from app.models.domain import TldPricing
             tld_rows = list(
                 await session.scalars(
@@ -89,7 +89,7 @@ async def search_domains(
                 quote = await pricing_svc.quote(
                     tld=r.tld, cost_usd=float(r.register_cost_usd or 0.0), years=1
                 )
-                if quote.price_rub <= 500.0:
+                if quote.price_rub <= 700.0:
                     budget_pool.append(r.tld)
             pool = budget_pool if budget_pool else TLD_CATEGORIES["budget"]
         elif payload.category and payload.category in TLD_CATEGORIES:
