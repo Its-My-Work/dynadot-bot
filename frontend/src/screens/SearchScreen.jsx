@@ -234,8 +234,29 @@ export default function SearchScreen({ t, onSelect }) {
         </div>
       </div>
 
-      {/* Categories & Actions Controls */}
-      <div className="space-y-2">
+      {/* Smart .com Alternatives Suggestion */}
+      {alternatives.length > 0 && (
+        <div className="card space-y-2 border-accent/30 bg-accent/5 p-3">
+          <p className="text-xs font-semibold text-accent">
+            {t('search.alternatives_title')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {alternatives.map((alt) => (
+              <button
+                key={alt}
+                type="button"
+                onClick={() => handleSelectAlternative(alt)}
+                className="badge cursor-pointer border border-accent/30 bg-card px-2.5 py-1 text-xs font-medium hover:border-accent hover:text-accent"
+              >
+                {alt} ↗
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Categories & Results Controls Header (above results list) */}
+      <div className="space-y-2 pt-1">
         {/* Top actions bar: Filters toggle & Catalog */}
         <div className="flex items-center justify-between gap-2 border-b border-card-border/50 pb-2">
           <div className="flex items-center gap-1.5">
@@ -275,28 +296,30 @@ export default function SearchScreen({ t, onSelect }) {
           </button>
         </div>
 
-        {/* Categories scrollable pill chips */}
-        <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 py-1">
-          {CATEGORIES.map((cat) => {
-            const isSelected = activeCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  haptic('light');
-                  setActiveCategory(cat.id);
-                }}
-                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  isSelected
-                    ? 'border-accent bg-accent/20 text-accent font-semibold border-2'
-                    : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-                }`}
-              >
-                {t(cat.labelKey)}
-              </button>
-            );
-          })}
+        {/* Categories scrollable pill chips with loading spinner when changing category */}
+        <div className="relative">
+          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 py-1">
+            {CATEGORIES.map((cat) => {
+              const isSelected = activeCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    haptic('light');
+                    setActiveCategory(cat.id);
+                  }}
+                  className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isSelected
+                      ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
+                      : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+                  }`}
+                >
+                  {t(cat.labelKey)}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -403,6 +426,19 @@ export default function SearchScreen({ t, onSelect }) {
         />
       ) : null}
 
+      {/* Results Header with count and updating indicator */}
+      {results !== null && (
+        <div className="flex items-center justify-between text-xs text-muted px-1">
+          <span>{t('search.results_count', { count: filteredResults.length })}</span>
+          {loading && (
+            <span className="flex items-center gap-1.5 text-accent font-medium animate-pulse">
+              <Spinner />
+              {t('search.updating_zones')}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Loading Skeleton */}
       {loading && !results ? <SkeletonList rows={4} /> : null}
 
@@ -420,52 +456,33 @@ export default function SearchScreen({ t, onSelect }) {
         <EmptyState icon="∅" title={t('search.empty')} />
       ) : null}
 
-      {/* Smart .com Alternatives Suggestion */}
-      {alternatives.length > 0 && (
-        <div className="card space-y-2 border-accent/30 bg-accent/5 p-3">
-          <p className="text-xs font-semibold text-accent">
-            {t('search.alternatives_title')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {alternatives.map((alt) => (
-              <button
-                key={alt}
-                type="button"
-                onClick={() => handleSelectAlternative(alt)}
-                className="badge cursor-pointer border border-accent/30 bg-card px-2.5 py-1 text-xs font-medium hover:border-accent hover:text-accent"
-              >
-                {alt} ↗
-              </button>
+      {/* Domain Results List with subtle dimming when updating */}
+      <div className={`space-y-4 transition-opacity duration-150 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+        {available.length > 0 ? (
+          <ul className="space-y-2">
+            {available.map((result) => (
+              <ResultRow
+                key={result.domain}
+                result={result}
+                t={t}
+                onSelect={() => {
+                  haptic('medium');
+                  onSelect(result);
+                }}
+              />
             ))}
-          </div>
-        </div>
-      )}
+          </ul>
+        ) : null}
 
-      {/* Available Domains List */}
-      {available.length > 0 ? (
-        <ul className="space-y-2">
-          {available.map((result) => (
-            <ResultRow
-              key={result.domain}
-              result={result}
-              t={t}
-              onSelect={() => {
-                haptic('medium');
-                onSelect(result);
-              }}
-            />
-          ))}
-        </ul>
-      ) : null}
-
-      {/* Taken Domains List */}
-      {taken.length > 0 ? (
-        <ul className="space-y-2 opacity-55">
-          {taken.map((result) => (
-            <ResultRow key={result.domain} result={result} t={t} />
-          ))}
-        </ul>
-      ) : null}
+        {/* Taken Domains List */}
+        {taken.length > 0 ? (
+          <ul className="space-y-2 opacity-55">
+            {taken.map((result) => (
+              <ResultRow key={result.domain} result={result} t={t} />
+            ))}
+          </ul>
+        ) : null}
+      </div>
 
       {/* Load More Button */}
       {hasMore && (

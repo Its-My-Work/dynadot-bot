@@ -56,6 +56,8 @@ const catalogues = {
     'search.filter_only_available': 'Только свободные',
     'search.filter_reset': 'Сбросить',
     'search.start': 'Начните с имени домена',
+    'search.results_count': 'Найдено вариантов: {count}',
+    'search.updating_zones': 'Обновляем зоны…',
     'search.start_hint': 'Проверим все зоны сразу и покажем цены в рублях.',
 
     'buy.title': 'Оформление',
@@ -246,6 +248,8 @@ const catalogues = {
     'search.filter_only_available': 'Only available',
     'search.filter_reset': 'Reset',
     'search.start': 'Start with a domain name',
+    'search.results_count': 'Found {count} domains',
+    'search.updating_zones': 'Updating zones…',
     'search.start_hint': 'We check every zone at once and show prices in RUB.',
 
     'buy.title': 'Checkout',
