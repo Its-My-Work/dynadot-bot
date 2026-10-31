@@ -303,14 +303,14 @@ export default function SearchScreen({ t, onSelect }) {
     setAiKeywords([]);
     setAiPollingProgress(null);
 
-    const hasCustomZones = selectedAiZones.length > 0;
-    const zones = hasCustomZones ? selectedAiZones : [];
-    const category = hasCustomZones ? null : aiCategory;
-
-    const isMultiBatch = hasCustomZones && zones.length > 15;
-    const initialBatch = hasCustomZones ? zones.slice(0, 15) : [];
-
     try {
+      const hasCustomZones = selectedAiZones.length > 0;
+      const zones = hasCustomZones ? selectedAiZones : [];
+      const category = hasCustomZones ? null : activeCategory;
+
+      const isMultiBatch = hasCustomZones && zones.length > 15;
+      const initialBatch = hasCustomZones ? zones.slice(0, 15) : [];
+
       const res = await api.aiSuggest(raw, initialBatch, [], category, controller.signal);
       if (controller.signal.aborted) return;
 
