@@ -39,7 +39,7 @@ TLD_CATEGORIES: dict[str, list[str]] = {
     "popular": ["com", "net", "org", "co", "io", "ai", "xyz", "pro", "store"],
     "tech": ["ai", "io", "tech", "app", "cloud", "space", "digital"],
     "business": ["pro", "store", "shop", "biz", "co", "agency", "vip"],
-    "budget": ["xyz", "site", "online", "fun", "icu", "website", "top"],
+    "budget": ["xyz", "store", "space", "site", "online", "fun", "icu", "website", "top"],
     "creative": ["me", "art", "design", "life", "club", "info"],
 }
 
@@ -76,6 +76,22 @@ async def search_domains(
     else:
         if payload.tlds:
             pool = [t_item.lstrip(".") for t_item in payload.tlds]
+        elif payload.category == "budget":
+            # Dynamically select all enabled TLDs where current retail price <= 500 RUB
+            from app.models.domain import TldPricing
+            tld_rows = list(
+                await session.scalars(
+                    select(TldPricing).where(TldPricing.is_enabled.is_(True))
+                )
+            )
+            budget_pool = []
+            for r in tld_rows:
+                quote = await pricing_svc.quote(
+                    tld=r.tld, cost_usd=float(r.register_cost_usd or 0.0), years=1
+                )
+                if quote.price_rub <= 500.0:
+                    budget_pool.append(r.tld)
+            pool = budget_pool if budget_pool else TLD_CATEGORIES["budget"]
         elif payload.category and payload.category in TLD_CATEGORIES:
             pool = TLD_CATEGORIES[payload.category]
         else:
