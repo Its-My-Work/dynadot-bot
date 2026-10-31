@@ -204,6 +204,13 @@ async def ai_suggest_domains(
 
     suggested_domains: list[str] = []
     keywords: list[str] = []
+    target_tlds = [t.lower().lstrip(".") for t in payload.tlds if t.strip()]
+    tld_spec = (
+        f"in these exact TLD zones ONLY: {', '.join('.' + t for t in target_tlds)}"
+        if target_tlds
+        else "in top commercial TLDs (.com, .co, .io, .pro, .store, .app, .tech, .online, .space)"
+    )
+
     is_concept = (" " in raw_query) or (len(raw_query.split()) > 1)
 
     if is_concept:
@@ -218,7 +225,7 @@ async def ai_suggest_domains(
             if is_concept:
                 prompt = (
                     f"You are an elite domain name strategist and startup branding agency. A user is looking for a domain for their business concept or keywords: '{raw_query}'.\n"
-                    f"Extract the core business themes and keywords, and suggest 14 short, punchy, modern brandable domain names (under 12 chars per name, 2-3 syllables) in top commercial TLDs (.com, .co, .io, .pro, .store, .app, .tech, .online, .space).\n"
+                    f"Extract the core business themes and keywords, and suggest 14 short, punchy, modern brandable domain names (under 12 chars per name, 2-3 syllables) {tld_spec}.\n"
                     f"Guidelines:\n"
                     f"1. Blend the keywords into memorable English/Latin startup brands (e.g. for 'кофе доставка спб' -> piterbrew.co, coffeerun.pro, nordiccup.io, spbcoffee.store; for 'ремонт квартир' -> flatmaker.pro, remontpro.co, homecraft.io).\n"
                     f"2. Never produce long clumsy domains like 'kofespbdostavka.com'. Make them short, professional, and brandable.\n"
@@ -228,10 +235,10 @@ async def ai_suggest_domains(
                 brand_base = raw_query.split(".")[0].replace(" ", "").strip()
                 prompt = (
                     f"You are an elite domain name branding expert. A user searched for the domain brand '{brand_base}'.\n"
-                    f"Suggest 14 high-quality alternative domain names that preserve the user's original brand identity '{brand_base}'.\n"
+                    f"Suggest 14 high-quality alternative domain names that preserve the user's original brand identity '{brand_base}' {tld_spec}.\n"
                     f"Guidelines:\n"
                     f"1. Every single domain MUST directly contain '{brand_base}' or its clear root.\n"
-                    f"2. Add popular tech startup prefixes (get, the, try, use) or suffixes (app, hq, hub, lab, dev, tech, online) with popular TLDs (.com, .co, .io, .pro, .tech, .app, .net, .space).\n"
+                    f"2. Add popular tech startup prefixes (get, the, try, use) or suffixes (app, hq, hub, lab, dev, tech, online) {tld_spec}.\n"
                     f"3. Examples: get{brand_base}.com, {brand_base}app.com, {brand_base}.io, {brand_base}.co, {brand_base}.pro, {brand_base}hq.com, {brand_base}.tech, try{brand_base}.com.\n"
                     f"4. If input is Russian, transliterate it first to Latin letters.\n"
                     f"5. NEVER suggest random words that discard the brand (e.g. NEVER suggest 'show.store' or 'deal.shop'). Keep the brand identity.\n"
@@ -256,6 +263,9 @@ async def ai_suggest_domains(
                     for part in text.split(","):
                         cand = part.strip().strip("'\"` \n").lower()
                         if "." in cand and len(cand) < 60:
+                            cand_tld = cand.split(".")[-1]
+                            if target_tlds and cand_tld not in target_tlds:
+                                continue
                             suggested_domains.append(cand)
         except Exception as exc:
             logger.warning("AI domain suggestion call failed", extra={"error": str(exc)})
@@ -263,13 +273,11 @@ async def ai_suggest_domains(
     # Fallback if AI returned fewer than 3 domains
     if len(suggested_domains) < 3:
         clean_name = raw_query.split(".")[0].replace(" ", "")
-        suggested_domains.extend([
-            f"get{clean_name}.com",
-            f"{clean_name}app.com",
-            f"{clean_name}.io",
-            f"{clean_name}.co",
-            f"{clean_name}.pro",
-        ])
+        zones_to_use = target_tlds if target_tlds else ["com", "io", "co", "pro", "store"]
+        for z in zones_to_use[:5]:
+            suggested_domains.append(f"get{clean_name}.{z}")
+            suggested_domains.append(f"{clean_name}app.{z}")
+            suggested_domains.append(f"{clean_name}.{z}")
 
     unique_candidates = list(dict.fromkeys(suggested_domains))[:12]
 

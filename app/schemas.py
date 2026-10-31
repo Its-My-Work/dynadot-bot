@@ -151,6 +151,7 @@ class DomainSearchResponse(BaseModel):
 
 class AiSuggestRequest(BaseModel):
     query: str
+    tlds: list[str] = Field(default_factory=list)
 
 
 class AiSuggestResponse(BaseModel):

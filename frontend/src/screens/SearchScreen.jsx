@@ -40,6 +40,8 @@ export function sanitizeQuery(raw) {
     .replace(/[^a-z0-9.-]/g, '');
 }
 
+const POPULAR_AI_ZONES = ['com', 'pro', 'io', 'ai', 'co', 'store', 'tech', 'online', 'space', 'site'];
+
 export default function SearchScreen({ t, onSelect }) {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
@@ -53,6 +55,7 @@ export default function SearchScreen({ t, onSelect }) {
   // AI Brand Drawer (Option 1)
   const [aiOpen, setAiOpen] = useState(false);
   const [aiConceptInput, setAiConceptInput] = useState('');
+  const [selectedAiZones, setSelectedAiZones] = useState([]);
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiKeywords, setAiKeywords] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -280,7 +283,7 @@ export default function SearchScreen({ t, onSelect }) {
     haptic('medium');
     setAiLoading(true);
     try {
-      const res = await api.aiSuggest(raw);
+      const res = await api.aiSuggest(raw, selectedAiZones);
       setAiSuggestions(res?.suggestions || []);
       setAiKeywords(res?.keywords || []);
     } catch {
@@ -289,6 +292,13 @@ export default function SearchScreen({ t, onSelect }) {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const toggleAiZone = (zone) => {
+    haptic('light');
+    setSelectedAiZones((prev) =>
+      prev.includes(zone) ? prev.filter((z) => z !== zone) : [...prev, zone],
+    );
   };
 
   const hasActiveFilters =
@@ -387,6 +397,58 @@ export default function SearchScreen({ t, onSelect }) {
                 {aiLoading ? <Spinner /> : <span>✨</span>}
                 <span>{t('search.ai_generate_btn')}</span>
               </button>
+            </div>
+
+            {/* Target Zones Selector */}
+            <div className="space-y-1.5 pt-0.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted font-medium">{t('search.ai_zones_label')}</span>
+                {selectedAiZones.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptic('light');
+                      setSelectedAiZones([]);
+                    }}
+                    className="text-[10px] text-accent font-semibold hover:underline cursor-pointer"
+                  >
+                    {t('search.ai_zones_all')}
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic('light');
+                    setSelectedAiZones([]);
+                  }}
+                  className={`badge px-2.5 py-1 text-xs cursor-pointer border transition-colors ${
+                    selectedAiZones.length === 0
+                      ? 'border-accent bg-accent/20 text-accent font-bold shadow-2xs'
+                      : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+                  }`}
+                >
+                  {t('search.ai_zones_all')}
+                </button>
+                {POPULAR_AI_ZONES.map((zone) => {
+                  const isChecked = selectedAiZones.includes(zone);
+                  return (
+                    <button
+                      key={zone}
+                      type="button"
+                      onClick={() => toggleAiZone(zone)}
+                      className={`badge px-2.5 py-1 text-xs cursor-pointer border font-mono transition-colors ${
+                        isChecked
+                          ? 'border-accent bg-accent/20 text-accent font-bold shadow-2xs'
+                          : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+                      }`}
+                    >
+                      .{zone}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {aiLoading && (
