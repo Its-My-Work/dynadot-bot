@@ -56,6 +56,8 @@ export default function SearchScreen({ t, onSelect }) {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiConceptInput, setAiConceptInput] = useState('');
   const [selectedAiZones, setSelectedAiZones] = useState([]);
+  const [showAiCatalog, setShowAiCatalog] = useState(false);
+  const [aiCustomZoneInput, setAiCustomZoneInput] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiKeywords, setAiKeywords] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -301,6 +303,34 @@ export default function SearchScreen({ t, onSelect }) {
     );
   };
 
+  const handleOpenAiCatalog = async () => {
+    haptic('light');
+    setShowAiCatalog(true);
+    if (catalogItems.length === 0) {
+      setCatalogLoading(true);
+      try {
+        const res = await api.catalog();
+        setCatalogItems(res.items || []);
+      } catch {
+        setCatalogItems([]);
+      } finally {
+        setCatalogLoading(false);
+      }
+    }
+  };
+
+  const handleAddCustomZone = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const clean = aiCustomZoneInput.trim().toLowerCase().replace(/^\.+/, '');
+      if (clean && !selectedAiZones.includes(clean)) {
+        haptic('light');
+        setSelectedAiZones((prev) => [...prev, clean]);
+        setAiCustomZoneInput('');
+      }
+    }
+  };
+
   const hasActiveFilters =
     filterPriceMax > 0 || filterSort !== 'default' || Boolean(filterTldQuery.trim());
 
@@ -400,23 +430,33 @@ export default function SearchScreen({ t, onSelect }) {
             </div>
 
             {/* Target Zones Selector */}
-            <div className="space-y-1.5 pt-0.5">
+            <div className="space-y-2 pt-0.5">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-muted font-medium">{t('search.ai_zones_label')}</span>
-                {selectedAiZones.length > 0 && (
+                <div className="flex items-center gap-2">
+                  {selectedAiZones.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptic('light');
+                        setSelectedAiZones([]);
+                      }}
+                      className="text-[10px] text-accent font-semibold hover:underline cursor-pointer"
+                    >
+                      {t('search.ai_zones_all')}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => {
-                      haptic('light');
-                      setSelectedAiZones([]);
-                    }}
-                    className="text-[10px] text-accent font-semibold hover:underline cursor-pointer"
+                    onClick={handleOpenAiCatalog}
+                    className="badge border border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent font-bold px-2 py-0.5 text-[11px] cursor-pointer flex items-center gap-1 transition-colors"
                   >
-                    {t('search.ai_zones_all')}
+                    <span>{t('search.ai_zones_custom_btn')}</span>
                   </button>
-                )}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+
+              <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -448,6 +488,37 @@ export default function SearchScreen({ t, onSelect }) {
                     </button>
                   );
                 })}
+
+                {/* Custom selected zones from 800+ catalog */}
+                {selectedAiZones
+                  .filter((z) => !POPULAR_AI_ZONES.includes(z))
+                  .map((customZone) => (
+                    <span
+                      key={customZone}
+                      className="badge px-2 py-1 text-xs border border-accent bg-accent/20 text-accent font-bold font-mono flex items-center gap-1.5 shadow-2xs"
+                    >
+                      .{customZone}
+                      <button
+                        type="button"
+                        onClick={() => toggleAiZone(customZone)}
+                        className="hover:text-ink cursor-pointer text-xs"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+              </div>
+
+              {/* Quick inline input to add any zone */}
+              <div className="pt-0.5">
+                <input
+                  type="text"
+                  value={aiCustomZoneInput}
+                  onChange={(e) => setAiCustomZoneInput(e.target.value)}
+                  onKeyDown={handleAddCustomZone}
+                  placeholder={t('search.ai_custom_zone_placeholder')}
+                  className="input text-[11px] py-1 px-2.5 w-full bg-card/60 border-card-border/70 font-mono placeholder:font-sans"
+                />
               </div>
             </div>
 
@@ -700,6 +771,110 @@ export default function SearchScreen({ t, onSelect }) {
                     </div>
                   ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 800+ AI Zone Multi-Select Modal */}
+      {showAiCatalog && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs sm:items-center p-0 sm:p-4">
+          <div className="card flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-card-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-card-border p-4">
+              <div>
+                <h3 className="text-base font-semibold text-ink">
+                  {t('search.ai_catalog_title')} (800+)
+                </h3>
+                <p className="text-[11px] text-muted">
+                  {t('search.ai_catalog_subtitle')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAiCatalog(false)}
+                className="text-muted hover:text-ink text-xl font-bold px-2 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 border-b border-card-border flex gap-2">
+              <input
+                type="text"
+                className="input py-2 text-sm flex-1"
+                placeholder={t('search.catalog_search')}
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+              />
+              {selectedAiZones.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic('light');
+                    setSelectedAiZones([]);
+                  }}
+                  className="btn-ghost px-3 py-2 text-xs font-semibold text-accent cursor-pointer"
+                >
+                  {t('search.filter_reset')}
+                </button>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+              {catalogLoading ? (
+                <div className="py-8 text-center"><Spinner /></div>
+              ) : (
+                catalogItems
+                  .filter((item) =>
+                    !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase())
+                  )
+                  .map((item) => {
+                    const isSelected = selectedAiZones.includes(item.tld.toLowerCase());
+                    return (
+                      <div
+                        key={item.tld}
+                        onClick={() => toggleAiZone(item.tld.toLowerCase())}
+                        className={`flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-colors ${
+                          isSelected ? 'bg-accent/15 border border-accent/30' : 'hover:bg-canvas'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            readOnly
+                            className="accent-accent cursor-pointer"
+                          />
+                          <span className="font-semibold text-ink">.{item.tld}</span>
+                          {item.is_featured && (
+                            <span className="text-[10px] text-accent font-bold uppercase tracking-wider">★ Топ</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted">
+                          {t('search.catalog_from')} {formatPrice(item.price_rub, t.language)} ₽
+                        </span>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+
+            <div className="p-3 border-t border-card-border flex items-center justify-between bg-card">
+              <span className="text-xs text-muted font-medium">
+                {selectedAiZones.length === 0
+                  ? t('search.ai_zones_all')
+                  : t('search.ai_catalog_selected', { count: selectedAiZones.length })}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  haptic('medium');
+                  setShowAiCatalog(false);
+                }}
+                className="btn-accent px-5 py-2 text-xs font-bold cursor-pointer shadow-xs"
+              >
+                {t('search.ai_catalog_apply')}
+              </button>
             </div>
           </div>
         </div>
