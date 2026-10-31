@@ -151,6 +151,15 @@ export default function SearchScreen({ t, onSelect }) {
     }
   };
 
+  const handleCategoryChange = (catId) => {
+    haptic('light');
+    if (activeCategory === catId) return;
+    setActiveCategory(catId);
+    setLoading(true); // immediate feedback
+    clearTimeout(timerRef.current);
+    runSearch(query, catId, false);
+  };
+
   const loadMore = () => {
     haptic('light');
     runSearch(query, activeCategory, true);
@@ -305,10 +314,7 @@ export default function SearchScreen({ t, onSelect }) {
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => {
-                    haptic('light');
-                    setActiveCategory(cat.id);
-                  }}
+                  onClick={() => handleCategoryChange(cat.id)}
                   className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
                     isSelected
                       ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
@@ -428,10 +434,12 @@ export default function SearchScreen({ t, onSelect }) {
 
       {/* Results Header with count and updating indicator */}
       {results !== null && (
-        <div className="flex items-center justify-between text-xs text-muted px-1">
-          <span>{t('search.results_count', { count: filteredResults.length })}</span>
+        <div className="flex items-center justify-between text-xs text-muted px-1 py-1 bg-card/40 rounded-lg border border-card-border/40">
+          <span className="font-medium">
+            {t('search.results_count', { count: filteredResults.length })}
+          </span>
           {loading && (
-            <span className="flex items-center gap-1.5 text-accent font-medium animate-pulse">
+            <span className="flex items-center gap-1.5 text-accent font-semibold animate-pulse">
               <Spinner />
               {t('search.updating_zones')}
             </span>
