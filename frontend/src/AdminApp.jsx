@@ -1209,6 +1209,11 @@ function Settings({ language }) {
   const [telegramToken, setTelegramToken] = useState('');
   const [supportUsername, setSupportUsername] = useState('');
 
+  // AI & Suggestions (OmniRoute)
+  const [omnirouteUrl, setOmnirouteUrl] = useState('http://main_omniroute:20128/v1');
+  const [omnirouteModel, setOmnirouteModel] = useState('fast');
+  const [omnirouteKey, setOmnirouteKey] = useState('');
+
   // Worker
   const [workerEnabled, setWorkerEnabled] = useState(true);
 
@@ -1232,6 +1237,8 @@ function Settings({ language }) {
         setVpsProvider(cfg.vps_provider || 'mock');
         setRealitySni(cfg.vps_reality_sni || 'www.microsoft.com');
         setSupportUsername(cfg.support_username || '');
+        setOmnirouteUrl(cfg.omniroute_base_url || 'http://main_omniroute:20128/v1');
+        setOmnirouteModel(cfg.omniroute_model || 'fast');
         setWorkerEnabled(Boolean(cfg.registration_worker_enabled));
       })
       .catch(() => setError('Could not load system settings.'))
@@ -1257,11 +1264,14 @@ function Settings({ language }) {
       vps_provider: vpsProvider,
       vps_reality_sni: realitySni.trim() || undefined,
       support_username: supportUsername.trim() || null,
+      omniroute_base_url: omnirouteUrl.trim() || undefined,
+      omniroute_model: omnirouteModel.trim() || undefined,
       registration_worker_enabled: workerEnabled,
     };
 
     if (dynadotKey.trim()) payload.dynadot_api_key = dynadotKey.trim();
     if (dynadotSecret.trim()) payload.dynadot_api_secret = dynadotSecret.trim();
+    if (omnirouteKey.trim()) payload.omniroute_api_key = omnirouteKey.trim();
     if (plategaSecret.trim()) payload.platega_secret = plategaSecret.trim();
     if (timewebToken.trim()) payload.timeweb_api_token = timewebToken.trim();
     if (aezaToken.trim()) payload.aeza_api_token = aezaToken.trim();
@@ -1273,6 +1283,7 @@ function Settings({ language }) {
       setData(updated);
       setDynadotKey('');
       setDynadotSecret('');
+      setOmnirouteKey('');
       setPlategaSecret('');
       setTimewebToken('');
       setAezaToken('');
@@ -1607,7 +1618,63 @@ function Settings({ language }) {
           <TestConnectionButton provider="telegram" label="Telegram Bot" language={language} />
         </div>
 
-        {/* 6. Worker & System */}
+        {/* 6. AI & Smart Domain Suggestions (OmniRoute) */}
+        <div className="card space-y-4 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+              {isRu ? '🤖 ИИ-подбор доменов (OmniRoute)' : '🤖 AI Domain Suggestions (OmniRoute)'}
+            </h3>
+            <KeyBadge configured={data?.ai_configured} language={language} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">
+                Base URL
+              </label>
+              <input
+                type="text"
+                placeholder="http://main_omniroute:20128/v1"
+                value={omnirouteUrl}
+                onChange={(e) => setOmnirouteUrl(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink">
+                {isRu ? 'Модель ИИ' : 'AI Model'}
+              </label>
+              <input
+                type="text"
+                placeholder="fast"
+                value={omnirouteModel}
+                onChange={(e) => setOmnirouteModel(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs font-medium text-ink">
+                {isRu ? 'OmniRoute API-ключ' : 'OmniRoute API Key'}
+              </label>
+              <KeyBadge configured={data?.has_omniroute_api_key} language={language} />
+            </div>
+            <input
+              type="password"
+              placeholder={data?.has_omniroute_api_key ? '•••••••••••• (ключ сохранён в базе)' : 'Bearer API-ключ OmniRoute'}
+              value={omnirouteKey}
+              onChange={(e) => setOmnirouteKey(e.target.value)}
+              className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm font-mono text-ink focus:border-accent focus:outline-none"
+            />
+          </div>
+
+          <TestConnectionButton provider="ai" label="OmniRoute AI" language={language} />
+        </div>
+
+        {/* 7. Worker & System */}
         <div className="card space-y-3 p-5">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
             {t('admin.settings.worker')}

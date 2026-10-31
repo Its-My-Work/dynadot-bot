@@ -46,6 +46,7 @@ export default function SearchScreen({ t, onSelect }) {
   const [results, setResults] = useState(null);
   const [alternatives, setAlternatives] = useState([]);
   const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiKeywords, setAiKeywords] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -77,6 +78,7 @@ export default function SearchScreen({ t, onSelect }) {
         setResults(null);
         setAlternatives([]);
         setAiSuggestions([]);
+        setAiKeywords([]);
         setAiLoading(false);
         setHasMore(false);
         setError(null);
@@ -104,6 +106,7 @@ export default function SearchScreen({ t, onSelect }) {
           setResults(null);
           setAlternatives([]);
           setAiSuggestions([]);
+          setAiKeywords([]);
         }
       }
 
@@ -114,6 +117,7 @@ export default function SearchScreen({ t, onSelect }) {
           .then((res) => {
             if (abortRef.current === controller) {
               setAiSuggestions(res?.suggestions || []);
+              setAiKeywords(res?.keywords || []);
             }
           })
           .catch(() => {})
@@ -336,11 +340,11 @@ export default function SearchScreen({ t, onSelect }) {
 
       {/* AI Smart Available Suggestions */}
       {(aiSuggestions.length > 0 || aiLoading) && (
-        <div className="rounded-xl border border-accent/25 bg-accent/5 p-3 space-y-2">
+        <div className="rounded-xl border border-accent/25 bg-accent/5 p-3.5 space-y-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-accent flex items-center gap-1.5">
+            <span className="text-xs font-bold text-accent flex items-center gap-1.5">
               <span>✨</span>
-              {t('search.ai_suggestions_title')}
+              {aiKeywords.length > 1 ? t('search.ai_concept_title') : t('search.ai_suggestions_title')}
             </span>
             {aiLoading && (
               <span className="text-[11px] text-muted flex items-center gap-1.5 animate-pulse">
@@ -349,8 +353,27 @@ export default function SearchScreen({ t, onSelect }) {
               </span>
             )}
           </div>
+
+          {aiKeywords.length > 1 && (
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted leading-tight">
+                {t('search.ai_concept_desc')}
+              </p>
+              <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                {aiKeywords.map((kw) => (
+                  <span
+                    key={kw}
+                    className="badge border border-card-border/60 bg-card/80 text-ink text-[11px] px-2 py-0.5 font-medium"
+                  >
+                    #{kw}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {aiSuggestions.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pt-0.5">
               {aiSuggestions.map((s) => (
                 <button
                   key={s.domain}
@@ -359,11 +382,11 @@ export default function SearchScreen({ t, onSelect }) {
                     haptic('medium');
                     onSelect(s);
                   }}
-                  className="badge cursor-pointer border border-accent/30 bg-card hover:border-accent hover:bg-accent/10 px-3 py-1.5 text-xs font-medium text-ink flex items-center gap-2 shadow-2xs transition-all"
+                  className="badge cursor-pointer border border-accent/35 bg-card hover:border-accent hover:bg-accent/10 px-3 py-1.5 text-xs font-medium text-ink flex items-center gap-2 shadow-2xs transition-all"
                 >
-                  <span className="font-semibold text-accent">{s.domain}</span>
+                  <span className="font-bold text-accent">{s.domain}</span>
                   <span className="text-muted">·</span>
-                  <span className="font-bold text-ink">{Number(s.price_rub).toLocaleString('ru-RU')} ₽</span>
+                  <span className="font-semibold text-ink">{Number(s.price_rub).toLocaleString('ru-RU')} ₽</span>
                   <span className="text-accent text-[11px]">🛒</span>
                 </button>
               ))}

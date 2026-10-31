@@ -61,6 +61,9 @@ const catalogues = {
     'search.results_count': '{count} вариантов',
     'search.updating_zones': 'Обновляем…',
     'search.ai_suggestions_title': '✨ ИИ-подбор доступных альтернатив:',
+    'search.ai_concept_title': '✨ Генератор брендов по теме',
+    'search.ai_concept_desc': 'ИИ проанализировал ключевые слова и нашёл свободные домены для вашего бизнеса:',
+    'search.keywords_label': 'Ключевые слова',
     'search.ai_loading': 'ИИ подбирает варианты…',
     'search.start_hint': 'Проверим все зоны сразу и покажем цены в рублях.',
 
@@ -303,7 +306,10 @@ const catalogues = {
     'search.results_count': '{count} domains',
     'search.updating_zones': 'Updating…',
     'search.ai_suggestions_title': '✨ AI-Powered Available Alternatives:',
-    'search.ai_loading': 'AI is finding options…',
+    'search.ai_concept_title': '✨ AI Brand Generator for your concept',
+    'search.ai_concept_desc': 'AI analyzed your keywords and verified available domains for your business:',
+    'search.keywords_label': 'Keywords',
+    'search.ai_loading': 'AI is finding available domains…',
     'search.start_hint': 'We check every zone at once and show prices in RUB.',
 
     'buy.title': 'Checkout',

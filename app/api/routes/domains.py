@@ -203,21 +203,40 @@ async def ai_suggest_domains(
         api_key = os.environ.get("HERMES_CUSTOM_OMNIROUTE_ITSMYWORK_VIP_API_KEY") or os.environ.get("HERMES_CUSTOM_OMNIROUTE_MANAGE_API_KEY")
 
     suggested_domains: list[str] = []
+    keywords: list[str] = []
+    is_concept = (" " in raw_query) or (len(raw_query.split()) > 1)
+
+    if is_concept:
+        keywords = [w.strip() for w in raw_query.split() if len(w.strip()) > 1][:4]
+    else:
+        brand_base = raw_query.split(".")[0].replace(" ", "").strip()
+        if brand_base:
+            keywords = [brand_base]
 
     if api_key:
         try:
-            brand_base = raw_query.split(".")[0].replace(" ", "").strip()
-            prompt = (
-                f"You are an elite domain name branding expert. A user searched for the domain brand '{brand_base}'.\n"
-                f"Suggest 12 high-quality alternative domain names that preserve the user's original brand identity '{brand_base}'.\n"
-                f"Guidelines:\n"
-                f"1. Every single domain MUST directly contain '{brand_base}' or its clear root.\n"
-                f"2. Add popular tech startup prefixes (get, the, try, use) or suffixes (app, hq, hub, lab, dev, tech, online) with popular TLDs.\n"
-                f"3. Examples of valid patterns: get{brand_base}.com, {brand_base}app.com, {brand_base}.io, {brand_base}.co, {brand_base}.pro, {brand_base}.tech, {brand_base}hq.com, {brand_base}.space, try{brand_base}.com, {brand_base}.online, {brand_base}.org, {brand_base}.net.\n"
-                f"4. If input is Russian, transliterate it first to Latin letters.\n"
-                f"5. NEVER suggest random words that discard the brand (e.g. NEVER suggest 'show.store' or 'deal.shop'). Keep the brand identity.\n"
-                f"Return ONLY a clean comma-separated list of domain names, nothing else."
-            )
+            if is_concept:
+                prompt = (
+                    f"You are an elite domain name strategist and startup branding agency. A user is looking for a domain for their business concept or keywords: '{raw_query}'.\n"
+                    f"Extract the core business themes and keywords, and suggest 14 short, punchy, modern brandable domain names (under 12 chars per name, 2-3 syllables) in top commercial TLDs (.com, .co, .io, .pro, .store, .app, .tech, .online, .space).\n"
+                    f"Guidelines:\n"
+                    f"1. Blend the keywords into memorable English/Latin startup brands (e.g. for 'кофе доставка спб' -> piterbrew.co, coffeerun.pro, nordiccup.io, spbcoffee.store; for 'ремонт квартир' -> flatmaker.pro, remontpro.co, homecraft.io).\n"
+                    f"2. Never produce long clumsy domains like 'kofespbdostavka.com'. Make them short, professional, and brandable.\n"
+                    f"3. Return ONLY a clean comma-separated list of domain names, nothing else."
+                )
+            else:
+                brand_base = raw_query.split(".")[0].replace(" ", "").strip()
+                prompt = (
+                    f"You are an elite domain name branding expert. A user searched for the domain brand '{brand_base}'.\n"
+                    f"Suggest 14 high-quality alternative domain names that preserve the user's original brand identity '{brand_base}'.\n"
+                    f"Guidelines:\n"
+                    f"1. Every single domain MUST directly contain '{brand_base}' or its clear root.\n"
+                    f"2. Add popular tech startup prefixes (get, the, try, use) or suffixes (app, hq, hub, lab, dev, tech, online) with popular TLDs (.com, .co, .io, .pro, .tech, .app, .net, .space).\n"
+                    f"3. Examples: get{brand_base}.com, {brand_base}app.com, {brand_base}.io, {brand_base}.co, {brand_base}.pro, {brand_base}hq.com, {brand_base}.tech, try{brand_base}.com.\n"
+                    f"4. If input is Russian, transliterate it first to Latin letters.\n"
+                    f"5. NEVER suggest random words that discard the brand (e.g. NEVER suggest 'show.store' or 'deal.shop'). Keep the brand identity.\n"
+                    f"Return ONLY a clean comma-separated list of domain names, nothing else."
+                )
             async with httpx.AsyncClient(timeout=8.0) as client:
                 res = await client.post(
                     f"{settings.omniroute_base_url.rstrip('/')}/chat/completions",
@@ -225,11 +244,11 @@ async def ai_suggest_domains(
                     json={
                         "model": settings.omniroute_model or "fast",
                         "messages": [
-                            {"role": "system", "content": "You are a domain name branding expert. Return ONLY a comma-separated list of domain names that keep the user's brand name."},
+                            {"role": "system", "content": "You are a domain name branding expert. Return ONLY a comma-separated list of domain names."},
                             {"role": "user", "content": prompt},
                         ],
                         "max_tokens": 150,
-                        "temperature": 0.3,
+                        "temperature": 0.35,
                     },
                 )
                 if res.status_code == 200:
@@ -252,7 +271,7 @@ async def ai_suggest_domains(
             f"{clean_name}.pro",
         ])
 
-    unique_candidates = list(dict.fromkeys(suggested_domains))[:8]
+    unique_candidates = list(dict.fromkeys(suggested_domains))[:12]
 
     # Check live availability via Dynadot bulk search
     try:
@@ -265,9 +284,9 @@ async def ai_suggest_domains(
     results = [await _to_result(item, t, pricing_svc) for item in items]
 
     # Return only available domains with valid price
-    available_only = [r for r in results if r.available and r.price_rub is not None][:5]
+    available_only = [r for r in results if r.available and r.price_rub is not None][:6]
 
-    return AiSuggestResponse(query=raw_query, suggestions=available_only)
+    return AiSuggestResponse(query=raw_query, keywords=keywords, suggestions=available_only)
 
 
 @router.get("/catalog", response_model=list[CatalogTldItem])

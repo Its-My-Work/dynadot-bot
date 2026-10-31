@@ -537,6 +537,7 @@ async def get_admin_settings(session: DbSession) -> AdminSettingsRead:
     aeza_ok = has_secret("aeza_api_token", settings.aeza_api_token)
     pq_ok = has_secret("pq_hosting_api_token", settings.pq_hosting_api_token)
     tg_ok = has_secret("telegram_bot_token", settings.telegram_bot_token)
+    ai_ok = has_secret("omniroute_api_key", settings.omniroute_api_key)
     cur_provider = str(db_map.get("vps_provider", settings.vps_provider))
 
     return AdminSettingsRead(
@@ -579,6 +580,10 @@ async def get_admin_settings(session: DbSession) -> AdminSettingsRead:
         in ("true", "1", "yes"),
         environment=settings.environment,
         app_version="0.1.0",
+        omniroute_base_url=str(db_map.get("omniroute_base_url", settings.omniroute_base_url)),
+        omniroute_model=str(db_map.get("omniroute_model", settings.omniroute_model)),
+        has_omniroute_api_key=ai_ok,
+        ai_configured=ai_ok,
     )
 
 
@@ -629,6 +634,22 @@ async def update_admin_settings(
         val = payload.dynadot_api_secret.strip()
         await _upsert("dynadot_api_secret", val, "Dynadot API Secret")
         settings.dynadot_api_secret = SecretStr(val)
+
+    # AI & Suggestions (OmniRoute)
+    if payload.omniroute_base_url is not None:
+        val = payload.omniroute_base_url.strip()
+        await _upsert("omniroute_base_url", val, "OmniRoute Base URL")
+        settings.omniroute_base_url = val
+
+    if payload.omniroute_model is not None:
+        val = payload.omniroute_model.strip()
+        await _upsert("omniroute_model", val, "OmniRoute Model")
+        settings.omniroute_model = val
+
+    if payload.omniroute_api_key is not None and payload.omniroute_api_key.strip():
+        val = payload.omniroute_api_key.strip()
+        await _upsert("omniroute_api_key", val, "OmniRoute API Key")
+        settings.omniroute_api_key = SecretStr(val)
 
     # Platega
     if payload.platega_merchant_id is not None:
@@ -938,6 +959,44 @@ async def test_connection(
                 ok=False,
                 provider="telegram",
                 message=f"Ошибка сети Telegram: {str(exc)}",
+            )
+
+    elif target in ("ai", "omniroute"):
+        api_key = settings.omniroute_api_key.get_secret_value() if settings.omniroute_api_key else None
+        if not api_key:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="ai",
+                message="API-ключ OmniRoute не настроен.",
+            )
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as http:
+                resp = await http.post(
+                    f"{settings.omniroute_base_url.rstrip('/')}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": settings.omniroute_model or "fast",
+                        "messages": [{"role": "user", "content": "ping"}],
+                        "max_tokens": 5,
+                    },
+                )
+            if resp.status_code == 200:
+                return ConnectionTestResponse(
+                    ok=True,
+                    provider="ai",
+                    message=f"Подключение успешно! OmniRoute модель '{settings.omniroute_model or 'fast'}' отвечает.",
+                )
+            else:
+                return ConnectionTestResponse(
+                    ok=False,
+                    provider="ai",
+                    message=f"Ошибка OmniRoute: HTTP {resp.status_code} ({resp.text[:120]})",
+                )
+        except Exception as exc:
+            return ConnectionTestResponse(
+                ok=False,
+                provider="ai",
+                message=f"Ошибка соединения с OmniRoute: {str(exc)}",
             )
 
     return ConnectionTestResponse(

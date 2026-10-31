@@ -155,6 +155,7 @@ class AiSuggestRequest(BaseModel):
 
 class AiSuggestResponse(BaseModel):
     query: str
+    keywords: list[str] = Field(default_factory=list)
     suggestions: list[DomainSearchResult]
 
 
@@ -456,6 +457,12 @@ class AdminSettingsRead(BaseModel):
     environment: str
     app_version: str = "0.1.0"
 
+    # AI & Suggestions (OmniRoute)
+    omniroute_base_url: str = "http://main_omniroute:20128/v1"
+    omniroute_model: str = "fast"
+    has_omniroute_api_key: bool = False
+    ai_configured: bool = False
+
 
 class AdminSettingsUpdate(BaseModel):
     # Financial & Pricing
@@ -467,6 +474,11 @@ class AdminSettingsUpdate(BaseModel):
     dynadot_base_url: str | None = None
     dynadot_api_key: str | None = None
     dynadot_api_secret: str | None = None
+
+    # AI & Suggestions (OmniRoute)
+    omniroute_base_url: str | None = None
+    omniroute_api_key: str | None = None
+    omniroute_model: str | None = None
 
     # Payments (Platega)
     platega_merchant_id: str | None = None
