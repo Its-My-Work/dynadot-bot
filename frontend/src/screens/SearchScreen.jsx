@@ -45,13 +45,17 @@ export default function SearchScreen({ t, onSelect }) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [results, setResults] = useState(null);
   const [alternatives, setAlternatives] = useState([]);
-  const [aiSuggestions, setAiSuggestions] = useState([]);
-  const [aiKeywords, setAiKeywords] = useState([]);
-  const [aiLoading, setAiLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
+
+  // AI Brand Drawer (Option 1)
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiConceptInput, setAiConceptInput] = useState('');
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiKeywords, setAiKeywords] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
 
   // Catalog modal
   const [showCatalog, setShowCatalog] = useState(false);
@@ -77,9 +81,6 @@ export default function SearchScreen({ t, onSelect }) {
       if (!clean) {
         setResults(null);
         setAlternatives([]);
-        setAiSuggestions([]);
-        setAiKeywords([]);
-        setAiLoading(false);
         setHasMore(false);
         setError(null);
         setLoading(false);
@@ -105,27 +106,7 @@ export default function SearchScreen({ t, onSelect }) {
         if (clean !== lastSearchedRef.current.query) {
           setResults(null);
           setAlternatives([]);
-          setAiSuggestions([]);
-          setAiKeywords([]);
         }
-      }
-
-      // Trigger AI suggestions asynchronously in the background
-      if (!append && clean !== lastSearchedRef.current.query) {
-        setAiLoading(true);
-        api.aiSuggest(rawQuery.trim(), controller.signal)
-          .then((res) => {
-            if (abortRef.current === controller) {
-              setAiSuggestions(res?.suggestions || []);
-              setAiKeywords(res?.keywords || []);
-            }
-          })
-          .catch(() => {})
-          .finally(() => {
-            if (abortRef.current === controller) {
-              setAiLoading(false);
-            }
-          });
       }
 
       try {
@@ -293,6 +274,23 @@ export default function SearchScreen({ t, onSelect }) {
     return () => observer.disconnect();
   }, [hasMore, loadingMore, loading, query, activeCategory, runSearch]);
 
+  const handleAiGenerate = async () => {
+    const raw = aiConceptInput.trim();
+    if (!raw) return;
+    haptic('medium');
+    setAiLoading(true);
+    try {
+      const res = await api.aiSuggest(raw);
+      setAiSuggestions(res?.suggestions || []);
+      setAiKeywords(res?.keywords || []);
+    } catch {
+      setAiSuggestions([]);
+      setAiKeywords([]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const hasActiveFilters =
     filterPriceMax > 0 || filterSort !== 'default' || Boolean(filterTldQuery.trim());
 
@@ -338,27 +336,72 @@ export default function SearchScreen({ t, onSelect }) {
         </div>
       </div>
 
-      {/* AI Smart Available Suggestions */}
-      {(aiSuggestions.length > 0 || aiLoading) && (
-        <div className="rounded-xl border border-accent/25 bg-accent/5 p-3.5 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-accent flex items-center gap-1.5">
-              {aiKeywords.length > 1 ? t('search.ai_concept_title') : t('search.ai_suggestions_title')}
-            </span>
+      {/* Smart AI Brand Generator Drawer (Option 1) */}
+      <div className="rounded-xl border border-accent/25 bg-accent/5 overflow-hidden transition-all shadow-2xs">
+        <button
+          type="button"
+          onClick={() => {
+            haptic('light');
+            setAiOpen(!aiOpen);
+          }}
+          className="w-full flex items-center justify-between p-3 cursor-pointer text-left hover:bg-accent/10 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-base">✨</span>
+            <div>
+              <p className="text-xs font-bold text-accent">
+                {t('search.ai_drawer_title')}
+              </p>
+              <p className="text-[11px] text-muted">
+                {t('search.ai_drawer_subtitle')}
+              </p>
+            </div>
+          </div>
+          <span className={`text-accent text-xs font-bold transition-transform duration-200 ${aiOpen ? 'rotate-180' : ''}`}>
+            ▾
+          </span>
+        </button>
+
+        {aiOpen && (
+          <div className="p-3 pt-0 border-t border-accent/15 space-y-3 mt-1">
+            <div className="flex gap-2 pt-2">
+              <input
+                type="text"
+                value={aiConceptInput}
+                onChange={(e) => setAiConceptInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAiGenerate();
+                  }
+                }}
+                placeholder={t('search.ai_input_placeholder')}
+                className="input text-xs flex-1 py-2 px-3 bg-card border-card-border"
+              />
+              <button
+                type="button"
+                disabled={aiLoading || !aiConceptInput.trim()}
+                onClick={handleAiGenerate}
+                className="btn-accent px-3 py-2 text-xs font-semibold shrink-0 cursor-pointer flex items-center gap-1.5 shadow-xs"
+              >
+                {aiLoading ? <Spinner /> : <span>✨</span>}
+                <span>{t('search.ai_generate_btn')}</span>
+              </button>
+            </div>
+
             {aiLoading && (
-              <span className="text-[11px] text-muted flex items-center gap-1.5 animate-pulse">
+              <div className="flex items-center gap-2 text-xs text-accent animate-pulse py-1">
                 <Spinner />
                 <span>{t('search.ai_loading')}</span>
-              </span>
+              </div>
             )}
-          </div>
 
-          {aiKeywords.length > 1 && (
-            <div className="space-y-1">
-              <p className="text-[11px] text-muted leading-tight">
-                {t('search.ai_concept_desc')}
-              </p>
-              <div className="flex flex-wrap items-center gap-1 pt-0.5">
+            {/* Tags / Keywords */}
+            {aiKeywords.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1 pt-1">
+                <span className="text-[10px] uppercase font-bold text-muted/70 tracking-wider">
+                  {t('search.keywords_label')}:
+                </span>
                 {aiKeywords.map((kw) => (
                   <span
                     key={kw}
@@ -368,31 +411,39 @@ export default function SearchScreen({ t, onSelect }) {
                   </span>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {aiSuggestions.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-0.5">
-              {aiSuggestions.map((s) => (
-                <button
-                  key={s.domain}
-                  type="button"
-                  onClick={() => {
-                    haptic('medium');
-                    onSelect(s);
-                  }}
-                  className="badge cursor-pointer border border-accent/35 bg-card hover:border-accent hover:bg-accent/10 px-3 py-1.5 text-xs font-medium text-ink flex items-center gap-2 shadow-2xs transition-all"
-                >
-                  <span className="font-bold text-accent">{s.domain}</span>
-                  <span className="text-muted">·</span>
-                  <span className="font-semibold text-ink">{Number(s.price_rub).toLocaleString('ru-RU')} ₽</span>
-                  <span className="text-accent text-[11px]">🛒</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+            {/* Generated Available Domains Pills */}
+            {aiSuggestions.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[11px] text-muted font-medium">
+                  {t('search.ai_available_results')}:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {aiSuggestions.map((s) => (
+                    <button
+                      key={s.domain}
+                      type="button"
+                      onClick={() => {
+                        haptic('medium');
+                        onSelect(s);
+                      }}
+                      className="badge cursor-pointer border border-accent/35 bg-card hover:border-accent hover:bg-accent/10 px-3 py-1.5 text-xs font-medium text-ink flex items-center gap-2 shadow-2xs transition-all"
+                    >
+                      <span className="font-bold text-accent">{s.domain}</span>
+                      <span className="text-muted">·</span>
+                      <span className="font-semibold text-ink">
+                        {Number(s.price_rub).toLocaleString('ru-RU')} ₽
+                      </span>
+                      <span className="text-accent text-[11px]">🛒</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Categories Bar & Catalog Button */}
       <div className="flex items-center justify-between gap-2 border-b border-card-border/50 pb-2">
@@ -520,7 +571,7 @@ export default function SearchScreen({ t, onSelect }) {
           {loadingMore ? (
             <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted font-medium animate-pulse">
               <Spinner />
-              <span>{t('search.updating_zones')}</span>
+              <span>{t('search.loading_more_zones')}</span>
             </div>
           ) : (
             <button
