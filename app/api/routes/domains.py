@@ -6,6 +6,8 @@ with the pricing service.
 
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
@@ -28,6 +30,36 @@ from app.services.registration import RegistrationService
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/domains", tags=["domains"])
+
+_cached_all_tlds: list[str] = []
+_cached_all_tlds_time: float = 0.0
+
+
+async def _get_all_available_tlds(dynadot: Dynadot) -> list[str]:
+    """Retrieve full list of 800+ TLDs supported by Dynadot with in-memory caching."""
+    global _cached_all_tlds, _cached_all_tlds_time
+    now = time.monotonic()
+    if _cached_all_tlds and (now - _cached_all_tlds_time) < 3600:
+        return _cached_all_tlds
+
+    tlds = list(DEFAULT_TLDS)
+    try:
+        data = await dynadot.get_tld_prices(currency="USD")
+        price_list = data.get("tld_price_list") or []
+        extra_tlds = []
+        for item in price_list:
+            raw = str(item.get("tld") or "").lstrip(".").lower()
+            if raw and raw not in tlds:
+                extra_tlds.append(raw)
+        if extra_tlds:
+            tlds.extend(extra_tlds)
+            _cached_all_tlds = tlds
+            _cached_all_tlds_time = now
+    except Exception as exc:
+        logger.warning("could not load full tld list for pagination", extra={"error": str(exc)})
+
+    return tlds
+
 
 TLD_CATEGORIES: dict[str, list[str]] = {
     "all": [
@@ -95,8 +127,8 @@ async def search_domains(
         elif payload.category and payload.category in TLD_CATEGORIES:
             pool = TLD_CATEGORIES[payload.category]
         else:
-            enabled = await pricing_svc.enabled_tlds(DEFAULT_TLDS)
-            pool = enabled if enabled else DEFAULT_TLDS
+            # "all" category: paginate across all 800+ available zones!
+            pool = await _get_all_available_tlds(dynadot)
 
         total_zones = len(pool)
         offset = max(0, payload.offset or 0)

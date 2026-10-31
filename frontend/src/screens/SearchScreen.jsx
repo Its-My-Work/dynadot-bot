@@ -94,13 +94,18 @@ export default function SearchScreen({ t, onSelect }) {
 
         const newItems = res?.results ?? [];
         if (append) {
-          setResults((prev) => [...(prev || []), ...newItems]);
+          setResults((prev) => {
+            const existing = new Set((prev || []).map((x) => x.domain));
+            const fresh = newItems.filter((x) => !existing.has(x.domain));
+            return [...(prev || []), ...fresh];
+          });
+          offsetRef.current = currentOffset + newItems.length;
         } else {
           setResults(newItems);
           setAlternatives(res?.alternatives ?? []);
+          offsetRef.current = newItems.length;
         }
         setHasMore(Boolean(res?.has_more));
-        offsetRef.current = currentOffset + newItems.length;
       } catch (err) {
         if (err.name === 'AbortError') return;
         if (err instanceof ApiError && err.status === 422) {
@@ -229,9 +234,49 @@ export default function SearchScreen({ t, onSelect }) {
         </div>
       </div>
 
-      {/* Categories & Catalog Quick Actions */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="no-scrollbar -mx-1 flex flex-1 gap-2 overflow-x-auto px-1 pb-1">
+      {/* Categories & Actions Controls */}
+      <div className="space-y-2">
+        {/* Top actions bar: Filters toggle & Catalog */}
+        <div className="flex items-center justify-between gap-2 border-b border-card-border/50 pb-2">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                haptic('light');
+                setShowFilters(!showFilters);
+              }}
+              className={`badge cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
+                showFilters || hasActiveFilters
+                  ? 'border-accent bg-accent text-accent-ink font-semibold shadow-xs'
+                  : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+              }`}
+            >
+              ⚙ {t('search.filter_btn')}
+              {hasActiveFilters && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent-ink animate-pulse" />}
+            </button>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="text-xs text-muted hover:text-accent underline px-1 cursor-pointer"
+              >
+                {t('search.filter_reset')}
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={openCatalog}
+            className="badge cursor-pointer border border-accent/40 bg-card px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
+          >
+            📚 {t('search.catalog_btn')}
+          </button>
+        </div>
+
+        {/* Categories scrollable pill chips */}
+        <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 py-1">
           {CATEGORIES.map((cat) => {
             const isSelected = activeCategory === cat.id;
             return (
@@ -242,9 +287,9 @@ export default function SearchScreen({ t, onSelect }) {
                   haptic('light');
                   setActiveCategory(cat.id);
                 }}
-                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 font-medium transition-colors ${
+                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
                   isSelected
-                    ? 'border-accent bg-accent text-accent-ink font-semibold shadow-sm'
+                    ? 'border-accent bg-accent/20 text-accent font-semibold border-2'
                     : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
                 }`}
               >
@@ -252,32 +297,6 @@ export default function SearchScreen({ t, onSelect }) {
               </button>
             );
           })}
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              haptic('light');
-              setShowFilters(!showFilters);
-            }}
-            className={`badge cursor-pointer border px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              showFilters || hasActiveFilters
-                ? 'border-accent bg-accent/15 text-accent font-semibold'
-                : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-            }`}
-          >
-            ⚙ {t('search.filter_btn')}
-            {hasActiveFilters && <span className="ml-1 text-[10px] text-accent">●</span>}
-          </button>
-
-          <button
-            type="button"
-            onClick={openCatalog}
-            className="badge cursor-pointer border border-accent/40 bg-card px-2.5 py-1.5 text-xs font-medium text-accent hover:bg-accent/10"
-          >
-            {t('search.catalog_btn')}
-          </button>
         </div>
       </div>
 

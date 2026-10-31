@@ -46,7 +46,7 @@ describe('SearchScreen', () => {
     expect(await screen.findByText('All zones')).toBeInTheDocument();
     expect(screen.getByText('🔥 Top')).toBeInTheDocument();
     expect(screen.getByText('🤖 AI & IT')).toBeInTheDocument();
-    expect(screen.getByText('📚 All 800+ Zones Catalog')).toBeInTheDocument();
+    expect(screen.getByText(/All 800\+ Zones/)).toBeInTheDocument();
   });
 
   it('still renders when the zone list fails to load', async () => {
