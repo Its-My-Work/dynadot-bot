@@ -24,11 +24,18 @@ export const CATEGORIES = [
   { id: 'creative', labelKey: 'search.cat.creative' },
 ];
 
-/** Strip anything that cannot be in a domain label. */
+const RU_MAP = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z',
+  и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r',
+  с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh',
+  щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya', ' ': '',
+};
+
+/** Strip anything that cannot be in a domain label, transliterating Russian Cyrillic automatically. */
 export function sanitizeQuery(raw) {
-  return raw
-    .toLowerCase()
-    .trim()
+  let text = String(raw || '').toLowerCase().trim();
+  text = text.replace(/[а-яё ]/g, (ch) => (RU_MAP[ch] !== undefined ? RU_MAP[ch] : ch));
+  return text
     .replace(/^\.+/, '')
     .replace(/[^a-z0-9.-]/g, '');
 }
@@ -103,7 +110,7 @@ export default function SearchScreen({ t, onSelect }) {
       // Trigger AI suggestions asynchronously in the background
       if (!append && clean !== lastSearchedRef.current.query) {
         setAiLoading(true);
-        api.aiSuggest(clean, controller.signal)
+        api.aiSuggest(rawQuery.trim(), controller.signal)
           .then((res) => {
             if (abortRef.current === controller) {
               setAiSuggestions(res?.suggestions || []);
