@@ -159,10 +159,10 @@ export const api = {
       },
       signal,
     }),
-  aiSuggest: (query, tlds = [], candidates = [], signal) =>
+  aiSuggest: (query, tlds = [], candidates = [], category = null, signal) =>
     request('/domains/ai-suggest', {
       method: 'POST',
-      body: { query, tlds, candidates },
+      body: { query, tlds, candidates, category },
       signal,
     }),
 

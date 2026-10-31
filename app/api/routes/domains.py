@@ -224,6 +224,9 @@ async def ai_suggest_domains(
     suggested_domains: list[str] = []
     keywords: list[str] = []
     target_tlds = [t.lower().lstrip(".") for t in payload.tlds if t.strip()]
+    if not target_tlds and payload.category and payload.category in TLD_CATEGORIES:
+        if payload.category != "all":
+            target_tlds = TLD_CATEGORIES[payload.category]
 
     # If the client already passed pre-generated candidates for staged/chunked verification:
     if payload.candidates:

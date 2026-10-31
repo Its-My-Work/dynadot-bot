@@ -55,6 +55,7 @@ export default function SearchScreen({ t, onSelect }) {
   // AI Brand Drawer (Option 1)
   const [aiOpen, setAiOpen] = useState(false);
   const [aiConceptInput, setAiConceptInput] = useState('');
+  const [aiCategory, setAiCategory] = useState('all');
   const [selectedAiZones, setSelectedAiZones] = useState([]);
   const [showAiCatalog, setShowAiCatalog] = useState(false);
   const [aiCustomZoneInput, setAiCustomZoneInput] = useState('');
@@ -303,12 +304,15 @@ export default function SearchScreen({ t, onSelect }) {
     setAiKeywords([]);
     setAiPollingProgress(null);
 
-    const zones = selectedAiZones.length > 0 ? selectedAiZones : POPULAR_AI_ZONES;
-    const isMultiBatch = zones.length > 15;
-    const initialBatch = zones.slice(0, 15);
+    const hasCustomZones = selectedAiZones.length > 0;
+    const zones = hasCustomZones ? selectedAiZones : [];
+    const category = hasCustomZones ? null : aiCategory;
+
+    const isMultiBatch = hasCustomZones && zones.length > 15;
+    const initialBatch = hasCustomZones ? zones.slice(0, 15) : [];
 
     try {
-      const res = await api.aiSuggest(raw, initialBatch, [], controller.signal);
+      const res = await api.aiSuggest(raw, initialBatch, [], category, controller.signal);
       if (controller.signal.aborted) return;
 
       const candidates = res?.candidates || [];
@@ -341,7 +345,7 @@ export default function SearchScreen({ t, onSelect }) {
             await new Promise((resolve) => setTimeout(resolve, 600));
             if (controller.signal.aborted) break;
 
-            const chunkRes = await api.aiSuggest(raw, chunk, chunkCandidates, controller.signal);
+            const chunkRes = await api.aiSuggest(raw, chunk, chunkCandidates, null, controller.signal);
             if (controller.signal.aborted) break;
 
             if (chunkRes?.suggestions?.length > 0) {
@@ -503,110 +507,56 @@ export default function SearchScreen({ t, onSelect }) {
               </button>
             </div>
 
-            {/* Target Zones Selector */}
+            {/* Target Zones & Categories Selector (Matches regular search: Top, AI & IT, Business, Budget, Creative) */}
             <div className="space-y-2 pt-0.5">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-muted font-medium">{t('search.ai_zones_label')}</span>
-                <div className="flex items-center gap-2">
-                  {selectedAiZones.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleOpenAiCatalog}
+                  className="badge border border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent font-bold px-2 py-0.5 text-[11px] cursor-pointer flex items-center gap-1 transition-colors"
+                >
+                  <span>{t('search.ai_zones_custom_btn')}</span>
+                </button>
+              </div>
+
+              <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 py-0.5">
+                {CATEGORIES.map((cat) => {
+                  const isSelected = aiCategory === cat.id && selectedAiZones.length === 0;
+                  return (
                     <button
+                      key={cat.id}
                       type="button"
                       onClick={() => {
                         haptic('light');
+                        setAiCategory(cat.id);
                         setSelectedAiZones([]);
                       }}
-                      className="text-[10px] text-accent font-semibold hover:underline cursor-pointer"
-                    >
-                      {t('search.ai_zones_all')}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleOpenAiCatalog}
-                    className="badge border border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent font-bold px-2 py-0.5 text-[11px] cursor-pointer flex items-center gap-1 transition-colors"
-                  >
-                    <span>{t('search.ai_zones_custom_btn')}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    haptic('light');
-                    setSelectedAiZones([]);
-                  }}
-                  className={`badge px-2.5 py-1 text-xs cursor-pointer border transition-colors ${
-                    selectedAiZones.length === 0
-                      ? 'border-accent bg-accent/20 text-accent font-bold shadow-2xs'
-                      : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-                  }`}
-                >
-                  {t('search.ai_zones_all')}
-                </button>
-                {POPULAR_AI_ZONES.map((zone) => {
-                  const isChecked = selectedAiZones.includes(zone);
-                  return (
-                    <button
-                      key={zone}
-                      type="button"
-                      onClick={() => toggleAiZone(zone)}
-                      className={`badge px-2.5 py-1 text-xs cursor-pointer border font-mono transition-colors ${
-                        isChecked
-                          ? 'border-accent bg-accent/20 text-accent font-bold shadow-2xs'
+                      className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        isSelected
+                          ? 'border-accent bg-accent/20 text-accent font-bold border-2 shadow-xs'
                           : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
                       }`}
                     >
-                      .{zone}
+                      {t(cat.labelKey)}
                     </button>
                   );
                 })}
 
                 {/* Custom selected zones from 800+ catalog */}
-                {selectedAiZones.length > 10 ? (
-                  <span className="badge px-2.5 py-1 text-xs border border-accent bg-accent/20 text-accent font-bold flex items-center gap-1.5 shadow-2xs">
-                    <span>✓ Выбрано зон: {selectedAiZones.length}</span>
+                {selectedAiZones.length > 0 && (
+                  <span className="badge shrink-0 border-2 border-accent bg-accent/20 text-accent font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-xs">
+                    <span>✓ {t('search.ai_custom_selection')} ({selectedAiZones.length})</span>
                     <button
                       type="button"
                       onClick={() => setSelectedAiZones([])}
-                      className="hover:text-ink cursor-pointer text-xs ml-1"
+                      className="hover:text-ink cursor-pointer ml-1 text-xs"
                       title="Сбросить"
                     >
                       ✕
                     </button>
                   </span>
-                ) : (
-                  selectedAiZones
-                    .filter((z) => !POPULAR_AI_ZONES.includes(z))
-                    .map((customZone) => (
-                      <span
-                        key={customZone}
-                        className="badge px-2 py-1 text-xs border border-accent bg-accent/20 text-accent font-bold font-mono flex items-center gap-1.5 shadow-2xs"
-                      >
-                        .{customZone}
-                        <button
-                          type="button"
-                          onClick={() => toggleAiZone(customZone)}
-                          className="hover:text-ink cursor-pointer text-xs"
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))
                 )}
-              </div>
-
-              {/* Quick inline input to add any zone */}
-              <div className="pt-0.5">
-                <input
-                  type="text"
-                  value={aiCustomZoneInput}
-                  onChange={(e) => setAiCustomZoneInput(e.target.value)}
-                  onKeyDown={handleAddCustomZone}
-                  placeholder={t('search.ai_custom_zone_placeholder')}
-                  className="input text-[11px] py-1 px-2.5 w-full bg-card/60 border-card-border/70 font-mono placeholder:font-sans"
-                />
               </div>
             </div>
 

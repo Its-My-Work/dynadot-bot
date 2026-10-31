@@ -153,6 +153,7 @@ class AiSuggestRequest(BaseModel):
     query: str
     tlds: list[str] = Field(default_factory=list)
     candidates: list[str] = Field(default_factory=list)
+    category: str | None = None
 
 
 class AiSuggestResponse(BaseModel):
