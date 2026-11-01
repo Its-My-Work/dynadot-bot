@@ -97,7 +97,7 @@ describe('makeTranslator', () => {
   it('exposes its language so components can format numbers', () => {
     const t = makeTranslator('en');
     expect(t.language).toBe('en');
-    expect(t('nav.search')).toBe('Search');
+    expect(t('nav.search')).toBe('Domains');
   });
 });
 

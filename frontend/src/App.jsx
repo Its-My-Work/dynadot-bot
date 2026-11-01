@@ -23,7 +23,7 @@ import { AppBar, Brand, LangToggle, ThemePicker } from './components/ui';
 import useTheme from './hooks/useTheme';
 
 const TABS = [
-  { id: 'search', labelKey: 'nav.search', icon: '⌕' },
+  { id: 'search', labelKey: 'nav.search', icon: '🌐' },
   { id: 'vps', labelKey: 'nav.vps', icon: '⚡' },
   { id: 'domains', labelKey: 'nav.domains', icon: '◇' },
   { id: 'orders', labelKey: 'nav.orders', icon: '▤' },

@@ -418,9 +418,49 @@ async def ai_suggest_domains(
     )
 
     is_concept = (" " in raw_query) or (len(raw_query.split()) > 1)
+    stop_words = {
+        "по",
+        "на",
+        "из",
+        "для",
+        "от",
+        "за",
+        "под",
+        "над",
+        "при",
+        "про",
+        "без",
+        "до",
+        "со",
+        "ко",
+        "в",
+        "и",
+        "с",
+        "к",
+        "о",
+        "об",
+        "как",
+        "что",
+        "где",
+        "the",
+        "a",
+        "an",
+        "for",
+        "and",
+        "in",
+        "on",
+        "to",
+        "by",
+        "of",
+        "with",
+    }
 
     if is_concept:
-        keywords = [w.strip() for w in raw_query.split() if len(w.strip()) > 1][:4]
+        keywords = [
+            w.strip()
+            for w in raw_query.split()
+            if len(w.strip()) > 2 and w.strip().lower() not in stop_words
+        ][:4]
     else:
         brand_base = raw_query.split(".")[0].replace(" ", "").strip()
         if brand_base:

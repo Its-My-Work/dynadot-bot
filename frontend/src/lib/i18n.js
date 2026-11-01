@@ -17,7 +17,7 @@ const catalogues = {
 
     'theme.label': 'Оформление',
 
-    'nav.search': 'Поиск',
+    'nav.search': 'Домены',
     'nav.domains': 'Мои домены',
     'nav.orders': 'Заказы',
     'nav.profile': 'Профиль',
@@ -321,7 +321,7 @@ const catalogues = {
 
     'theme.label': 'Theme',
 
-    'nav.search': 'Search',
+    'nav.search': 'Domains',
     'nav.domains': 'My domains',
     'nav.orders': 'Orders',
     'nav.profile': 'Profile',
