@@ -459,6 +459,23 @@ class AdminLoginResponse(BaseModel):
     token: str
 
 
+class AdminSetupStatusResponse(BaseModel):
+    needs_setup: bool
+
+
+class AdminSetupRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=128)
+    name: str | None = Field(default=None, max_length=128)
+
+
+class AdminSetupResponse(BaseModel):
+    status: str = "ok"
+    username: str
+    token: str
+    message: str = "Главный администратор успешно настроен!"
+
+
 class AdminSettingsRead(BaseModel):
     # Financial & Pricing
     usd_to_rub_rate: float

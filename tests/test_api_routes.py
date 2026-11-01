@@ -671,6 +671,62 @@ def test_admin_login_endpoint(client, monkeypatch):
     assert "token" in data
 
 
+def test_admin_setup_wizard_flow(client, monkeypatch):
+    import app.api.deps as deps_module
+
+    current_settings = deps_module.get_settings()
+    monkeypatch.setattr(current_settings, "admin_username", None)
+    monkeypatch.setattr(current_settings, "admin_password", None)
+
+    # 1. Initially needs_setup is True when no env credentials and no admin user
+    status_res = client.get("/api/v1/admin/setup-status")
+    assert status_res.status_code == 200
+    assert status_res.json()["needs_setup"] is True
+
+    # 2. Setup first superadmin
+    setup_res = client.post(
+        "/api/v1/admin/setup",
+        json={
+            "email": "master_admin@example.com",
+            "password": "MasterAdminPass123!",
+            "name": "Super Admin",
+        },
+    )
+    assert setup_res.status_code == 200
+    token = setup_res.json()["token"]
+    assert token
+
+    # 3. Subsequent setup attempt is blocked with 403 Forbidden
+    blocked_res = client.post(
+        "/api/v1/admin/setup",
+        json={
+            "email": "hacker@example.com",
+            "password": "hackerpassword123",
+        },
+    )
+    assert blocked_res.status_code == 403
+
+    # 4. needs_setup is now False
+    status_res2 = client.get("/api/v1/admin/setup-status")
+    assert status_res2.status_code == 200
+    assert status_res2.json()["needs_setup"] is False
+
+    # 5. The admin can log in and view stats
+    login_res = client.post(
+        "/api/v1/admin/login",
+        json={
+            "username": "master_admin@example.com",
+            "password": "MasterAdminPass123!",
+        },
+    )
+    assert login_res.status_code == 200
+
+    stats_res = client.get(
+        "/api/v1/admin/stats", auth=("master_admin@example.com", "MasterAdminPass123!")
+    )
+    assert stats_res.status_code == 200
+
+
 def test_admin_settings_get_and_patch(client):
     # GET settings
     resp = client.get("/api/v1/admin/settings")

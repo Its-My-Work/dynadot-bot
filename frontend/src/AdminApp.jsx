@@ -44,6 +44,8 @@ const when = (value, language = 'ru') =>
 
 export default function AdminApp() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAdminToken()));
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [setupChecked, setSetupChecked] = useState(false);
   const [view, setView] = useState('overview');
   const [stats, setStats] = useState(null);
   const [language, setLanguage] = useState(() => {
@@ -56,6 +58,20 @@ export default function AdminApp() {
 
   const { theme, selectTheme } = useTheme({ persist: false });
   const t = makeTranslator(language);
+
+  useEffect(() => {
+    api
+      .adminSetupStatus()
+      .then((res) => {
+        setNeedsSetup(Boolean(res?.needs_setup));
+      })
+      .catch(() => {
+        setNeedsSetup(false);
+      })
+      .finally(() => {
+        setSetupChecked(true);
+      });
+  }, []);
 
   const toggleLang = () => {
     const next = language === 'ru' ? 'en' : 'ru';
@@ -92,6 +108,22 @@ export default function AdminApp() {
       loadStats();
     }
   }, [isAuthenticated, loadStats]);
+
+  if (!isAuthenticated && needsSetup && setupChecked) {
+    return (
+      <AdminSetupScreen
+        onDone={() => {
+          setNeedsSetup(false);
+          setIsAuthenticated(true);
+          loadStats();
+        }}
+        language={language}
+        onToggleLang={toggleLang}
+        theme={theme}
+        onSelectTheme={selectTheme}
+      />
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -200,6 +232,144 @@ export default function AdminApp() {
         {view === 'categories' ? <CategoriesView language={language} /> : null}
         {view === 'logs' ? <ApiLogs language={language} /> : null}
         {view === 'settings' ? <Settings language={language} /> : null}
+      </main>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ setup screen
+
+function AdminSetupScreen({ onDone, language, onToggleLang, theme, onSelectTheme }) {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const t = makeTranslator(language);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!email || !password) return;
+    if (password !== confirmPassword) {
+      setError(language === 'ru' ? 'Пароли не совпадают' : 'Passwords do not match');
+      return;
+    }
+    if (password.length < 6) {
+      setError(language === 'ru' ? 'Пароль должен содержать минимум 6 символов' : 'Password must be at least 6 characters');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await api.adminSetup(email, password, name || null);
+      onDone();
+    } catch (err) {
+      setError(err?.detail || err?.message || (language === 'ru' ? 'Ошибка настройки администратора' : 'Setup failed'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col bg-bg text-ink">
+      <header className="flex h-12 items-center justify-between border-b border-line px-6">
+        <Brand label="Dynadot" subtitle="Setup" />
+        <div className="flex items-center gap-2">
+          <ThemePicker theme={theme} onSelect={onSelectTheme} label={t('theme.label')} />
+          <LangToggle language={language} onToggle={onToggleLang} />
+        </div>
+      </header>
+
+      <main className="flex flex-1 items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-xl">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <div className="mb-3 text-3xl">🛠</div>
+            <h1 className="text-lg font-semibold text-ink">
+              {language === 'ru' ? 'Первоначальная настройка' : 'First-time Setup'}
+            </h1>
+            <p className="mt-1 text-xs text-muted leading-relaxed">
+              {language === 'ru'
+                ? 'В системе ещё нет администратора. Создайте учетную запись главного администратора для управления системой.'
+                : 'No administrator configured. Create the primary administrator account to manage the system.'}
+            </p>
+          </div>
+
+          {error ? (
+            <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
+              {error}
+            </div>
+          ) : null}
+
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            <div>
+              <label htmlFor="setup-email" className="mb-1 block text-xs font-medium text-muted">
+                {language === 'ru' ? 'Email администратора' : 'Admin Email'}
+              </label>
+              <input
+                id="setup-email"
+                type="email"
+                required
+                autoFocus
+                placeholder="admin@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="setup-name" className="mb-1 block text-xs font-medium text-muted">
+                {language === 'ru' ? 'Имя администратора (необязательно)' : 'Admin Name (optional)'}
+              </label>
+              <input
+                id="setup-name"
+                type="text"
+                placeholder="Admin"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="setup-password" className="mb-1 block text-xs font-medium text-muted">
+                {language === 'ru' ? 'Пароль (не менее 6 символов)' : 'Password (min 6 chars)'}
+              </label>
+              <input
+                id="setup-password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="setup-confirm" className="mb-1 block text-xs font-medium text-muted">
+                {language === 'ru' ? 'Подтверждение пароля' : 'Confirm Password'}
+              </label>
+              <input
+                id="setup-confirm"
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary mt-3 flex w-full items-center justify-center gap-2 py-2 text-sm font-medium"
+            >
+              {loading ? <Spinner className="h-4 w-4" /> : null}
+              {language === 'ru' ? 'Создать аккаунт администратора' : 'Create Admin Account'}
+            </button>
+          </form>
+        </div>
       </main>
     </div>
   );

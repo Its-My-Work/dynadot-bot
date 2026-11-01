@@ -255,6 +255,16 @@ export const api = {
     request(`/payments/${paymentId}/refresh`, { method: 'POST' }),
 
   // --- admin --------------------------------------------------------------
+  adminSetupStatus: () => request('/admin/setup-status'),
+  adminSetup: async (email, password, name = null) => {
+    const res = await request('/admin/setup', {
+      method: 'POST',
+      body: { email, password, name },
+    });
+    const token = btoa(`${email}:${password}`);
+    setAdminToken(token);
+    return res;
+  },
   adminLogin: async (username, password) => {
     const token = btoa(`${username}:${password}`);
     const res = await request('/admin/login', {

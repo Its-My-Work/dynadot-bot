@@ -33,13 +33,16 @@ from app.models import (
     TldPricing,
     User,
 )
-from app.models.enums import DomainStatus, OrderStatus, TaskStatus
+from app.models.enums import DomainStatus, OrderStatus, TaskStatus, UserRole
 from app.schemas import (
     AdminLoginRequest,
     AdminLoginResponse,
     AdminOrderRead,
     AdminSettingsRead,
     AdminSettingsUpdate,
+    AdminSetupRequest,
+    AdminSetupResponse,
+    AdminSetupStatusResponse,
     AdminStats,
     ApiLogRead,
     CategoriesResponse,
@@ -52,19 +55,87 @@ from app.schemas import (
     TldPricingUpdate,
     TldSyncResponse,
 )
+from app.services.security import hash_password, verify_password
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 auth_router = APIRouter(dependencies=[Depends(require_admin)])
 
 
-@router.post("/login", response_model=AdminLoginResponse)
-async def admin_login(payload: AdminLoginRequest) -> AdminLoginResponse:
-    """Validate administrator credentials and return an authorization token."""
+@router.get("/setup-status", response_model=AdminSetupStatusResponse)
+async def admin_setup_status(session: DbSession) -> AdminSetupStatusResponse:
+    """Check if the system needs initial superadmin setup."""
     settings = get_settings()
-    if settings.admin_username and settings.admin_password:
-        import secrets
+    admin_count = await session.scalar(
+        select(func.count()).select_from(User).where(User.role == UserRole.ADMIN)
+    )
+    has_env_admin = bool(settings.admin_username and settings.admin_password)
+    needs_setup = (admin_count == 0) and not has_env_admin
+    return AdminSetupStatusResponse(needs_setup=needs_setup)
 
+
+@router.post("/setup", response_model=AdminSetupResponse)
+async def admin_setup(
+    payload: AdminSetupRequest,
+    session: DbSession,
+) -> AdminSetupResponse:
+    """Initial superadmin bootstrap: only permitted when no admin exists in the system."""
+    import base64
+    import secrets
+
+    admin_count = await session.scalar(
+        select(func.count()).select_from(User).where(User.role == UserRole.ADMIN)
+    )
+    if admin_count and admin_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Администратор уже настроен в системе. Первоначальная настройка закрыта.",
+        )
+
+    norm_email = payload.email.strip().lower()
+    user = await session.scalar(select(User).where(func.lower(User.email) == norm_email))
+    if user is None:
+        fallback_tid = 9_000_000_000 + secrets.randbelow(900_000_000)
+        user = User(
+            email=norm_email,
+            password_hash=hash_password(payload.password),
+            has_password=True,
+            role=UserRole.ADMIN,
+            first_name=payload.name or "Admin",
+            telegram_id=fallback_tid,
+            username=norm_email.split("@")[0][:32],
+            last_seen_at=datetime.now(UTC),
+        )
+        session.add(user)
+    else:
+        user.role = UserRole.ADMIN
+        user.password_hash = hash_password(payload.password)
+        user.has_password = True
+        user.last_seen_at = datetime.now(UTC)
+
+    await session.commit()
+    token = base64.b64encode(f"{norm_email}:{payload.password}".encode()).decode("utf8")
+    return AdminSetupResponse(
+        status="ok",
+        username=norm_email,
+        token=token,
+        message="Главный администратор успешно настроен!",
+    )
+
+
+@router.post("/login", response_model=AdminLoginResponse)
+async def admin_login(
+    payload: AdminLoginRequest,
+    session: DbSession,
+) -> AdminLoginResponse:
+    """Validate administrator credentials against DB admin users or env credentials."""
+    import base64
+    import secrets
+
+    # 1. Check system credentials if configured
+    settings = get_settings()
+    is_valid = False
+    if settings.admin_username and settings.admin_password:
         valid_user = secrets.compare_digest(
             payload.username.encode("utf8"), settings.admin_username.encode("utf8")
         )
@@ -72,12 +143,31 @@ async def admin_login(payload: AdminLoginRequest) -> AdminLoginResponse:
             payload.password.encode("utf8"),
             settings.admin_password.get_secret_value().encode("utf8"),
         )
-        if not (valid_user and valid_pass):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Неверный логин или пароль",
+        if valid_user and valid_pass:
+            is_valid = True
+
+    # 2. Check database admin users
+    if not is_valid:
+        norm_login = payload.username.strip().lower()
+        db_user = await session.scalar(
+            select(User).where(
+                (func.lower(User.email) == norm_login)
+                | (func.lower(User.username) == norm_login)
             )
-    import base64
+        )
+        if (
+            db_user is not None
+            and db_user.role == UserRole.ADMIN
+            and db_user.has_password
+            and verify_password(payload.password, db_user.password_hash)
+        ):
+            is_valid = True
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный логин или пароль",
+        )
 
     token = base64.b64encode(f"{payload.username}:{payload.password}".encode()).decode(
         "utf8"
