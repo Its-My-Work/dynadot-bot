@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 
@@ -27,11 +28,12 @@ def test_signature_matches_manual_hmac_sha256():
     request_id = "abc123"
     body = ""
 
-    expected = hmac.new(
+    digest = hmac.new(
         API_SECRET.encode(),
         f"{API_KEY}\n{path}\n{request_id}\n{body}".encode(),
         hashlib.sha256,
-    ).hexdigest()
+    ).digest()
+    expected = base64.b64encode(digest).decode("utf-8")
 
     assert (
         sign_request(
@@ -95,8 +97,8 @@ def test_auth_headers_contain_all_required_fields():
         body="",
     )
     assert headers["Authorization"] == f"Bearer {API_KEY}"
-    assert headers["X-Request-Id"] == "req-9"
-    assert len(headers["X-Signature"]) == 64  # sha256 hex
+    assert headers["X-Request-ID"] == "req-9"
+    assert len(headers["X-Signature"]) == 44  # base64 sha256
     assert headers["Accept"] == "application/json"
 
 

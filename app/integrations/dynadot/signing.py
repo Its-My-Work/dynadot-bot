@@ -7,6 +7,7 @@ signature must be computed *after* the body has been serialised.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import uuid
@@ -14,13 +15,8 @@ from urllib.parse import urlencode
 
 
 def build_request_id() -> str:
-    """Create an idempotency key.
-
-    Generate this ONCE per logical operation and persist it: ``X-Request-Id``
-    is part of the signature and Dynadot treats it as the idempotency key. A
-    fresh id on a registration retry risks registering and charging twice.
-    """
-    return uuid.uuid4().hex
+    """Create an idempotency key (standard UUID string as required by Dynadot)."""
+    return str(uuid.uuid4())
 
 
 def build_path_with_query(path: str, params: dict[str, object] | None = None) -> str:
@@ -59,13 +55,14 @@ def sign_request(
     request_id: str,
     body: str = "",
 ) -> str:
-    """Return the hex HMAC-SHA256 signature for one request."""
+    """Return the Base64 HMAC-SHA256 signature for one request as required by Dynadot RESTful v2."""
     string_to_sign = build_string_to_sign(api_key, path_with_query, request_id, body)
-    return hmac.new(
+    digest = hmac.new(
         api_secret.encode("utf-8"),
         string_to_sign.encode("utf-8"),
         hashlib.sha256,
-    ).hexdigest()
+    ).digest()
+    return base64.b64encode(digest).decode("utf-8")
 
 
 def build_auth_headers(
@@ -86,7 +83,7 @@ def build_auth_headers(
     )
     return {
         "Authorization": f"Bearer {api_key}",
-        "X-Request-Id": request_id,
+        "X-Request-ID": request_id,
         "X-Signature": signature,
         "Accept": "application/json",
     }
