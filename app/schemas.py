@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -474,6 +475,51 @@ class AdminSetupResponse(BaseModel):
     username: str
     token: str
     message: str = "Главный администратор успешно настроен!"
+
+
+class AdminDomainItem(BaseModel):
+    id: UUID
+    name: str
+    tld: str
+    status: DomainStatus
+    auto_renew: bool
+    is_locked: bool
+    privacy_enabled: bool
+    nameservers: str | None = None
+    registered_at: datetime | None = None
+    expires_at: datetime | None = None
+    user_id: UUID | None = None
+    owner_email: str | None = None
+    owner_username: str | None = None
+    created_at: datetime
+
+
+class AdminDomainListResponse(BaseModel):
+    items: list[AdminDomainItem]
+    total: int
+
+
+class AdminDomainAssignRequest(BaseModel):
+    user_id: UUID | None = None
+    email: str | None = None
+
+
+class AdminDomainSyncResponse(BaseModel):
+    status: str = "ok"
+    synced: int
+    created: int
+    updated: int
+    message: str
+
+
+class AdminUserItem(BaseModel):
+    id: UUID
+    email: str | None = None
+    username: str | None = None
+    first_name: str | None = None
+    telegram_id: int | None = None
+    role: UserRole
+    created_at: datetime
 
 
 class AdminSettingsRead(BaseModel):

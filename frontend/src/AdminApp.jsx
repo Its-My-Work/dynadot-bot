@@ -143,6 +143,11 @@ export default function AdminApp() {
   const VIEWS = [
     { id: 'overview', label: t('admin.nav.overview'), enLabel: 'Overview' },
     {
+      id: 'domains',
+      label: t('admin.nav.domains') || 'Домены',
+      enLabel: 'Domains',
+    },
+    {
       id: 'refunds',
       label: t('admin.nav.refunds'),
       enLabel: 'Refunds',
@@ -221,6 +226,7 @@ export default function AdminApp() {
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
         {view === 'overview' ? <Overview stats={stats} language={language} /> : null}
+        {view === 'domains' ? <DomainsManagement language={language} /> : null}
         {view === 'refunds' ? (
           <Refunds onResolved={loadStats} language={language} />
         ) : null}
@@ -553,6 +559,294 @@ function Overview({ stats, language }) {
           ) : null}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ domains & ownership view
+
+function DomainsManagement({ language }) {
+  const [items, setItems] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [selectedDomain, setSelectedDomain] = useState(null);
+  const [assignTargetUserId, setAssignTargetUserId] = useState('');
+  const [assignTargetEmail, setAssignTargetEmail] = useState('');
+  const [assigning, setAssigning] = useState(false);
+
+  const t = makeTranslator(language);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [domRes, userRes] = await Promise.all([
+        api.adminDomains().catch(() => ({ items: [] })),
+        api.adminUsers().catch(() => []),
+      ]);
+      setItems(domRes?.items || []);
+      setUsers(Array.isArray(userRes) ? userRes : []);
+    } catch {
+      setError(language === 'ru' ? 'Не удалось загрузить домены' : 'Failed to load domains');
+    } finally {
+      setLoading(false);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await api.adminSyncDomains();
+      await loadData();
+      setToast({ message: res.message || 'Синхронизация завершена', tone: 'ok' });
+    } catch (err) {
+      setToast({
+        message: err?.detail || (language === 'ru' ? 'Ошибка синхронизации' : 'Sync error'),
+        tone: 'danger',
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleAssign = async (e) => {
+    e.preventDefault();
+    if (!selectedDomain) return;
+    setAssigning(true);
+    try {
+      const payload = assignTargetUserId
+        ? { userId: assignTargetUserId }
+        : { email: assignTargetEmail.trim() };
+      await api.adminAssignDomain(selectedDomain.id, payload);
+      await loadData();
+      setSelectedDomain(null);
+      setAssignTargetUserId('');
+      setAssignTargetEmail('');
+      setToast({
+        message: language === 'ru' ? 'Владелец домена изменен!' : 'Owner assigned successfully!',
+        tone: 'ok',
+      });
+    } catch (err) {
+      setToast({
+        message: err?.detail || (language === 'ru' ? 'Ошибка изменения владельца' : 'Failed to assign owner'),
+        tone: 'danger',
+      });
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  if (loading && items.length === 0) {
+    return <SkeletonList rows={4} />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h1 className="text-lg font-semibold text-ink">{t('admin.domains.title')}</h1>
+          <p className="text-xs text-muted">{t('admin.domains.subtitle')}</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleSync}
+          disabled={syncing}
+          className="btn-primary inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-2 cursor-pointer shadow-sm hover:opacity-95"
+        >
+          {syncing ? <Spinner className="h-3.5 w-3.5" /> : <span>🔄</span>}
+          <span>{syncing ? t('admin.domains.syncing') : t('admin.domains.sync_btn')}</span>
+        </button>
+      </div>
+
+      {error ? (
+        <ErrorNote message={error} onRetry={loadData} retryLabel={language === 'ru' ? 'Повторить' : 'Retry'} />
+      ) : null}
+
+      {items.length === 0 ? (
+        <EmptyState
+          title={language === 'ru' ? 'Нет доменов' : 'No domains'}
+          description={t('admin.domains.empty')}
+          actionLabel={t('admin.domains.sync_btn')}
+          onAction={handleSync}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-line bg-bg/50 text-[11px] font-semibold text-muted">
+              <tr>
+                <th className="px-4 py-3">Домен</th>
+                <th className="px-4 py-3">Статус</th>
+                <th className="px-4 py-3">Срок действия</th>
+                <th className="px-4 py-3">Владелец в сервисе</th>
+                <th className="px-4 py-3 text-right">Действия</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line text-ink">
+              {items.map((dom) => {
+                const ownerText = dom.owner_email || (dom.owner_username ? `@${dom.owner_username}` : null);
+                return (
+                  <tr key={dom.id} className="hover:bg-bg/40 transition-colors">
+                    <td className="px-4 py-3.5">
+                      <div className="font-bold font-mono text-ink text-sm flex items-center gap-1.5">
+                        <span>🌐</span>
+                        <span>{dom.name}</span>
+                      </div>
+                      {dom.nameservers ? (
+                        <div className="text-[10px] text-muted font-mono mt-0.5 truncate max-w-xs">
+                          NS: {dom.nameservers}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="badge text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5">
+                        {dom.status}
+                      </span>
+                      {dom.auto_renew ? (
+                        <span className="ml-1 text-[10px] text-muted">автопродление</span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3.5 font-mono text-[11px] text-muted">
+                      {dom.expires_at ? (
+                        <div>
+                          <div>до {when(dom.expires_at, language)}</div>
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      {ownerText ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs">👤</span>
+                          <span className="font-medium text-ink">{ownerText}</span>
+                        </div>
+                      ) : (
+                        <span className="badge text-[10px] bg-warn/15 text-warn border border-warn/30 font-semibold px-2 py-0.5">
+                          Не привязан
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 text-right space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDomain(dom);
+                          setAssignTargetUserId(dom.user_id || '');
+                        }}
+                        className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-accent hover:border-accent/40 hover:bg-accent/10 transition-colors cursor-pointer"
+                      >
+                        Изменить владельца
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal: Change Owner */}
+      {selectedDomain ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h2 className="text-sm font-bold text-ink flex items-center gap-2">
+                <span>👤</span>
+                <span>Закрепление домена: {selectedDomain.name}</span>
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSelectedDomain(null)}
+                className="text-muted hover:text-ink cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAssign} className="space-y-4 text-xs">
+              <div>
+                <label className="mb-1.5 block font-medium text-muted">
+                  Выберите пользователя из базы:
+                </label>
+                <select
+                  value={assignTargetUserId}
+                  onChange={(e) => {
+                    setAssignTargetUserId(e.target.value);
+                    setAssignTargetEmail('');
+                  }}
+                  className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-ink focus:border-accent outline-none"
+                >
+                  <option value="">-- Выбрать пользователя --</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.email || `@${u.username || u.telegram_id}`} ({u.role === 'admin' ? '👑 Админ' : 'Пользователь'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-line"></div>
+                <span className="flex-shrink mx-3 text-[10px] text-muted uppercase">или укажите Email вручную</span>
+                <div className="flex-grow border-t border-line"></div>
+              </div>
+
+              <div>
+                <label className="mb-1 block font-medium text-muted">
+                  Email пользователя:
+                </label>
+                <input
+                  type="email"
+                  placeholder="user@example.com"
+                  value={assignTargetEmail}
+                  onChange={(e) => {
+                    setAssignTargetEmail(e.target.value);
+                    setAssignTargetUserId('');
+                  }}
+                  className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-ink focus:border-accent outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDomain(null)}
+                  className="px-3 py-1.5 rounded-lg border border-line text-muted hover:text-ink cursor-pointer"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  disabled={assigning || (!assignTargetUserId && !assignTargetEmail)}
+                  className="btn-primary px-4 py-1.5 text-xs font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  {assigning ? 'Сохранение...' : 'Сохранить владельца'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {toast ? (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div
+            className={`rounded-xl px-4 py-2.5 text-xs font-medium shadow-lg border ${
+              toast.tone === 'danger'
+                ? 'bg-rose-950/90 text-rose-200 border-rose-500/40'
+                : 'bg-emerald-950/90 text-emerald-200 border-emerald-500/40'
+            }`}
+          >
+            {toast.message}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

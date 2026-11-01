@@ -26,6 +26,8 @@ const STATS = {
 beforeEach(() => {
   vi.spyOn(api, 'adminSetupStatus').mockResolvedValue({ needs_setup: false });
   vi.spyOn(api, 'adminStats').mockResolvedValue(STATS);
+  vi.spyOn(api, 'adminDomains').mockResolvedValue({ items: [] });
+  vi.spyOn(api, 'adminUsers').mockResolvedValue([]);
   vi.spyOn(api, 'adminRefunds').mockResolvedValue([]);
   vi.spyOn(api, 'adminOrders').mockResolvedValue([]);
   vi.spyOn(api, 'adminTasks').mockResolvedValue([]);

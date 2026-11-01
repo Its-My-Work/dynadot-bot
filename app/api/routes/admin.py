@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import SecretStr
@@ -35,6 +36,10 @@ from app.models import (
 )
 from app.models.enums import DomainStatus, OrderStatus, TaskStatus, UserRole
 from app.schemas import (
+    AdminDomainAssignRequest,
+    AdminDomainItem,
+    AdminDomainListResponse,
+    AdminDomainSyncResponse,
     AdminLoginRequest,
     AdminLoginResponse,
     AdminOrderRead,
@@ -44,6 +49,7 @@ from app.schemas import (
     AdminSetupResponse,
     AdminSetupStatusResponse,
     AdminStats,
+    AdminUserItem,
     ApiLogRead,
     CategoriesResponse,
     CategoryItem,
@@ -1161,6 +1167,191 @@ async def reset_admin_categories(session: DbSession) -> CategoriesResponse:
         await session.delete(row)
         await session.commit()
     return CategoriesResponse(categories=[CategoryItem(**c) for c in DEFAULT_CATEGORIES])
+
+
+# ------------------------------------------------------------------ registered domains & assignment
+
+
+@auth_router.get("/domains", response_model=AdminDomainListResponse)
+async def list_admin_domains(session: DbSession) -> AdminDomainListResponse:
+    """List all registered domains with their assigned owners."""
+    stmt = (
+        select(Domain, User.email, User.username)
+        .outerjoin(User, Domain.user_id == User.id)
+        .order_by(Domain.created_at.desc())
+    )
+    results = (await session.execute(stmt)).all()
+    items = []
+    for domain, email, username in results:
+        items.append(
+            AdminDomainItem(
+                id=domain.id,
+                name=domain.name,
+                tld=domain.tld,
+                status=domain.status,
+                auto_renew=domain.auto_renew,
+                is_locked=domain.is_locked,
+                privacy_enabled=domain.privacy_enabled,
+                nameservers=domain.nameservers,
+                registered_at=domain.registered_at,
+                expires_at=domain.expires_at,
+                user_id=domain.user_id,
+                owner_email=email,
+                owner_username=username,
+                created_at=domain.created_at,
+            )
+        )
+    return AdminDomainListResponse(items=items, total=len(items))
+
+
+@auth_router.post("/domains/sync", response_model=AdminDomainSyncResponse)
+async def sync_domains_from_dynadot(
+    session: DbSession,
+    dynadot: Dynadot,
+) -> AdminDomainSyncResponse:
+    """Fetch live registered domains from Dynadot API and sync them into the database."""
+    try:
+        data = await dynadot.list_domains()
+    except Exception as exc:
+        logger.error("Failed to fetch domains from Dynadot API: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Ошибка обращения к Dynadot API: {exc}",
+        )
+
+    domain_list = data.get("domain_list") or []
+    synced = len(domain_list)
+    created = 0
+    updated = 0
+
+    admin_user = await session.scalar(
+        select(User).where(User.role == UserRole.ADMIN).order_by(User.created_at.asc())
+    )
+
+    for entry in domain_list:
+        d_name = entry.get("name")
+        if not d_name:
+            continue
+
+        reg_ts = entry.get("registered_date")
+        exp_ts = entry.get("expiration_date")
+        reg_dt = datetime.fromtimestamp(reg_ts, tz=UTC) if reg_ts else None
+        exp_dt = datetime.fromtimestamp(exp_ts, tz=UTC) if exp_ts else None
+        is_locked = entry.get("locked") == "yes"
+        auto_renew = entry.get("auto_renew") == "yes"
+        privacy = entry.get("privacy") in ("full", "yes")
+
+        ns = entry.get("name_server")
+        ns_str = ",".join(ns) if isinstance(ns, list) else (str(ns) if ns else None)
+
+        domain = await session.scalar(select(Domain).where(Domain.name == d_name))
+        if domain is None:
+            tld = d_name.split(".")[-1] if "." in d_name else ""
+            domain = Domain(
+                name=d_name,
+                tld=tld,
+                status=DomainStatus.ACTIVE,
+                registered_at=reg_dt,
+                expires_at=exp_dt,
+                is_locked=is_locked,
+                auto_renew=auto_renew,
+                privacy_enabled=privacy,
+                nameservers=ns_str,
+                user_id=admin_user.id if admin_user else None,
+            )
+            session.add(domain)
+            created += 1
+        else:
+            domain.status = DomainStatus.ACTIVE
+            if exp_dt:
+                domain.expires_at = exp_dt
+            if reg_dt and not domain.registered_at:
+                domain.registered_at = reg_dt
+            domain.is_locked = is_locked
+            domain.auto_renew = auto_renew
+            domain.privacy_enabled = privacy
+            if ns_str:
+                domain.nameservers = ns_str
+            updated += 1
+
+    await session.commit()
+    return AdminDomainSyncResponse(
+        synced=synced,
+        created=created,
+        updated=updated,
+        message=f"Синхронизировано {synced} доменов (добавлено: {created}, обновлено: {updated})",
+    )
+
+
+@auth_router.patch("/domains/{domain_id}/assign", response_model=AdminDomainItem)
+async def assign_domain_owner(
+    domain_id: UUID,
+    payload: AdminDomainAssignRequest,
+    session: DbSession,
+) -> AdminDomainItem:
+    """Reassign domain ownership to another user."""
+    domain = await session.get(Domain, domain_id)
+    if domain is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Домен не найден"
+        )
+
+    target_user = None
+    if payload.user_id:
+        target_user = await session.get(User, payload.user_id)
+        if not target_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Пользователь с указанным ID не найден",
+            )
+    elif payload.email:
+        norm_email = payload.email.strip().lower()
+        target_user = await session.scalar(
+            select(User).where(func.lower(User.email) == norm_email)
+        )
+        if not target_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Пользователь с email {payload.email} не найден",
+            )
+
+    domain.user_id = target_user.id if target_user else None
+    await session.commit()
+
+    return AdminDomainItem(
+        id=domain.id,
+        name=domain.name,
+        tld=domain.tld,
+        status=domain.status,
+        auto_renew=domain.auto_renew,
+        is_locked=domain.is_locked,
+        privacy_enabled=domain.privacy_enabled,
+        nameservers=domain.nameservers,
+        registered_at=domain.registered_at,
+        expires_at=domain.expires_at,
+        user_id=domain.user_id,
+        owner_email=target_user.email if target_user else None,
+        owner_username=target_user.username if target_user else None,
+        created_at=domain.created_at,
+    )
+
+
+@auth_router.get("/users", response_model=list[AdminUserItem])
+async def list_admin_users(session: DbSession) -> list[AdminUserItem]:
+    """List registered users for assignment pickers."""
+    users = (await session.scalars(select(User).order_by(User.created_at.desc()))).all()
+    return [
+        AdminUserItem(
+            id=u.id,
+            email=u.email,
+            username=u.username,
+            first_name=u.first_name,
+            telegram_id=u.telegram_id,
+            role=u.role,
+            created_at=u.created_at,
+        )
+        for u in users
+    ]
 
 
 router.include_router(auth_router)

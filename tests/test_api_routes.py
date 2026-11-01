@@ -727,6 +727,20 @@ def test_admin_setup_wizard_flow(client, monkeypatch):
     assert stats_res.status_code == 200
 
 
+def test_admin_domains_and_reassignment(client):
+    # 1. GET /api/v1/admin/domains
+    doms_res = client.get("/api/v1/admin/domains")
+    assert doms_res.status_code == 200
+    data = doms_res.json()
+    assert "items" in data
+
+    # 2. GET /api/v1/admin/users
+    users_res = client.get("/api/v1/admin/users")
+    assert users_res.status_code == 200
+    users = users_res.json()
+    assert isinstance(users, list)
+
+
 def test_admin_settings_get_and_patch(client):
     # GET settings
     resp = client.get("/api/v1/admin/settings")

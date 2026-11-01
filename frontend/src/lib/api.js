@@ -278,6 +278,11 @@ export const api = {
     setAdminToken(null);
   },
   adminStats: () => request('/admin/stats'),
+  adminDomains: () => request('/admin/domains'),
+  adminSyncDomains: () => request('/admin/domains/sync', { method: 'POST' }),
+  adminAssignDomain: (domainId, payload) =>
+    request(`/admin/domains/${domainId}/assign`, { method: 'PATCH', body: payload }),
+  adminUsers: () => request('/admin/users'),
   adminOrders: (params) => request('/admin/orders', { params }),
   adminRefunds: () => request('/admin/refunds'),
   resolveRefund: (orderId, note) =>
