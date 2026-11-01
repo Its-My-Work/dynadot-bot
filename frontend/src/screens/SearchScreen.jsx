@@ -56,7 +56,6 @@ export default function SearchScreen({ t, onSelect }) {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiConceptInput, setAiConceptInput] = useState('');
   const [selectedAiZones, setSelectedAiZones] = useState([]);
-  const [showAiCatalog, setShowAiCatalog] = useState(false);
   const [aiCustomZoneInput, setAiCustomZoneInput] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiKeywords, setAiKeywords] = useState([]);
@@ -83,7 +82,7 @@ export default function SearchScreen({ t, onSelect }) {
   const sentinelRef = useRef(null);
 
   const runSearch = useCallback(
-    async (rawQuery, category, append = false) => {
+    async (rawQuery, category, append = false, customTlds = null) => {
       const clean = sanitizeQuery(rawQuery);
       if (!clean) {
         setResults(null);
@@ -118,8 +117,14 @@ export default function SearchScreen({ t, onSelect }) {
 
       try {
         const currentOffset = append ? offsetRef.current : 0;
-        const res = await api.search(clean, null, controller.signal, {
-          category: category !== 'all' ? category : null,
+        const tldsToUse =
+          customTlds !== null
+            ? customTlds
+            : selectedAiZones.length > 0
+              ? selectedAiZones
+              : null;
+        const res = await api.search(clean, tldsToUse, controller.signal, {
+          category: !tldsToUse && category !== 'all' ? category : null,
           offset: currentOffset,
           limit: 15,
         });
@@ -157,7 +162,7 @@ export default function SearchScreen({ t, onSelect }) {
         }
       }
     },
-    [t],
+    [t, selectedAiZones],
   );
 
   useEffect(() => {
@@ -228,11 +233,12 @@ export default function SearchScreen({ t, onSelect }) {
     setQuery(altDomain);
   };
 
-  const handleSelectCatalogTld = (tld) => {
+  const handleApplyCatalog = () => {
     haptic('medium');
     setShowCatalog(false);
-    const base = query ? query.split('.')[0] : 'mysite';
-    setQuery(`${base}.${tld}`);
+    if (query.trim()) {
+      runSearch(query, activeCategory, false, selectedAiZones);
+    }
   };
 
   // Apply client filters and sorting
@@ -380,21 +386,7 @@ export default function SearchScreen({ t, onSelect }) {
     );
   };
 
-  const handleOpenAiCatalog = async () => {
-    haptic('light');
-    setShowAiCatalog(true);
-    if (catalogItems.length === 0) {
-      setCatalogLoading(true);
-      try {
-        const res = await api.catalog();
-        setCatalogItems(Array.isArray(res) ? res : (res?.items || []));
-      } catch {
-        setCatalogItems([]);
-      } finally {
-        setCatalogLoading(false);
-      }
-    }
-  };
+  const handleOpenAiCatalog = openCatalog;
 
   const handleAddCustomZone = (e) => {
     if (e.key === 'Enter') {
@@ -752,80 +744,24 @@ export default function SearchScreen({ t, onSelect }) {
         </div>
       )}
 
-      {/* 800+ Catalog Modal */}
+
+
+      {/* 800+ Catalog Multi-Select Modal (Unified for Search & AI) */}
       {showCatalog && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs sm:items-center p-0 sm:p-4">
-          <div className="card flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-card-border bg-card shadow-2xl">
-            <div className="flex items-center justify-between border-b border-card-border p-4">
-              <h3 className="text-base font-semibold text-ink">
-                {t('search.catalog_title')} (800+)
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowCatalog(false)}
-                className="text-muted hover:text-ink text-xl font-bold px-2"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-3 border-b border-card-border">
-              <input
-                type="text"
-                className="input py-2 text-sm"
-                placeholder={t('search.catalog_search')}
-                value={catalogSearch}
-                onChange={(e) => setCatalogSearch(e.target.value)}
-              />
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-3 space-y-1">
-              {catalogLoading ? (
-                <div className="py-8 text-center"><Spinner /></div>
-              ) : (
-                catalogItems
-                  .filter((item) =>
-                    !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase())
-                  )
-                  .map((item) => (
-                    <div
-                      key={item.tld}
-                      onClick={() => handleSelectCatalogTld(item.tld)}
-                      className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-canvas transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-ink">.{item.tld}</span>
-                        {item.is_featured && (
-                          <span className="text-[10px] text-accent font-bold uppercase tracking-wider">★ Топ</span>
-                        )}
-                      </div>
-                      <span className="text-xs text-muted">
-                        {t('search.catalog_from')} {formatPrice(item.price_rub, t.language)} ₽
-                      </span>
-                    </div>
-                  ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 800+ AI Zone Multi-Select Modal */}
-      {showAiCatalog && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs sm:items-center p-0 sm:p-4">
           <div className="card flex max-h-[68vh] w-full max-w-md sm:max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-card-border bg-card shadow-2xl">
             <div className="flex items-center justify-between border-b border-card-border p-3.5">
               <div>
                 <h3 className="text-sm font-bold text-ink">
-                  {t('search.ai_catalog_title')} (800+)
+                  {t('search.catalog_title')} (800+)
                 </h3>
                 <p className="text-[11px] text-muted">
-                  {t('search.ai_catalog_subtitle')}
+                  {t('search.catalog_subtitle')}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowAiCatalog(false)}
+                onClick={() => setShowCatalog(false)}
                 className="text-muted hover:text-ink text-xl font-bold px-2 cursor-pointer"
               >
                 ✕
@@ -881,10 +817,10 @@ export default function SearchScreen({ t, onSelect }) {
                   catalogItems
                     .filter((item) => !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase()))
                     .every((item) => selectedAiZones.includes(item.tld.toLowerCase()))
-                    ? t('search.ai_catalog_deselect_all', {
+                    ? t('search.catalog_deselect_all', {
                         count: catalogItems.filter((item) => !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase())).length,
                       })
-                    : t('search.ai_catalog_select_all', {
+                    : t('search.catalog_select_all', {
                         count: catalogItems.filter((item) => !catalogSearch || item.tld.toLowerCase().includes(catalogSearch.toLowerCase())).length,
                       })}
                 </span>
@@ -939,17 +875,14 @@ export default function SearchScreen({ t, onSelect }) {
               <span className="text-xs text-muted font-medium">
                 {selectedAiZones.length === 0
                   ? t('search.ai_zones_all')
-                  : t('search.ai_catalog_selected', { count: selectedAiZones.length })}
+                  : t('search.catalog_selected', { count: selectedAiZones.length })}
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  haptic('medium');
-                  setShowAiCatalog(false);
-                }}
+                onClick={handleApplyCatalog}
                 className="btn-accent px-6 py-2.5 text-sm font-bold cursor-pointer shadow-md rounded-xl flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
-                <span>{t('search.ai_catalog_apply')}</span>
+                <span>{t('search.catalog_apply')}</span>
                 <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-mono">
                   {selectedAiZones.length === 0 ? 'Все' : selectedAiZones.length}
                 </span>
