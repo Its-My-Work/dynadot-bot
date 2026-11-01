@@ -59,8 +59,10 @@ describe('overview', () => {
     render(<AdminApp />);
 
     // Money owed to customers is the only urgent thing in this system.
-    const refundsTab = await screen.findByRole('button', { name: /Refunds/ });
-    expect(refundsTab).toHaveTextContent('2');
+    await waitFor(() => {
+      const refundsTab = screen.getByRole('button', { name: /Refunds/ });
+      expect(refundsTab).toHaveTextContent('2');
+    });
   });
 
   it('renders a skeleton until stats arrive', () => {
