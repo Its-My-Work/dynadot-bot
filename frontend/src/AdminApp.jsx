@@ -432,6 +432,7 @@ function AdminLoginScreen({ onLogin, language, onToggleLang, theme, onSelectThem
                 id="admin-username"
                 type="text"
                 required
+                placeholder={language === 'ru' ? 'admin@example.com или логин' : 'admin@example.com or username'}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
