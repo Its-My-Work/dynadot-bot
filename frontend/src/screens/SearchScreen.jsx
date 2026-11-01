@@ -17,10 +17,10 @@ const DEBOUNCE_MS = 450;
 
 export const CATEGORIES = [
   { id: 'all', labelKey: 'search.cat.all' },
+  { id: 'budget', labelKey: 'search.cat.budget' },
   { id: 'popular', labelKey: 'search.cat.popular' },
   { id: 'tech', labelKey: 'search.cat.tech' },
   { id: 'business', labelKey: 'search.cat.business' },
-  { id: 'budget', labelKey: 'search.cat.budget' },
   { id: 'creative', labelKey: 'search.cat.creative' },
 ];
 
@@ -531,6 +531,22 @@ export default function SearchScreen({ t, onSelect }) {
             {t('search.cat.all')}
           </button>
 
+          {/* Under 700 RUB (Budget) */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedAiZones([]);
+              handleCategoryChange('budget');
+            }}
+            className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+              activeCategory === 'budget' && selectedAiZones.length === 0
+                ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
+                : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+            }`}
+          >
+            {t('search.cat.budget')}
+          </button>
+
           {/* Top Featured */}
           <button
             type="button"
@@ -547,7 +563,7 @@ export default function SearchScreen({ t, onSelect }) {
             {t('search.cat.popular')}
           </button>
 
-          {/* 800+ Catalog Modal Trigger (placed right after Top so it is visible immediately without scrolling) */}
+          {/* 800+ Catalog Modal Trigger */}
           <button
             type="button"
             onClick={openCatalog}
@@ -557,7 +573,7 @@ export default function SearchScreen({ t, onSelect }) {
           </button>
 
           {/* Remaining categories */}
-          {CATEGORIES.filter((c) => c.id !== 'all' && c.id !== 'popular').map((cat) => {
+          {CATEGORIES.filter((c) => c.id !== 'all' && c.id !== 'budget' && c.id !== 'popular').map((cat) => {
             const isSelected = activeCategory === cat.id && selectedAiZones.length === 0;
             return (
               <button
