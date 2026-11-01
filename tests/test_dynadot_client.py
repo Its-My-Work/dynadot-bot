@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -62,11 +63,12 @@ async def test_search_sends_valid_signature_and_headers():
 
     # Recompute the signature over the exact path+query that was sent.
     path_with_query = captured["url"].replace("https://api-sandbox.dynadot.com", "")
-    expected = hmac.new(
+    digest = hmac.new(
         b"test-secret",
         f"test-key\n{path_with_query}\n{headers['x-request-id']}\n".encode(),
         hashlib.sha256,
-    ).hexdigest()
+    ).digest()
+    expected = base64.b64encode(digest).decode("utf-8")
     assert headers["x-signature"] == expected
 
 
@@ -98,11 +100,12 @@ async def test_register_signs_the_serialised_body_and_reuses_request_id():
     assert payload["registrant_contact_id"] == "c1"
 
     path = call["url"].replace("https://api-sandbox.dynadot.com", "")
-    expected = hmac.new(
+    digest = hmac.new(
         b"test-secret",
         f"test-key\n{path}\nfixed-id\n{call['body']}".encode(),
         hashlib.sha256,
-    ).hexdigest()
+    ).digest()
+    expected = base64.b64encode(digest).decode("utf-8")
     assert call["signature"] == expected
 
 
