@@ -499,8 +499,8 @@ export default function SearchScreen({ t, onSelect }) {
       )}
 
       {/* Categories Bar & Catalog Button (Single, unified category selector) */}
-      <div className="flex items-center justify-between gap-2 border-b border-card-border/50 pb-2">
-        <div className="no-scrollbar -mx-1 flex flex-1 gap-2 overflow-x-auto px-1 py-0.5">
+      <div className="border-b border-card-border/50 pb-2">
+        <div className="no-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 py-0.5">
           {CATEGORIES.map((cat) => {
             const isSelected = activeCategory === cat.id && selectedAiZones.length === 0;
             return (
@@ -511,7 +511,7 @@ export default function SearchScreen({ t, onSelect }) {
                   setSelectedAiZones([]);
                   handleCategoryChange(cat.id);
                 }}
-                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                   isSelected
                     ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
                     : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
@@ -523,7 +523,7 @@ export default function SearchScreen({ t, onSelect }) {
           })}
 
           {selectedAiZones.length > 0 && (
-            <span className="badge shrink-0 border-2 border-accent bg-accent/20 text-accent font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-xs">
+            <span className="badge shrink-0 border-2 border-accent bg-accent/20 text-accent font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-xs whitespace-nowrap">
               <span>✓ {t('search.ai_custom_selection')} ({selectedAiZones.length})</span>
               <button
                 type="button"
@@ -535,15 +535,15 @@ export default function SearchScreen({ t, onSelect }) {
               </button>
             </span>
           )}
-        </div>
 
-        <button
-          type="button"
-          onClick={openCatalog}
-          className="badge shrink-0 cursor-pointer border border-accent/40 bg-card px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
-        >
-          📚 {t('search.catalog_btn')}
-        </button>
+          <button
+            type="button"
+            onClick={openCatalog}
+            className="badge shrink-0 cursor-pointer border border-accent/50 bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent hover:bg-accent/20 transition-colors shadow-2xs whitespace-nowrap"
+          >
+            📚 {t('search.catalog_btn')}
+          </button>
+        </div>
       </div>
 
       {/* Smart AI Brand Drawer (Positioned below categories - clean and unified) */}
@@ -702,7 +702,7 @@ export default function SearchScreen({ t, onSelect }) {
         <div className="flex items-center justify-between text-xs px-1 pt-1">
           <div className="flex items-center gap-2">
             <span className="text-muted font-medium">
-              {t('search.results_count', { count: filteredResults.length })}
+              {t('search.results_count', { count: available.length })}
             </span>
             {loading && (
               <span className="flex items-center gap-1.5 text-accent font-semibold animate-pulse">
@@ -712,7 +712,17 @@ export default function SearchScreen({ t, onSelect }) {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            {/* Share Button */}
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex items-center gap-1 text-accent hover:underline font-bold cursor-pointer transition-transform active:scale-95"
+            >
+              <span>✈️</span>
+              <span>{shareToast ? t('search.share_copied') : t('search.share_btn')}</span>
+            </button>
+
             {/* Sort Dropdown */}
             <select
               value={filterSort}
@@ -748,23 +758,6 @@ export default function SearchScreen({ t, onSelect }) {
       {results !== null && results.length === 0 && !loading ? (
         <EmptyState icon="∅" title={t('search.empty')} />
       ) : null}
-
-      {/* Search Results Summary & Share Button */}
-      {results && results.length > 0 && !loading && (
-        <div className="flex items-center justify-between px-1 text-xs">
-          <span className="text-muted font-medium">
-            {t('search.results_count', { count: available.length })}
-          </span>
-          <button
-            type="button"
-            onClick={handleShare}
-            className="flex items-center gap-1.5 text-accent hover:underline font-bold cursor-pointer transition-transform active:scale-95"
-          >
-            <span>✈️</span>
-            <span>{shareToast ? t('search.share_copied') : t('search.share_btn')}</span>
-          </button>
-        </div>
-      )}
 
       {/* Domain Results List with subtle dimming when updating */}
       <div className={`space-y-4 transition-opacity duration-150 ${loading ? 'opacity-50' : 'opacity-100'}`}>

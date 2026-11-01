@@ -100,13 +100,18 @@ def normalize_domain_query(raw_query: str) -> tuple[str, str | None]:
 
         return as_en_layout, None
 
-    # If all latin: check if typing might be Russian words in English layout (e.g. 'ghbdtn' -> 'привет' -> 'privet')
-    as_ru = en_to_ru_layout(raw)
-    translit_of_ru = transliterate_cyrillic(as_ru)
-    if translit_of_ru and translit_of_ru != raw:
-        # Check if as_ru looks like a coherent word
-        clean = re.sub(r"[^a-z0-9\-.]", "", raw)
-        return clean, translit_of_ru
-
+    # If all latin: check if typing might be an accidental English keyboard slip for Russian word
+    # (e.g. 'ghbdtn' -> 'привет' -> 'privet', 'vjcrdf' -> 'москва' -> 'moskva')
+    # If the user already typed words with English vowels (e.g. 'itsmywork', 'coffee'),
+    # it is already a valid Latin word — do not generate gibberish transliteration suggestions.
     clean = re.sub(r"[^a-z0-9\-.]", "", raw)
+    has_en_vowels = bool(re.search(r"[aeiouy]", clean))
+    if not has_en_vowels and len(clean) >= 3:
+        as_ru = en_to_ru_layout(clean)
+        has_ru_vowels = bool(re.search(r"[аеёиоуыэюя]", as_ru))
+        if has_ru_vowels:
+            translit_of_ru = transliterate_cyrillic(as_ru)
+            if translit_of_ru and translit_of_ru != clean:
+                return clean, translit_of_ru
+
     return clean, None
