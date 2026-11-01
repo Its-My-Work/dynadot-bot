@@ -25,7 +25,7 @@ from app.models.enums import (
     VpsProvider,
 )
 from app.models.order import Order, Payment
-from app.models.user import ContactProfile, User
+from app.models.user import ContactProfile, TelegramLoginCode, User
 from app.models.vps import ServerInstance
 
 __all__ = [
@@ -50,6 +50,7 @@ __all__ = [
     "ServerInstance",
     "ServerStatus",
     "TaskStatus",
+    "TelegramLoginCode",
     "Theme",
     "TldPricing",
     "User",

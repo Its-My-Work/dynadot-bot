@@ -70,6 +70,7 @@ async def _upsert_user(session: Any, tg_user: TgUser) -> User:
         user = User(
             telegram_id=tg_user.id,
             username=tg_user.username,
+            telegram_username=tg_user.username,
             first_name=tg_user.first_name,
             last_name=tg_user.last_name,
             # Seed from the client locale; the user can change it in /lang.
@@ -80,6 +81,7 @@ async def _upsert_user(session: Any, tg_user: TgUser) -> User:
     else:
         # Keep the profile fresh, but never overwrite the chosen language.
         user.username = tg_user.username
+        user.telegram_username = tg_user.username
         user.first_name = tg_user.first_name
         user.last_name = tg_user.last_name
 

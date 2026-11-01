@@ -43,6 +43,41 @@ export function resolveTelegramId() {
   return Number(webId);
 }
 
+export function saveSessionUser(user) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (user?.telegram_id) {
+      localStorage.setItem('dynadot_web_user_id', String(user.telegram_id));
+    }
+    localStorage.setItem('dynadot_auth_user', JSON.stringify(user));
+    window.dispatchEvent(new CustomEvent('dynadot_auth_changed', { detail: user }));
+  } catch (e) {
+    // ignore storage errors
+  }
+}
+
+export function getSessionUser() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('dynadot_auth_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function clearSessionUser() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem('dynadot_auth_user');
+    const newGuestId = String(9000000000 + Math.floor(Math.random() * 900000000));
+    localStorage.setItem('dynadot_web_user_id', newGuestId);
+    window.dispatchEvent(new CustomEvent('dynadot_auth_changed', { detail: null }));
+  } catch (e) {
+    // ignore storage errors
+  }
+}
+
 /** Initial language: Telegram's own preference, else the saved profile. */
 export function initialLanguage() {
   const code = telegramUser()?.language_code;

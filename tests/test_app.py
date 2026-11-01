@@ -101,6 +101,7 @@ def test_all_expected_tables_exist():
         "dynadot_tasks",
         "app_settings",
         "server_instances",
+        "telegram_login_codes",
     }
 
 

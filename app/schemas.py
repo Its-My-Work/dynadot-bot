@@ -60,7 +60,10 @@ class ThemesResponse(BaseModel):
 
 class UserRead(ORMModel):
     id: str
-    telegram_id: int
+    telegram_id: int | None = None
+    email: str | None = None
+    telegram_username: str | None = None
+    has_password: bool = False
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None
@@ -627,3 +630,40 @@ class CategoryItem(BaseModel):
 
 class CategoriesResponse(BaseModel):
     categories: list[CategoryItem]
+
+
+class EmailRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=128)
+    telegram_id: int | None = None
+
+
+class EmailLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TelegramCodeRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+
+
+class TelegramCodeVerify(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    code: str = Field(min_length=4, max_length=8)
+
+
+class LinkEmailRequest(BaseModel):
+    telegram_id: int
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=128)
+
+
+class TelegramLinkResponse(BaseModel):
+    bot_url: str
+    expires_in_seconds: int = 900
+
+
+class AuthResponse(BaseModel):
+    user: UserRead
+    token: str
+    message: str | None = None

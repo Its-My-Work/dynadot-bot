@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     admin,
+    auth,
     contacts,
     domains,
     meta,
@@ -18,6 +19,7 @@ from app.api.routes import (
 
 api_router = APIRouter()
 api_router.include_router(meta.router)
+api_router.include_router(auth.router)
 api_router.include_router(users.router)
 api_router.include_router(contacts.router)
 api_router.include_router(domains.router)

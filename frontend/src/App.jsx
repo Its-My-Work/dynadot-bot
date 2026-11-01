@@ -9,10 +9,12 @@ import { useCallback, useEffect, useState } from 'react';
 import api, { setLanguage } from './lib/api';
 import { makeTranslator, normalizeLanguage } from './lib/i18n';
 import {
+  getSessionUser,
   initialLanguage,
   resolveTelegramId,
   setBackButton,
 } from './lib/telegram';
+import AuthModal from './components/AuthModal';
 import CheckoutScreen from './screens/CheckoutScreen';
 import DomainsScreen from './screens/DomainsScreen';
 import OrdersScreen from './screens/OrdersScreen';
@@ -34,10 +36,26 @@ export default function App() {
   const [language, setLang] = useState(() => normalizeLanguage(initialLanguage()));
   const [tab, setTab] = useState('search');
   const [candidate, setCandidate] = useState(null);
-  const [telegramId] = useState(() => resolveTelegramId() || 9000000001);
+  const [currentUser, setCurrentUser] = useState(() => getSessionUser());
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [telegramId, setTelegramId] = useState(() => resolveTelegramId() || 9000000001);
   const { theme, selectTheme } = useTheme({ telegramId });
 
   const t = makeTranslator(language);
+
+  useEffect(() => {
+    function onAuthChanged(e) {
+      const u = e.detail;
+      setCurrentUser(u);
+      if (u?.telegram_id) {
+        setTelegramId(u.telegram_id);
+      } else {
+        setTelegramId(resolveTelegramId() || 9000000001);
+      }
+    }
+    window.addEventListener('dynadot_auth_changed', onAuthChanged);
+    return () => window.removeEventListener('dynadot_auth_changed', onAuthChanged);
+  }, []);
 
   useEffect(() => {
     setLanguage(language);
@@ -115,6 +133,17 @@ export default function App() {
             ) : null}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAuthModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-card-border/80 bg-elevated/80 px-2.5 py-1.5 text-xs font-semibold text-ink hover:border-accent hover:text-accent transition-colors cursor-pointer"
+              title={currentUser?.email || (currentUser?.username ? `@${currentUser.username}` : (language === 'ru' ? 'Вход в аккаунт' : 'Login'))}
+            >
+              <span>{currentUser?.email || currentUser?.username ? '👤' : '🔑'}</span>
+              <span className="hidden sm:inline max-w-[120px] truncate">
+                {currentUser?.email || (currentUser?.username ? `@${currentUser.username}` : (language === 'ru' ? 'Войти' : 'Login'))}
+              </span>
+            </button>
             <ThemePicker
               theme={theme}
               onSelect={selectTheme}
@@ -180,6 +209,12 @@ export default function App() {
           </div>
         </nav>
       )}
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={(u) => setCurrentUser(u)}
+      />
     </div>
   );
 }

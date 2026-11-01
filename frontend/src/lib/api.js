@@ -309,6 +309,39 @@ export const api = {
     request(`/servers/${serverId}?telegram_id=${telegramId}`, {
       method: 'DELETE',
     }),
+
+  // --- authentication & account linking ------------------------------------
+  registerEmail: (email, password, telegramId = null) =>
+    request('/auth/register', {
+      method: 'POST',
+      body: { email, password, telegram_id: telegramId },
+    }),
+  loginEmail: (email, password) =>
+    request('/auth/login', {
+      method: 'POST',
+      body: { email, password },
+    }),
+  requestTelegramCode: (username) =>
+    request('/auth/telegram-code/request', {
+      method: 'POST',
+      body: { username },
+    }),
+  verifyTelegramCode: (username, code) =>
+    request('/auth/telegram-code/verify', {
+      method: 'POST',
+      body: { username, code },
+    }),
+  generateTelegramLink: (telegramId) =>
+    request(`/auth/link-telegram/generate?telegram_id=${telegramId}`, {
+      method: 'POST',
+    }),
+  linkEmail: (telegramId, email, password) =>
+    request('/auth/link-email', {
+      method: 'POST',
+      body: { telegram_id: telegramId, email, password },
+    }),
+  getMe: (telegramId) =>
+    request(`/auth/me?telegram_id=${telegramId}`),
 };
 
 export default api;

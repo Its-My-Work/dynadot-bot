@@ -5,7 +5,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Index, String
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -18,12 +27,26 @@ if TYPE_CHECKING:
 
 
 class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
-    """A Telegram user of the service."""
+    """A user of the service (Telegram, Email, or linked)."""
 
     __tablename__ = "users"
 
-    telegram_id: Mapped[int] = mapped_column(
-        BigInteger, unique=True, index=True, nullable=False
+    telegram_id: Mapped[int | None] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=True
+    )
+    email: Mapped[str | None] = mapped_column(
+        String(255), unique=True, index=True, nullable=True
+    )
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    has_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    telegram_username: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+    telegram_link_code: Mapped[str | None] = mapped_column(
+        String(32), nullable=True, index=True
+    )
+    telegram_link_expires: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     username: Mapped[str | None] = mapped_column(String(64))
     first_name: Mapped[str | None] = mapped_column(String(128))
@@ -113,3 +136,17 @@ class ContactProfile(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<ContactProfile {self.first_name} {self.last_name} ({self.email})>"
+
+
+class TelegramLoginCode(Base, UUIDPrimaryKeyMixin):
+    """Single-use 6-digit login codes sent to user's Telegram."""
+
+    __tablename__ = "telegram_login_codes"
+
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

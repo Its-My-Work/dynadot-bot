@@ -6,10 +6,12 @@ is decided once by the middleware rather than at each call site.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from aiogram import Bot, F, Router
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.bot.keyboards import (
     LANGUAGE_CALLBACK_PREFIX,
@@ -22,9 +24,11 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.session import get_session_factory
 from app.i18n import Translator, available_languages
+from app.models.domain import Domain
 from app.models.enums import Language
 from app.models.order import Order
-from app.models.user import User
+from app.models.user import ContactProfile, User
+from app.models.vps import ServerInstance
 from app.services.pricing import PricingService
 
 logger = get_logger(__name__)
@@ -54,11 +58,72 @@ def _greeting(t: Translator, user: User | None, message: Message) -> str:
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, t: Translator, user: User | None) -> None:
-    """Entry point: greet the user and offer the TMA."""
+async def cmd_start(
+    message: Message,
+    t: Translator,
+    user: User | None,
+    command: CommandObject | None = None,
+) -> None:
+    """Entry point: greet the user and offer the TMA, or handle deep-links (e.g. account linking)."""
     if user is not None and user.is_blocked:
         await message.answer(t("bot.blocked"))
         return
+
+    # Deep-link handling: /start link_<token>
+    if command and command.args and command.args.startswith("link_"):
+        token = command.args.removeprefix("link_").strip()
+        factory = get_session_factory()
+        async with factory() as session:
+            target_user = await session.scalar(
+                select(User).where(
+                    (User.telegram_link_code == token)
+                    & (User.telegram_link_expires > datetime.now(UTC))
+                )
+            )
+            if target_user is not None and message.from_user is not None:
+                tg_id = message.from_user.id
+                tg_username = message.from_user.username
+
+                # If current user record exists and is different from target_user, merge them
+                if user is not None and user.id != target_user.id:
+                    await session.execute(
+                        update(ContactProfile)
+                        .where(ContactProfile.user_id == user.id)
+                        .values(user_id=target_user.id)
+                    )
+                    await session.execute(
+                        update(Order)
+                        .where(Order.user_id == user.id)
+                        .values(user_id=target_user.id)
+                    )
+                    await session.execute(
+                        update(Domain)
+                        .where(Domain.user_id == user.id)
+                        .values(user_id=target_user.id)
+                    )
+                    await session.execute(
+                        update(ServerInstance)
+                        .where(ServerInstance.user_id == user.id)
+                        .values(user_id=target_user.id)
+                    )
+                    await session.delete(user)
+
+                target_user.telegram_id = tg_id
+                target_user.telegram_username = tg_username
+                if tg_username:
+                    target_user.username = tg_username
+                target_user.telegram_link_code = None
+                target_user.telegram_link_expires = None
+                await session.commit()
+
+                account_label = target_user.email or f"ID {target_user.telegram_id}"
+                await message.answer(
+                    f"✅ <b>Telegram успешно привязан!</b>\n\n"
+                    f"Ваш профиль Telegram (@{tg_username or tg_id}) связан с аккаунтом <b>{account_label}</b>.\n"
+                    f"Все ваши домены, серверы и настройки теперь объединены в одном кабинете.",
+                    reply_markup=main_menu(t.language, settings.tma_url),
+                )
+                return
 
     await message.answer(
         _greeting(t, user, message),
