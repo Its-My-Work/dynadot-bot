@@ -6,7 +6,7 @@
  * - Smart alternative suggestions for .com if taken
  * - Full 800+ TLD catalog modal with instant search & filter
  */
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import api, { ApiError } from '../lib/api';
 import { formatPrice } from '../lib/i18n';
@@ -492,37 +492,42 @@ export default function SearchScreen({ t, onSelect }) {
           )}
 
           {/* Render categories dynamically in order */}
-          {categories.map((cat, idx) => {
+          {categories.map((cat) => {
+            const isAll = cat.id === 'all';
             const isSelected = activeCategory === cat.id && selectedAiZones.length === 0;
             const label = cat.labelKey ? t(cat.labelKey) : (cat.name || cat.id);
             return (
-              <Fragment key={cat.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedAiZones([]);
-                    handleCategoryChange(cat.id);
-                  }}
-                  className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-                    isSelected
-                      ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
-                      : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-                  }`}
-                >
-                  {label}
-                </button>
-
-                {/* 800+ Catalog Trigger: placed right after the 2nd category (Top) for instant visibility */}
-                {idx === 2 && (
-                  <button
-                    type="button"
-                    onClick={openCatalog}
-                    className="badge shrink-0 cursor-pointer border border-accent/60 bg-accent/15 px-3 py-1.5 text-xs font-bold text-accent hover:bg-accent/25 transition-all shadow-xs whitespace-nowrap active:scale-95"
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => {
+                  if (isAll && isSelected) {
+                    openCatalog();
+                    return;
+                  }
+                  setSelectedAiZones([]);
+                  handleCategoryChange(cat.id);
+                }}
+                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
+                    : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+                }`}
+              >
+                <span>{label}</span>
+                {isAll && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openCatalog();
+                    }}
+                    title="Выбрать конкретные зоны"
+                    className="hover:text-ink cursor-pointer opacity-70 hover:opacity-100 text-[11px] ml-0.5"
                   >
-                    📚 {t('search.catalog_btn')}
-                  </button>
+                    ⚙️
+                  </span>
                 )}
-              </Fragment>
+              </button>
             );
           })}
         </div>
