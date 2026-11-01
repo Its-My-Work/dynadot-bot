@@ -86,9 +86,7 @@ class ServerInstance(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     user: Mapped[User] = relationship(back_populates="servers")
 
-    __table_args__ = (
-        Index("ix_server_instances_user_status", "user_id", "status"),
-    )
+    __table_args__ = (Index("ix_server_instances_user_status", "user_id", "status"),)
 
     @property
     def is_live(self) -> bool:

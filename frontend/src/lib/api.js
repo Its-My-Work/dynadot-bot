@@ -147,6 +147,7 @@ export const api = {
   // --- search -------------------------------------------------------------
   zones: () => request('/domains/zones'),
   catalog: () => request('/domains/catalog'),
+  getCategories: () => request('/domains/categories'),
   search: (query, tlds, signal, options = {}) =>
     request('/domains/search', {
       method: 'POST',
@@ -286,6 +287,10 @@ export const api = {
   adminSettings: () => request('/admin/settings'),
   updateAdminSettings: (data) =>
     request('/admin/settings', { method: 'PATCH', body: data }),
+  adminCategories: () => request('/admin/categories'),
+  updateAdminCategories: (categories) =>
+    request('/admin/categories', { method: 'PUT', body: categories }),
+  resetAdminCategories: () => request('/admin/categories/reset', { method: 'POST' }),
   testConnection: (provider) =>
     request(`/admin/test-connection/${provider}`, { method: 'POST' }),
 

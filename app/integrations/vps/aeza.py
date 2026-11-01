@@ -87,9 +87,7 @@ class AezaVpsProvider(HttpVpsProvider):
         if isinstance(payload, dict):
             error = payload.get("error")
             if error:
-                message = (
-                    error.get("message") if isinstance(error, dict) else str(error)
-                )
+                message = error.get("message") if isinstance(error, dict) else str(error)
                 raise VpsApiError(f"aeza error: {message}")
             if "data" in payload:
                 return payload["data"]

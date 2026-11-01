@@ -110,8 +110,16 @@ def domain_search_results(
             domain = item["domain"]
             price = int(item["price_rub"])
             tld = item.get("tld", "")
-            btn_text = f"🛒 Купить .{tld} ({price} ₽)" if language == "ru" else f"🛒 Buy .{tld} ({price} ₽)"
-            target_url = f"{tma_url}?domain={domain}" if tma_url else "https://dynadot.itsmywork.vip"
+            btn_text = (
+                f"🛒 Купить .{tld} ({price} ₽)"
+                if language == "ru"
+                else f"🛒 Buy .{tld} ({price} ₽)"
+            )
+            target_url = (
+                f"{tma_url}?domain={domain}"
+                if tma_url
+                else "https://dynadot.itsmywork.vip"
+            )
             if web_app_supported(target_url):
                 buy_buttons.append(
                     InlineKeyboardButton(
@@ -140,11 +148,13 @@ def domain_search_results(
     )
     if web_app_supported(all_zones_url):
         rows.append(
-            [InlineKeyboardButton(text=btn_all_text, web_app=WebAppInfo(url=all_zones_url))]
+            [
+                InlineKeyboardButton(
+                    text=btn_all_text, web_app=WebAppInfo(url=all_zones_url)
+                )
+            ]
         )
     else:
-        rows.append(
-            [InlineKeyboardButton(text=btn_all_text, url=all_zones_url)]
-        )
+        rows.append([InlineKeyboardButton(text=btn_all_text, url=all_zones_url)])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)

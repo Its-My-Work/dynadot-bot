@@ -167,9 +167,7 @@ def test_cloud_init_embeds_a_parseable_xray_config(cloud_init_doc):
     """The heredoc indentation must survive into valid JSON on the VM."""
     parsed = yaml.safe_load(cloud_init_doc)
     config_file = next(
-        f
-        for f in parsed["write_files"]
-        if f["path"] == "/usr/local/etc/xray/config.json"
+        f for f in parsed["write_files"] if f["path"] == "/usr/local/etc/xray/config.json"
     )
     config = json.loads(config_file["content"])
     reality = config["inbounds"][0]["streamSettings"]["realitySettings"]
@@ -992,7 +990,8 @@ def test_my_servers_syncs_ip_and_builds_the_vless_link(client):
         async with factory() as session:
             server = await session.get(ServerInstance, created["id"])
             service = ServerService(
-                session, client.app.dependency_overrides[get_vps_provider](),
+                session,
+                client.app.dependency_overrides[get_vps_provider](),
                 live_settings,
             )
             await service.provision(server)
@@ -1101,9 +1100,10 @@ def test_servers_are_isolated_between_users(client):
         params={"telegram_id": TELEGRAM_ID},
     ).json()["server"]
 
-    assert client.get(
-        "/api/v1/servers/my", params={"telegram_id": other_telegram_id}
-    ).json() == []
+    assert (
+        client.get("/api/v1/servers/my", params={"telegram_id": other_telegram_id}).json()
+        == []
+    )
     assert (
         client.get(
             f"/api/v1/servers/{created['id']}",

@@ -13,10 +13,14 @@ exclude = ["migrations/versions", ".venv"]
 select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF"]
 ignore = [
     "B008",    # FastAPI's Depends() in defaults is the documented pattern
+    "B904",    # allow raise without from
     "UP042",   # str+Enum is deliberate: 3.11 compat and Pydantic serialisation
     "RUF001",  # Cyrillic text in RU strings trips the ambiguous-character rule
     "RUF002",
     "RUF003",
+    "E501",    # Line length handled by formatter
+    "SIM105",  # try-except-pass is acceptable and explicit
+    "SIM102",  # nested if is readable
 ]
 
 [tool.ruff.lint.per-file-ignores]

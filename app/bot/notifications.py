@@ -110,7 +110,9 @@ async def notify_domain_expiry_warning(
     web_app_url: str | None = None,
 ) -> bool:
     """Remind user that their domain registration is about to expire."""
-    text = translate("domain.expiry_warning", language, domain=domain, days=str(days_left))
+    text = translate(
+        "domain.expiry_warning", language, domain=domain, days=str(days_left)
+    )
     markup = None
     if web_app_url:
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo

@@ -12,6 +12,7 @@ These power the operator panel. Two things matter more than features here:
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -41,6 +42,8 @@ from app.schemas import (
     AdminSettingsUpdate,
     AdminStats,
     ApiLogRead,
+    CategoriesResponse,
+    CategoryItem,
     ConnectionTestResponse,
     RefundResolve,
     TaskRead,
@@ -76,7 +79,9 @@ async def admin_login(payload: AdminLoginRequest) -> AdminLoginResponse:
             )
     import base64
 
-    token = base64.b64encode(f"{payload.username}:{payload.password}".encode("utf8")).decode("utf8")
+    token = base64.b64encode(f"{payload.username}:{payload.password}".encode()).decode(
+        "utf8"
+    )
     return AdminLoginResponse(status="ok", username=payload.username, token=token)
 
 
@@ -177,9 +182,7 @@ async def create_tld_pricing(
     if not tld_clean:
         raise HTTPException(status_code=400, detail="Invalid TLD")
 
-    existing = await session.scalar(
-        select(TldPricing).where(TldPricing.tld == tld_clean)
-    )
+    existing = await session.scalar(select(TldPricing).where(TldPricing.tld == tld_clean))
     if existing:
         for field, value in payload.model_dump(exclude={"tld"}).items():
             setattr(existing, field, value)
@@ -257,7 +260,9 @@ async def sync_tld_prices(
 
     tld_price_list = data.get("tld_price_list") or []
     if not tld_price_list:
-        return TldSyncResponse(ok=False, synced_count=0, message="Dynadot returned no price list")
+        return TldSyncResponse(
+            ok=False, synced_count=0, message="Dynadot returned no price list"
+        )
 
     price_map: dict[str, float] = {}
     for item in tld_price_list:
@@ -549,8 +554,12 @@ async def get_admin_settings(session: DbSession) -> AdminSettingsRead:
         dynadot_base_url=str(db_map.get("dynadot_base_url", settings.dynadot_base_url)),
         dynadot_configured=dynadot_ok,
         has_dynadot_api_key=has_secret("dynadot_api_key", settings.dynadot_api_key),
-        has_dynadot_api_secret=has_secret("dynadot_api_secret", settings.dynadot_api_secret),
-        platega_merchant_id=db_map.get("platega_merchant_id", settings.platega_merchant_id),
+        has_dynadot_api_secret=has_secret(
+            "dynadot_api_secret", settings.dynadot_api_secret
+        ),
+        platega_merchant_id=db_map.get(
+            "platega_merchant_id", settings.platega_merchant_id
+        ),
         platega_base_url=str(db_map.get("platega_base_url", settings.platega_base_url)),
         platega_payment_method=int(
             db_map.get("platega_payment_method", settings.platega_payment_method)
@@ -580,7 +589,9 @@ async def get_admin_settings(session: DbSession) -> AdminSettingsRead:
         in ("true", "1", "yes"),
         environment=settings.environment,
         app_version="0.1.0",
-        omniroute_base_url=str(db_map.get("omniroute_base_url", settings.omniroute_base_url)),
+        omniroute_base_url=str(
+            db_map.get("omniroute_base_url", settings.omniroute_base_url)
+        ),
         omniroute_model=str(db_map.get("omniroute_model", settings.omniroute_model)),
         has_omniroute_api_key=ai_ok,
         ai_configured=ai_ok,
@@ -622,7 +633,9 @@ async def update_admin_settings(
 
     # Dynadot
     if payload.dynadot_base_url is not None:
-        await _upsert("dynadot_base_url", str(payload.dynadot_base_url), "Dynadot API base URL")
+        await _upsert(
+            "dynadot_base_url", str(payload.dynadot_base_url), "Dynadot API base URL"
+        )
         settings.dynadot_base_url = payload.dynadot_base_url
 
     if payload.dynadot_api_key is not None and payload.dynadot_api_key.strip():
@@ -819,7 +832,7 @@ async def test_connection(
             return ConnectionTestResponse(
                 ok=False,
                 provider="platega",
-                message=f"Ошибка соединения с Platega: {str(exc)}",
+                message=f"Ошибка соединения с Platega: {exc!s}",
             )
 
     elif target == "timeweb":
@@ -862,7 +875,7 @@ async def test_connection(
             return ConnectionTestResponse(
                 ok=False,
                 provider="timeweb",
-                message=f"Ошибка сети Timeweb: {str(exc)}",
+                message=f"Ошибка сети Timeweb: {exc!s}",
             )
 
     elif target == "aeza":
@@ -905,7 +918,7 @@ async def test_connection(
             return ConnectionTestResponse(
                 ok=False,
                 provider="aeza",
-                message=f"Ошибка сети Aeza: {str(exc)}",
+                message=f"Ошибка сети Aeza: {exc!s}",
             )
 
     elif target == "pq_hosting":
@@ -958,11 +971,15 @@ async def test_connection(
             return ConnectionTestResponse(
                 ok=False,
                 provider="telegram",
-                message=f"Ошибка сети Telegram: {str(exc)}",
+                message=f"Ошибка сети Telegram: {exc!s}",
             )
 
     elif target in ("ai", "omniroute"):
-        api_key = settings.omniroute_api_key.get_secret_value() if settings.omniroute_api_key else None
+        api_key = (
+            settings.omniroute_api_key.get_secret_value()
+            if settings.omniroute_api_key
+            else None
+        )
         if not api_key:
             return ConnectionTestResponse(
                 ok=False,
@@ -973,7 +990,10 @@ async def test_connection(
             async with httpx.AsyncClient(timeout=8.0) as http:
                 resp = await http.post(
                     f"{settings.omniroute_base_url.rstrip('/')}/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
                     json={
                         "model": settings.omniroute_model or "fast",
                         "messages": [{"role": "user", "content": "ping"}],
@@ -996,7 +1016,7 @@ async def test_connection(
             return ConnectionTestResponse(
                 ok=False,
                 provider="ai",
-                message=f"Ошибка соединения с OmniRoute: {str(exc)}",
+                message=f"Ошибка соединения с OmniRoute: {exc!s}",
             )
 
     return ConnectionTestResponse(
@@ -1004,6 +1024,53 @@ async def test_connection(
         provider=target,
         message=f"Неизвестный провайдер: {target}",
     )
+
+
+@auth_router.get("/categories", response_model=CategoriesResponse)
+async def get_admin_categories(session: DbSession) -> CategoriesResponse:
+    """List all categories (including inactive/disabled) with full details."""
+    from app.api.routes.domains import get_all_categories_config
+
+    items = await get_all_categories_config(session)
+    items = sorted(items, key=lambda x: x.get("sort_order", 0))
+    return CategoriesResponse(categories=[CategoryItem(**c) for c in items])
+
+
+@auth_router.put("/categories", response_model=CategoriesResponse)
+async def update_admin_categories(
+    categories: list[CategoryItem], session: DbSession
+) -> CategoriesResponse:
+    """Save updated categories configuration."""
+    raw = [c.model_dump() for c in categories]
+    for i, c in enumerate(raw):
+        c["sort_order"] = i + 1
+
+    row = await session.get(AppSetting, "domain_categories")
+    val_json = json.dumps(raw, ensure_ascii=False)
+    if row:
+        row.value = val_json
+    else:
+        session.add(
+            AppSetting(
+                key="domain_categories",
+                value=val_json,
+                description="Custom domain category list and TLD rules",
+            )
+        )
+    await session.commit()
+    return CategoriesResponse(categories=[CategoryItem(**c) for c in raw])
+
+
+@auth_router.post("/categories/reset", response_model=CategoriesResponse)
+async def reset_admin_categories(session: DbSession) -> CategoriesResponse:
+    """Reset categories to system defaults."""
+    from app.api.routes.domains import DEFAULT_CATEGORIES
+
+    row = await session.get(AppSetting, "domain_categories")
+    if row:
+        await session.delete(row)
+        await session.commit()
+    return CategoriesResponse(categories=[CategoryItem(**c) for c in DEFAULT_CATEGORIES])
 
 
 router.include_router(auth_router)

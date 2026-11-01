@@ -102,7 +102,13 @@ class FakeDynadot:
                     "domain": domain,
                     "available": "yes" if self.available else "no",
                     "price": 10.0,
-                    "price_list": [{"unit": "1 year", "registration_price": "10.00", "renewal_price": "12.00"}],
+                    "price_list": [
+                        {
+                            "unit": "1 year",
+                            "registration_price": "10.00",
+                            "renewal_price": "12.00",
+                        }
+                    ],
                 }
             ]
         }
@@ -114,7 +120,13 @@ class FakeDynadot:
                     "domain": d,
                     "available": "yes" if self.available else "no",
                     "price": 10.0,
-                    "price_list": [{"unit": "1 year", "registration_price": "10.00", "renewal_price": "12.00"}],
+                    "price_list": [
+                        {
+                            "unit": "1 year",
+                            "registration_price": "10.00",
+                            "renewal_price": "12.00",
+                        }
+                    ],
                 }
                 for d in domains
             ]

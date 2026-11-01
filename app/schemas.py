@@ -609,3 +609,21 @@ class ServerOrderResponse(BaseModel):
     payment_id: str | None = None
     amount: float
     currency: Currency = Currency.RUB
+
+
+class CategoryItem(BaseModel):
+    id: str = Field(..., max_length=64)
+    name: str = Field(..., max_length=128)
+    name_en: str = Field(..., max_length=128)
+    icon: str = Field("🏷️", max_length=16)
+    sort_order: int = 0
+    is_enabled: bool = True
+    rule_type: str = Field(
+        "custom_tlds", description="custom_tlds | price_max | featured | all"
+    )
+    rule_value: float | None = None
+    tlds: list[str] = Field(default_factory=list)
+
+
+class CategoriesResponse(BaseModel):
+    categories: list[CategoryItem]

@@ -380,12 +380,14 @@ class RegistrationService:
         """Synchronize DNS records with Dynadot and persist locally."""
         dynadot_records = []
         for r in records:
-            dynadot_records.append({
-                "record_type": r.get("type", "A"),
-                "subdomain": r.get("host", "@"),
-                "value": r.get("value", ""),
-                "ttl": int(r.get("ttl", 300)),
-            })
+            dynadot_records.append(
+                {
+                    "record_type": r.get("type", "A"),
+                    "subdomain": r.get("host", "@"),
+                    "value": r.get("value", ""),
+                    "ttl": int(r.get("ttl", 300)),
+                }
+            )
         try:
             await self._client.set_dns_records(
                 domain.name, dynadot_records, request_id=build_request_id()

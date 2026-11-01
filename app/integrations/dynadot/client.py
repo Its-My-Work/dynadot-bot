@@ -77,11 +77,9 @@ class DynadotClient:
     # ------------------------------------------------------------------ setup
 
     async def start(self) -> None:
-        if (
-            self._client is None
-            or str(self._client.base_url).rstrip("/")
-            != str(self._settings.dynadot_base_url).rstrip("/")
-        ):
+        if self._client is None or str(self._client.base_url).rstrip("/") != str(
+            self._settings.dynadot_base_url
+        ).rstrip("/"):
             if self._client is not None and self._owns_client:
                 await self._client.aclose()
             self._client = httpx.AsyncClient(
@@ -175,11 +173,9 @@ class DynadotClient:
         request_id: str | None,
     ) -> dict[str, Any]:
         api_key, api_secret = self._credentials()
-        if (
-            self._client is None
-            or str(self._client.base_url).rstrip("/")
-            != str(self._settings.dynadot_base_url).rstrip("/")
-        ):
+        if self._client is None or str(self._client.base_url).rstrip("/") != str(
+            self._settings.dynadot_base_url
+        ).rstrip("/"):
             await self.start()
         assert self._client is not None
 
@@ -394,7 +390,10 @@ class DynadotClient:
 
         for d in domains:
             d_norm = d.strip().lower()
-            if d_norm in self._bulk_search_cache and (now - self._bulk_search_cache[d_norm][1]) < 90.0:
+            if (
+                d_norm in self._bulk_search_cache
+                and (now - self._bulk_search_cache[d_norm][1]) < 90.0
+            ):
                 cached_results[d_norm] = self._bulk_search_cache[d_norm][0]
             else:
                 missing_domains.append(d)
@@ -426,7 +425,8 @@ class DynadotClient:
                     return items
                 except Exception as exc:
                     logger.warning(
-                        "bulk_search chunk failed", extra={"chunk": chunk, "error": str(exc)}
+                        "bulk_search chunk failed",
+                        extra={"chunk": chunk, "error": str(exc)},
                     )
                     return [{"domain_name": d, "available": None} for d in chunk]
 

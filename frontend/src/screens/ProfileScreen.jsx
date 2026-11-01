@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../lib/api';
 import { haptic } from '../lib/telegram';
 import ContactForm from './ContactForm';
-import { ErrorNote, SkeletonList, Spinner, Toast } from '../components/ui';
+import { ErrorNote, SkeletonList, Toast } from '../components/ui';
 
 export default function ProfileScreen({ t, telegramId }) {
   const [contacts, setContacts] = useState(null);

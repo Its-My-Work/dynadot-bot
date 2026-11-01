@@ -14,7 +14,6 @@ import pytest
 import pytest_asyncio
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import SendMessage
 from aiogram.types import Chat, Message, Update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -191,7 +190,9 @@ async def test_plain_text_triggers_domain_search_not_catch_all(harness, monkeypa
     import app.integrations.dynadot.client as dyn_client_module
 
     async def fake_bulk_search(self, domains):
-        return {"domain_result_list": [{"domain_name": d, "available": True} for d in domains]}
+        return {
+            "domain_result_list": [{"domain_name": d, "available": True} for d in domains]
+        }
 
     async def fake_aclose(self):
         pass

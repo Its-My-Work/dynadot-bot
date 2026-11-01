@@ -22,7 +22,6 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.session import get_session_factory
 from app.i18n import Translator, available_languages
-from app.integrations.dynadot import DynadotClient
 from app.models.enums import Language
 from app.models.order import Order
 from app.models.user import User
@@ -182,10 +181,15 @@ async def msg_domain_search(message: Message, bot: Bot, t: Translator) -> None:
         candidates = [f"{clean}.{tld}" for tld in tlds]
         domain_base = clean
 
-    wait_msg = await message.answer(f"🔍 Проверяем зоны для «{clean}»..." if t.language == "ru" else f"🔍 Searching zones for '{clean}'...")
+    wait_msg = await message.answer(
+        f"🔍 Проверяем зоны для «{clean}»..."
+        if t.language == "ru"
+        else f"🔍 Searching zones for '{clean}'..."
+    )
 
     try:
         from app.integrations.dynadot.client import DynadotClient
+
         dynadot = DynadotClient(settings)
         try:
             raw = await dynadot.bulk_search(candidates)
@@ -209,22 +213,32 @@ async def msg_domain_search(message: Message, bot: Bot, t: Translator) -> None:
                     except (ValueError, TypeError):
                         cost = 0.0
                 quote = await pricing_svc.quote(tld=d_tld, cost_usd=cost, years=1)
-                parsed_results.append({
-                    "domain": domain_name,
-                    "tld": d_tld,
-                    "available": is_avail,
-                    "price_rub": quote.price_rub,
-                })
+                parsed_results.append(
+                    {
+                        "domain": domain_name,
+                        "tld": d_tld,
+                        "available": is_avail,
+                        "price_rub": quote.price_rub,
+                    }
+                )
 
         # Format message
-        lines = [f"🔍 <b>Результаты для {domain_base}</b>\n" if t.language == "ru" else f"🔍 <b>Search results for {domain_base}</b>\n"]
+        lines = [
+            f"🔍 <b>Результаты для {domain_base}</b>\n"
+            if t.language == "ru"
+            else f"🔍 <b>Search results for {domain_base}</b>\n"
+        ]
         for res in parsed_results:
             d_name = res["domain"]
             if res["available"]:
                 p_rub = f"{int(res['price_rub']):,} ₽".replace(",", " ")
                 lines.append(f"🟢 <b>{d_name}</b> — <b>{p_rub}</b>")
             else:
-                lines.append(f"❌ <s>{d_name}</s> — занят" if t.language == "ru" else f"❌ <s>{d_name}</s> — taken")
+                lines.append(
+                    f"❌ <s>{d_name}</s> — занят"
+                    if t.language == "ru"
+                    else f"❌ <s>{d_name}</s> — taken"
+                )
 
         text = "\n".join(lines)
         kb = domain_search_results(

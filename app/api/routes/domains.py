@@ -13,12 +13,14 @@ import time
 import httpx
 from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import DbSession, Dynadot, Translate
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.integrations.dynadot.exceptions import DynadotError
-from app.models.domain import Domain, DomainRedirect, DomainWatchlist
+from app.models.audit import AppSetting
+from app.models.domain import Domain, DomainRedirect, DomainWatchlist, TldPricing
 from app.models.enums import OrderStatus
 from app.models.order import Order
 from app.models.user import User
@@ -26,6 +28,8 @@ from app.schemas import (
     AiSuggestRequest,
     AiSuggestResponse,
     CatalogTldItem,
+    CategoriesResponse,
+    CategoryItem,
     DnsRecordItem,
     DnsRecordsPayload,
     DomainDetailsResponse,
@@ -76,17 +80,45 @@ async def _get_all_available_tlds(dynadot: Dynadot) -> list[str]:
             _cached_all_tlds = tlds
             _cached_all_tlds_time = now
     except Exception as exc:
-        logger.warning("could not load full tld list for pagination", extra={"error": str(exc)})
+        logger.warning(
+            "could not load full tld list for pagination", extra={"error": str(exc)}
+        )
 
     return tlds
 
 
 TLD_CATEGORIES: dict[str, list[str]] = {
     "all": [
-        "com", "net", "org", "co", "io", "ai", "xyz", "pro", "store",
-        "tech", "app", "cloud", "space", "site", "online", "fun", "icu",
-        "website", "top", "shop", "biz", "info", "agency", "vip", "me",
-        "life", "art", "design", "digital", "club",
+        "com",
+        "net",
+        "org",
+        "co",
+        "io",
+        "ai",
+        "xyz",
+        "pro",
+        "store",
+        "tech",
+        "app",
+        "cloud",
+        "space",
+        "site",
+        "online",
+        "fun",
+        "icu",
+        "website",
+        "top",
+        "shop",
+        "biz",
+        "info",
+        "agency",
+        "vip",
+        "me",
+        "life",
+        "art",
+        "design",
+        "digital",
+        "club",
     ],
     "popular": ["com", "net", "org", "co", "io", "ai", "xyz", "pro", "store"],
     "tech": ["ai", "io", "tech", "app", "cloud", "space", "digital"],
@@ -96,6 +128,132 @@ TLD_CATEGORIES: dict[str, list[str]] = {
 }
 
 DEFAULT_TLDS = TLD_CATEGORIES["all"]
+
+DEFAULT_CATEGORIES: list[dict] = [
+    {
+        "id": "budget",
+        "name": "До 700 ₽",
+        "name_en": "Under 700 ₽",
+        "icon": "💰",
+        "sort_order": 1,
+        "is_enabled": True,
+        "rule_type": "price_max",
+        "rule_value": 700.0,
+        "tlds": [
+            "xyz",
+            "store",
+            "space",
+            "site",
+            "online",
+            "fun",
+            "icu",
+            "website",
+            "top",
+        ],
+    },
+    {
+        "id": "popular",
+        "name": "Топ",
+        "name_en": "Top",
+        "icon": "🔥",
+        "sort_order": 2,
+        "is_enabled": True,
+        "rule_type": "custom_tlds",
+        "rule_value": None,
+        "tlds": ["com", "net", "org", "co", "io", "ai", "xyz", "pro", "store"],
+    },
+    {
+        "id": "tech",
+        "name": "AI & IT",
+        "name_en": "AI & IT",
+        "icon": "🤖",
+        "sort_order": 3,
+        "is_enabled": True,
+        "rule_type": "custom_tlds",
+        "rule_value": None,
+        "tlds": ["ai", "io", "tech", "app", "cloud", "space", "digital"],
+    },
+    {
+        "id": "business",
+        "name": "Бизнес",
+        "name_en": "Business",
+        "icon": "💼",
+        "sort_order": 4,
+        "is_enabled": True,
+        "rule_type": "custom_tlds",
+        "rule_value": None,
+        "tlds": ["pro", "store", "shop", "biz", "co", "agency", "vip"],
+    },
+    {
+        "id": "creative",
+        "name": "Креатив",
+        "name_en": "Creative",
+        "icon": "🎨",
+        "sort_order": 5,
+        "is_enabled": True,
+        "rule_type": "custom_tlds",
+        "rule_value": None,
+        "tlds": ["me", "art", "design", "life", "club", "info"],
+    },
+]
+
+
+async def get_all_categories_config(session: AsyncSession) -> list[dict]:
+    """Fetch categories from AppSetting or return defaults."""
+    row = await session.get(AppSetting, "domain_categories")
+    if row and row.value:
+        try:
+            items = json.loads(row.value)
+            if isinstance(items, list) and items:
+                return items
+        except Exception as exc:
+            logger.warning("failed to parse domain_categories", extra={"error": str(exc)})
+    return DEFAULT_CATEGORIES
+
+
+async def resolve_category_tlds(
+    category_id: str,
+    session: AsyncSession,
+    pricing_svc: PricingService,
+    dynadot: Dynadot,
+) -> list[str]:
+    """Resolve pool of TLDs for a category based on its dynamic rule."""
+    categories = await get_all_categories_config(session)
+    cat_map = {c["id"]: c for c in categories}
+    cat = cat_map.get(category_id)
+    if not cat:
+        return TLD_CATEGORIES.get(category_id, DEFAULT_TLDS)
+
+    rule_type = cat.get("rule_type", "custom_tlds")
+    if rule_type == "price_max":
+        max_price = float(cat.get("rule_value") or 700.0)
+        tld_rows = list(
+            await session.scalars(
+                select(TldPricing).where(TldPricing.is_enabled.is_(True))
+            )
+        )
+        pool = []
+        for r in tld_rows:
+            quote = await pricing_svc.quote(
+                tld=r.tld, cost_usd=float(r.register_cost_usd or 0.0), years=1
+            )
+            if quote.price_rub <= max_price:
+                pool.append(r.tld)
+        return pool if pool else cat.get("tlds", [])
+    elif rule_type == "featured":
+        rows = list(
+            await session.scalars(
+                select(TldPricing).where(
+                    TldPricing.is_enabled.is_(True),
+                    TldPricing.is_featured.is_(True),
+                )
+            )
+        )
+        return [r.tld for r in rows] if rows else cat.get("tlds", [])
+    elif rule_type == "all":
+        return await _get_all_available_tlds(dynadot)
+    else:  # custom_tlds
+        return [t.lstrip(".") for t in cat.get("tlds", [])]
 
 
 def _apply_markup(cost_usd: float) -> float:
@@ -130,24 +288,10 @@ async def search_domains(
     else:
         if payload.tlds:
             pool = [t_item.lstrip(".") for t_item in payload.tlds]
-        elif payload.category == "budget":
-            # Dynamically select all enabled TLDs where current retail price <= 700 RUB
-            from app.models.domain import TldPricing
-            tld_rows = list(
-                await session.scalars(
-                    select(TldPricing).where(TldPricing.is_enabled.is_(True))
-                )
+        elif payload.category and payload.category != "all":
+            pool = await resolve_category_tlds(
+                payload.category, session, pricing_svc, dynadot
             )
-            budget_pool = []
-            for r in tld_rows:
-                quote = await pricing_svc.quote(
-                    tld=r.tld, cost_usd=float(r.register_cost_usd or 0.0), years=1
-                )
-                if quote.price_rub <= 700.0:
-                    budget_pool.append(r.tld)
-            pool = budget_pool if budget_pool else TLD_CATEGORIES["budget"]
-        elif payload.category and payload.category in TLD_CATEGORIES:
-            pool = TLD_CATEGORIES[payload.category]
         else:
             # "all" category: paginate across all 800+ available zones!
             pool = await _get_all_available_tlds(dynadot)
@@ -225,24 +369,35 @@ async def ai_suggest_domains(
         return AiSuggestResponse(query="", suggestions=[])
 
     pricing_svc = PricingService(session, settings)
-    api_key = settings.omniroute_api_key.get_secret_value() if settings.omniroute_api_key else None
+    api_key = (
+        settings.omniroute_api_key.get_secret_value()
+        if settings.omniroute_api_key
+        else None
+    )
     if not api_key:
-        api_key = os.environ.get("HERMES_CUSTOM_OMNIROUTE_ITSMYWORK_VIP_API_KEY") or os.environ.get("HERMES_CUSTOM_OMNIROUTE_MANAGE_API_KEY")
+        api_key = os.environ.get(
+            "HERMES_CUSTOM_OMNIROUTE_ITSMYWORK_VIP_API_KEY"
+        ) or os.environ.get("HERMES_CUSTOM_OMNIROUTE_MANAGE_API_KEY")
 
     suggested_domains: list[str] = []
     keywords: list[str] = []
     target_tlds = [t.lower().lstrip(".") for t in payload.tlds if t.strip()]
-    if not target_tlds and payload.category and payload.category in TLD_CATEGORIES:
-        if payload.category != "all":
-            target_tlds = TLD_CATEGORIES[payload.category]
+    if not target_tlds and payload.category and payload.category != "all":
+        target_tlds = await resolve_category_tlds(
+            payload.category, session, pricing_svc, dynadot
+        )
 
     # If the client already passed pre-generated candidates for staged/chunked verification:
     if payload.candidates:
-        unique_candidates = [c.strip().lower() for c in payload.candidates if "." in c][:25]
+        unique_candidates = [c.strip().lower() for c in payload.candidates if "." in c][
+            :25
+        ]
         try:
             raw = await dynadot.bulk_search(unique_candidates)
         except Exception as exc:
-            logger.warning("bulk_search for staged candidates failed", extra={"error": str(exc)})
+            logger.warning(
+                "bulk_search for staged candidates failed", extra={"error": str(exc)}
+            )
             raw = {"domain_result_list": []}
 
         items = _iter_search_items(raw, unique_candidates)
@@ -298,11 +453,17 @@ async def ai_suggest_domains(
             async with httpx.AsyncClient(timeout=8.0) as client:
                 res = await client.post(
                     f"{settings.omniroute_base_url.rstrip('/')}/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
                     json={
                         "model": settings.omniroute_model or "fast",
                         "messages": [
-                            {"role": "system", "content": "You are a domain name branding expert. Return ONLY a comma-separated list of domain names."},
+                            {
+                                "role": "system",
+                                "content": "You are a domain name branding expert. Return ONLY a comma-separated list of domain names.",
+                            },
                             {"role": "user", "content": prompt},
                         ],
                         "max_tokens": 150,
@@ -352,6 +513,15 @@ async def ai_suggest_domains(
         suggestions=available_only,
         total_checked=len(unique_candidates),
     )
+
+
+@router.get("/categories", response_model=CategoriesResponse)
+async def list_domain_categories(session: DbSession) -> CategoriesResponse:
+    """Retrieve active domain categories for the search interface."""
+    items = await get_all_categories_config(session)
+    active = [c for c in items if c.get("is_enabled", True)]
+    active.sort(key=lambda x: x.get("sort_order", 0))
+    return CategoriesResponse(categories=[CategoryItem(**c) for c in active])
 
 
 @router.get("/catalog", response_model=list[CatalogTldItem])
@@ -427,7 +597,9 @@ async def list_catalog(
                 )
                 seen_tlds.add(raw_tld)
     except Exception as exc:
-        logger.warning("could not fetch live dynadot full catalog", extra={"error": str(exc)})
+        logger.warning(
+            "could not fetch live dynadot full catalog", extra={"error": str(exc)}
+        )
 
     # Sort featured first, then alphabetical by TLD
     items.sort(key=lambda x: (not x.is_featured, x.tld))
@@ -623,24 +795,80 @@ async def apply_quick_preset(
         domain = await service.update_dns_records(domain, records)
     elif p_type == "yandex_mail":
         records = [
-            {"type": "MX", "host": "@", "value": "mx.yandex.net.", "ttl": 300, "priority": 10},
-            {"type": "TXT", "host": "@", "value": "v=spf1 redirect=_spf.yandex.net", "ttl": 300},
-            {"type": "CNAME", "host": "mail", "value": "domain.mail.yandex.net.", "ttl": 300},
+            {
+                "type": "MX",
+                "host": "@",
+                "value": "mx.yandex.net.",
+                "ttl": 300,
+                "priority": 10,
+            },
+            {
+                "type": "TXT",
+                "host": "@",
+                "value": "v=spf1 redirect=_spf.yandex.net",
+                "ttl": 300,
+            },
+            {
+                "type": "CNAME",
+                "host": "mail",
+                "value": "domain.mail.yandex.net.",
+                "ttl": 300,
+            },
         ]
         domain = await service.update_dns_records(domain, records)
     elif p_type == "improvmx":
         records = [
-            {"type": "MX", "host": "@", "value": "mx1.improvmx.com.", "ttl": 300, "priority": 10},
-            {"type": "MX", "host": "@", "value": "mx2.improvmx.com.", "ttl": 300, "priority": 20},
-            {"type": "TXT", "host": "@", "value": "v=spf1 include:spf.improvmx.com ~all", "ttl": 300},
+            {
+                "type": "MX",
+                "host": "@",
+                "value": "mx1.improvmx.com.",
+                "ttl": 300,
+                "priority": 10,
+            },
+            {
+                "type": "MX",
+                "host": "@",
+                "value": "mx2.improvmx.com.",
+                "ttl": 300,
+                "priority": 20,
+            },
+            {
+                "type": "TXT",
+                "host": "@",
+                "value": "v=spf1 include:spf.improvmx.com ~all",
+                "ttl": 300,
+            },
         ]
         domain = await service.update_dns_records(domain, records)
     elif p_type == "cloudflare_mail":
         records = [
-            {"type": "MX", "host": "@", "value": "route1.mx.cloudflare.net.", "ttl": 300, "priority": 10},
-            {"type": "MX", "host": "@", "value": "route2.mx.cloudflare.net.", "ttl": 300, "priority": 20},
-            {"type": "MX", "host": "@", "value": "route3.mx.cloudflare.net.", "ttl": 300, "priority": 30},
-            {"type": "TXT", "host": "@", "value": "v=spf1 include:_spf.mx.cloudflare.net ~all", "ttl": 300},
+            {
+                "type": "MX",
+                "host": "@",
+                "value": "route1.mx.cloudflare.net.",
+                "ttl": 300,
+                "priority": 10,
+            },
+            {
+                "type": "MX",
+                "host": "@",
+                "value": "route2.mx.cloudflare.net.",
+                "ttl": 300,
+                "priority": 20,
+            },
+            {
+                "type": "MX",
+                "host": "@",
+                "value": "route3.mx.cloudflare.net.",
+                "ttl": 300,
+                "priority": 30,
+            },
+            {
+                "type": "TXT",
+                "host": "@",
+                "value": "v=spf1 include:_spf.mx.cloudflare.net ~all",
+                "ttl": 300,
+            },
         ]
         domain = await service.update_dns_records(domain, records)
     elif p_type == "cloudflare":
@@ -909,7 +1137,9 @@ async def set_domain_redirect(
         try:
             await service.update_dns_records(domain, records)
         except Exception as exc:
-            logger.warning("failed to set redirect dns records", extra={"error": str(exc)})
+            logger.warning(
+                "failed to set redirect dns records", extra={"error": str(exc)}
+            )
 
     return DomainRedirectResponse(
         domain_id=redir.domain_id,

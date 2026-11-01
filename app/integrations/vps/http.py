@@ -98,8 +98,7 @@ class HttpVpsProvider(BaseVpsProvider):
             raise VpsApiError(f"{method} {path} not found", status_code=404)
         if response.status_code >= 400:
             raise VpsApiError(
-                f"{method} {path} returned {response.status_code}: "
-                f"{response.text[:300]}",
+                f"{method} {path} returned {response.status_code}: {response.text[:300]}",
                 status_code=response.status_code,
             )
         if response.status_code == 204 or not response.content:

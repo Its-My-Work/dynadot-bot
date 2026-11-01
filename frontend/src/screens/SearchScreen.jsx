@@ -6,7 +6,7 @@
  * - Smart alternative suggestions for .com if taken
  * - Full 800+ TLD catalog modal with instant search & filter
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 
 import api, { ApiError } from '../lib/api';
 import { formatPrice } from '../lib/i18n';
@@ -17,11 +17,11 @@ const DEBOUNCE_MS = 450;
 
 export const CATEGORIES = [
   { id: 'all', labelKey: 'search.cat.all' },
-  { id: 'budget', labelKey: 'search.cat.budget' },
-  { id: 'popular', labelKey: 'search.cat.popular' },
-  { id: 'tech', labelKey: 'search.cat.tech' },
-  { id: 'business', labelKey: 'search.cat.business' },
-  { id: 'creative', labelKey: 'search.cat.creative' },
+  { id: 'budget', labelKey: 'search.cat.budget', name: '💰 До 700 ₽' },
+  { id: 'popular', labelKey: 'search.cat.popular', name: '🔥 Топ' },
+  { id: 'tech', labelKey: 'search.cat.tech', name: '🤖 AI & IT' },
+  { id: 'business', labelKey: 'search.cat.business', name: '💼 Бизнес' },
+  { id: 'creative', labelKey: 'search.cat.creative', name: '🎨 Креатив' },
 ];
 
 const RU_MAP = {
@@ -40,13 +40,11 @@ export function sanitizeQuery(raw) {
     .replace(/[^a-z0-9.-]/g, '');
 }
 
-const POPULAR_AI_ZONES = ['com', 'pro', 'io', 'ai', 'co', 'store', 'tech', 'online', 'space', 'site'];
-
 export default function SearchScreen({ t, onSelect }) {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+  const [categories, setCategories] = useState(CATEGORIES);
   const [results, setResults] = useState(null);
-  const [alternatives, setAlternatives] = useState([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -56,7 +54,6 @@ export default function SearchScreen({ t, onSelect }) {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiConceptInput, setAiConceptInput] = useState('');
   const [selectedAiZones, setSelectedAiZones] = useState([]);
-  const [aiCustomZoneInput, setAiCustomZoneInput] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiKeywords, setAiKeywords] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -69,10 +66,8 @@ export default function SearchScreen({ t, onSelect }) {
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogLoading, setCatalogLoading] = useState(false);
 
-  // Client-side advanced filters on results
-  const [filterPriceMax, setFilterPriceMax] = useState(0); // 0 = all
+  // Client-side sorting on results
   const [filterSort, setFilterSort] = useState('default'); // default, cheap, expensive, az
-  const [filterTldQuery, setFilterTldQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [suggestedQuery, setSuggestedQuery] = useState(null);
   const [watchedDomains, setWatchedDomains] = useState(new Set());
@@ -89,7 +84,6 @@ export default function SearchScreen({ t, onSelect }) {
       const clean = sanitizeQuery(rawQuery);
       if (!clean) {
         setResults(null);
-        setAlternatives([]);
         setHasMore(false);
         setError(null);
         setLoading(false);
@@ -114,7 +108,6 @@ export default function SearchScreen({ t, onSelect }) {
         // If searching a new domain name, clear old results so user never sees stale data
         if (clean !== lastSearchedRef.current.query) {
           setResults(null);
-          setAlternatives([]);
         }
       }
 
@@ -144,7 +137,6 @@ export default function SearchScreen({ t, onSelect }) {
           offsetRef.current = currentOffset + newItems.length;
         } else {
           setResults(newItems);
-          setAlternatives(res?.alternatives ?? []);
           if (res?.suggested_query && res.suggested_query !== clean) {
             setSuggestedQuery(res.suggested_query);
           } else {
@@ -179,7 +171,6 @@ export default function SearchScreen({ t, onSelect }) {
     if (!clean) {
       setIsTyping(false);
       setResults(null);
-      setAlternatives([]);
       setHasMore(false);
       setError(null);
       setLoading(false);
@@ -204,6 +195,27 @@ export default function SearchScreen({ t, onSelect }) {
   }, [query, activeCategory, runSearch]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Load dynamic categories from backend
+  useEffect(() => {
+    api
+      .getCategories()
+      .then((res) => {
+        const list = res?.categories;
+        if (Array.isArray(list) && list.length > 0) {
+          const dynamicList = [
+            { id: 'all', labelKey: 'search.cat.all' },
+            ...list.map((c) => ({
+              id: c.id,
+              name: `${c.icon ? `${c.icon} ` : ''}${c.name}`,
+              name_en: `${c.icon ? `${c.icon} ` : ''}${c.name_en || c.name}`,
+            })),
+          ];
+          setCategories(dynamicList);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Open catalog
   const openCatalog = async () => {
@@ -236,11 +248,6 @@ export default function SearchScreen({ t, onSelect }) {
     runSearch(query, activeCategory, true);
   };
 
-  const handleSelectAlternative = (altDomain) => {
-    haptic('medium');
-    setQuery(altDomain);
-  };
-
   const handleApplyCatalog = () => {
     haptic('medium');
     setShowCatalog(false);
@@ -249,15 +256,8 @@ export default function SearchScreen({ t, onSelect }) {
     }
   };
 
-  // Apply client filters and sorting
-  let filteredResults = (results ?? []).filter((r) => {
-    if (filterPriceMax > 0 && r.price_rub && r.price_rub > filterPriceMax) return false;
-    if (filterTldQuery.trim()) {
-      const cleanTld = filterTldQuery.trim().toLowerCase().replace(/^\.+/, '');
-      if (!r.tld.toLowerCase().includes(cleanTld)) return false;
-    }
-    return true;
-  });
+  // Apply client sorting
+  let filteredResults = results ?? [];
 
   if (filterSort === 'cheap') {
     filteredResults = [...filteredResults].sort(
@@ -394,30 +394,6 @@ export default function SearchScreen({ t, onSelect }) {
     );
   };
 
-  const handleOpenAiCatalog = openCatalog;
-
-  const handleAddCustomZone = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const clean = aiCustomZoneInput.trim().toLowerCase().replace(/^\.+/, '');
-      if (clean && !selectedAiZones.includes(clean)) {
-        haptic('light');
-        setSelectedAiZones((prev) => [...prev, clean]);
-        setAiCustomZoneInput('');
-      }
-    }
-  };
-
-  const hasActiveFilters =
-    filterPriceMax > 0 || filterSort !== 'default' || Boolean(filterTldQuery.trim());
-
-  const resetFilters = () => {
-    haptic('light');
-    setFilterPriceMax(0);
-    setFilterSort('default');
-    setFilterTldQuery('');
-  };
-
   const handleWatchDomain = async (domainName) => {
     try {
       haptic('light');
@@ -515,82 +491,38 @@ export default function SearchScreen({ t, onSelect }) {
             </span>
           )}
 
-          {/* All Zones */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedAiZones([]);
-              handleCategoryChange('all');
-            }}
-            className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-              activeCategory === 'all' && selectedAiZones.length === 0
-                ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
-                : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-            }`}
-          >
-            {t('search.cat.all')}
-          </button>
-
-          {/* Under 700 RUB (Budget) */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedAiZones([]);
-              handleCategoryChange('budget');
-            }}
-            className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-              activeCategory === 'budget' && selectedAiZones.length === 0
-                ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
-                : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-            }`}
-          >
-            {t('search.cat.budget')}
-          </button>
-
-          {/* Top Featured */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedAiZones([]);
-              handleCategoryChange('popular');
-            }}
-            className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-              activeCategory === 'popular' && selectedAiZones.length === 0
-                ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
-                : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-            }`}
-          >
-            {t('search.cat.popular')}
-          </button>
-
-          {/* 800+ Catalog Modal Trigger */}
-          <button
-            type="button"
-            onClick={openCatalog}
-            className="badge shrink-0 cursor-pointer border border-accent/60 bg-accent/15 px-3 py-1.5 text-xs font-bold text-accent hover:bg-accent/25 transition-all shadow-xs whitespace-nowrap active:scale-95"
-          >
-            📚 {t('search.catalog_btn')}
-          </button>
-
-          {/* Remaining categories */}
-          {CATEGORIES.filter((c) => c.id !== 'all' && c.id !== 'budget' && c.id !== 'popular').map((cat) => {
+          {/* Render categories dynamically in order */}
+          {categories.map((cat, idx) => {
             const isSelected = activeCategory === cat.id && selectedAiZones.length === 0;
+            const label = cat.labelKey ? t(cat.labelKey) : (cat.name || cat.id);
             return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  setSelectedAiZones([]);
-                  handleCategoryChange(cat.id);
-                }}
-                className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-                  isSelected
-                    ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
-                    : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-                }`}
-              >
-                {t(cat.labelKey)}
-              </button>
+              <Fragment key={cat.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAiZones([]);
+                    handleCategoryChange(cat.id);
+                  }}
+                  className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                    isSelected
+                      ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
+                      : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+                  }`}
+                >
+                  {label}
+                </button>
+
+                {/* 800+ Catalog Trigger: placed right after the 2nd category (Top) for instant visibility */}
+                {idx === 2 && (
+                  <button
+                    type="button"
+                    onClick={openCatalog}
+                    className="badge shrink-0 cursor-pointer border border-accent/60 bg-accent/15 px-3 py-1.5 text-xs font-bold text-accent hover:bg-accent/25 transition-all shadow-xs whitespace-nowrap active:scale-95"
+                  >
+                    📚 {t('search.catalog_btn')}
+                  </button>
+                )}
+              </Fragment>
             );
           })}
         </div>

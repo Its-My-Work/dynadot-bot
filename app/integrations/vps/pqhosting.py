@@ -187,9 +187,7 @@ class PqHostingVpsProvider(HttpVpsProvider):
             external_id=str(node.get("id") or node.get("uuid") or ""),
             name=str(node.get("hostname") or node.get("label") or fallback_name),
             status=map_status(node.get("status") or node.get("state")),
-            ip_address=first_ipv4(
-                node.get("ipv4") or node.get("ip") or node.get("ips")
-            ),
+            ip_address=first_ipv4(node.get("ipv4") or node.get("ip") or node.get("ips")),
             location_code=code,
             location_name=known.name if known else (dc or None),
             preset_name=plan.name if plan else node.get("plan"),

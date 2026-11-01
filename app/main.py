@@ -74,6 +74,7 @@ async def _load_db_settings() -> None:
     """Load persisted configuration and secrets from the app_settings table into settings."""
     from pydantic import SecretStr
     from sqlalchemy import select
+
     from app.db.session import get_session_factory
     from app.models import AppSetting
 
@@ -126,9 +127,11 @@ async def _load_db_settings() -> None:
                 elif k == "support_username":
                     settings.support_username = v
                 elif k == "registration_worker_enabled":
-                    settings.registration_worker_enabled = (v.lower() == "true")
+                    settings.registration_worker_enabled = v.lower() == "true"
     except Exception as exc:
-        logger.warning("Could not load dynamic settings from DB", extra={"error": str(exc)})
+        logger.warning(
+            "Could not load dynamic settings from DB", extra={"error": str(exc)}
+        )
 
 
 @asynccontextmanager
@@ -212,7 +215,12 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def domain_redirect_middleware(request: Request, call_next):
         host = request.headers.get("host", "").split(":")[0].lower()
-        if not host or host in ("localhost", "127.0.0.1", "testserver", "dynadot.itsmywork.vip"):
+        if not host or host in (
+            "localhost",
+            "127.0.0.1",
+            "testserver",
+            "dynadot.itsmywork.vip",
+        ):
             return await call_next(request)
 
         if request.url.path.startswith(("/api/", "/webhooks/")):
@@ -222,6 +230,7 @@ def create_app() -> FastAPI:
         try:
             from sqlalchemy import select
             from starlette.responses import RedirectResponse
+
             from app.db.session import get_session_factory
             from app.models.domain import DomainRedirect
 
@@ -263,14 +272,12 @@ def _mount_frontend(app: FastAPI) -> None:
         logger.info("frontend bundle not found; serving API only")
         return
 
-    from fastapi import Depends
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
 
-    from app.api.deps import require_admin
-
     admin_html = dist / "admin.html"
     if admin_html.is_file():
+
         @app.get("/admin", include_in_schema=False)
         @app.get("/admin.html", include_in_schema=False)
         async def admin_page() -> FileResponse:

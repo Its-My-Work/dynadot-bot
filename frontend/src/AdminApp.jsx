@@ -124,6 +124,7 @@ export default function AdminApp() {
       badge: (s) => s?.tasks_dead_letter,
     },
     { id: 'pricing', label: t('admin.nav.pricing'), enLabel: 'Pricing' },
+    { id: 'categories', label: t('admin.nav.categories'), enLabel: 'Categories' },
     { id: 'logs', label: t('admin.nav.logs'), enLabel: 'API log' },
     { id: 'settings', label: t('admin.nav.settings'), enLabel: 'Settings' },
   ];
@@ -196,6 +197,7 @@ export default function AdminApp() {
           <Tasks onChange={loadStats} language={language} />
         ) : null}
         {view === 'pricing' ? <Pricing language={language} /> : null}
+        {view === 'categories' ? <CategoriesView language={language} /> : null}
         {view === 'logs' ? <ApiLogs language={language} /> : null}
         {view === 'settings' ? <Settings language={language} /> : null}
       </main>
@@ -986,7 +988,7 @@ function Pricing({ language }) {
   );
 }
 
-function EditableNumber({ value, placeholder = '', prefix = '', suffix = '', step = '1', onSave }) {
+function EditableNumber({ value, placeholder = '', prefix = '', suffix = '', onSave }) {
   const [draft, setDraft] = useState(value ?? '');
 
   useEffect(() => {
@@ -1019,6 +1021,374 @@ function EditableNumber({ value, placeholder = '', prefix = '', suffix = '', ste
         }}
       />
       {suffix ? <span className="text-muted text-[11px]">{suffix}</span> : null}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ categories
+
+function CategoriesView({ language }) {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savedNote, setSavedNote] = useState(null);
+  const [error, setError] = useState(null);
+  const [tldInputs, setTldInputs] = useState({});
+  const t = makeTranslator(language);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    api
+      .adminCategories()
+      .then((res) => {
+        setCategories(res?.categories || []);
+      })
+      .catch((err) => {
+        setError(err?.message || 'Could not load categories.');
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const moveCategory = (index, dir) => {
+    const target = index + dir;
+    if (target < 0 || target >= categories.length) return;
+    const next = [...categories];
+    const [moved] = next.splice(index, 1);
+    next.splice(target, 0, moved);
+    setCategories(next);
+  };
+
+  const updateCategory = (index, patch) => {
+    const next = [...categories];
+    next[index] = { ...next[index], ...patch };
+    setCategories(next);
+  };
+
+  const removeTld = (catIndex, tldToRemove) => {
+    const cat = categories[catIndex];
+    const tlds = (cat.tlds || []).filter((item) => item !== tldToRemove);
+    updateCategory(catIndex, { tlds });
+  };
+
+  const handleAddTld = (catIndex) => {
+    const inputVal = (tldInputs[catIndex] || '').trim().toLowerCase().replace(/^\.+/, '');
+    if (!inputVal) return;
+    const cat = categories[catIndex];
+    const current = cat.tlds || [];
+    if (!current.includes(inputVal)) {
+      updateCategory(catIndex, { tlds: [...current, inputVal] });
+    }
+    setTldInputs((prev) => ({ ...prev, [catIndex]: '' }));
+  };
+
+  const handleAddCategory = () => {
+    const id = `cat_${Date.now()}`;
+    const newCat = {
+      id,
+      name: language === 'ru' ? 'Новая категория' : 'New Category',
+      name_en: 'New Category',
+      icon: '🏷️',
+      sort_order: categories.length + 1,
+      is_enabled: true,
+      rule_type: 'custom_tlds',
+      rule_value: null,
+      tlds: ['com', 'net', 'org'],
+    };
+    setCategories([...categories, newCat]);
+  };
+
+  const handleDeleteCategory = (index) => {
+    if (window.confirm(`${t('admin.cat.confirm_delete')} "${categories[index].name}"?`)) {
+      setCategories(categories.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api.updateAdminCategories(categories);
+      setCategories(res?.categories || categories);
+      setSavedNote(t('admin.cat.save_success'));
+      setTimeout(() => setSavedNote(null), 3000);
+    } catch (err) {
+      setError(err?.message || 'Could not save categories.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (window.confirm(`${t('admin.cat.reset_btn')}?`)) {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.resetAdminCategories();
+        setCategories(res?.categories || []);
+        setSavedNote(t('admin.cat.save_success'));
+        setTimeout(() => setSavedNote(null), 3000);
+      } catch (err) {
+        setError(err?.message || 'Could not reset categories.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">{t('admin.cat.title')}</h2>
+          <p className="text-xs text-muted">{t('admin.cat.subtitle')}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleAddCategory}
+            className="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:border-accent transition-colors cursor-pointer"
+          >
+            {t('admin.cat.add_btn')}
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-muted hover:text-danger hover:border-danger transition-colors cursor-pointer"
+          >
+            {t('admin.cat.reset_btn')}
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-lg bg-accent px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-accent-hover transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {saving ? '...' : t('admin.cat.save_btn')}
+          </button>
+        </div>
+      </div>
+
+      {savedNote && (
+        <div className="rounded-lg border border-accent/40 bg-accent/10 px-4 py-2.5 text-xs font-medium text-accent">
+          ✓ {savedNote}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-2.5 text-xs font-medium text-danger">
+          ✕ {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="rounded-xl border border-line bg-surface p-8 text-center text-xs text-muted">
+          Загрузка категорий...
+        </div>
+      ) : categories.length === 0 ? (
+        <div className="rounded-xl border border-line bg-surface p-8 text-center text-xs text-muted">
+          Нет настроенных категорий. Нажмите «Сбросить к стандарту» или добавьте новую.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {categories.map((cat, idx) => (
+            <div
+              key={cat.id || idx}
+              className={`rounded-xl border p-4 transition-all ${
+                cat.is_enabled
+                  ? 'border-line bg-surface shadow-xs'
+                  : 'border-line/40 bg-surface/40 opacity-70'
+              }`}
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                {/* Left: Reorder & Status & Icon & Title */}
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {/* Reorder arrows */}
+                  <div className="flex flex-col gap-1 pt-0.5">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => moveCategory(idx, -1)}
+                      className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] text-muted hover:text-ink disabled:opacity-30 cursor-pointer"
+                      title="Выше"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === categories.length - 1}
+                      onClick={() => moveCategory(idx, 1)}
+                      className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] text-muted hover:text-ink disabled:opacity-30 cursor-pointer"
+                      title="Ниже"
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  {/* Icon */}
+                  <div className="w-12 shrink-0">
+                    <label className="text-[10px] uppercase font-bold text-muted block mb-0.5">
+                      Иконка
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full text-center text-lg rounded-md border border-line bg-card px-1 py-1 text-ink focus:border-accent focus:outline-none"
+                      value={cat.icon || ''}
+                      onChange={(e) => updateCategory(idx, { icon: e.target.value })}
+                    />
+                  </div>
+
+                  {/* RU / EN Names */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-w-0">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-muted block mb-0.5">
+                        Название (RU)
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full rounded-md border border-line bg-card px-2.5 py-1 text-xs font-semibold text-ink focus:border-accent focus:outline-none"
+                        value={cat.name || ''}
+                        onChange={(e) => updateCategory(idx, { name: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-muted block mb-0.5">
+                        Название (EN)
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full rounded-md border border-line bg-card px-2.5 py-1 text-xs text-ink focus:border-accent focus:outline-none"
+                        value={cat.name_en || ''}
+                        onChange={(e) => updateCategory(idx, { name_en: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Enabled toggle & Delete */}
+                <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => updateCategory(idx, { is_enabled: !cat.is_enabled })}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-medium border transition-colors cursor-pointer ${
+                      cat.is_enabled
+                        ? 'border-accent/40 bg-accent/15 text-accent'
+                        : 'border-line bg-card text-muted'
+                    }`}
+                  >
+                    {cat.is_enabled ? `✓ ${t('admin.cat.status_active')}` : `✕ ${t('admin.cat.status_hidden')}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCategory(idx)}
+                    className="rounded-lg border border-line bg-card px-2 py-1 text-xs text-muted hover:border-danger hover:text-danger transition-colors cursor-pointer"
+                    title={t('admin.cat.confirm_delete')}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+
+              {/* Rule Selector & Details */}
+              <div className="mt-3 border-t border-line/40 pt-3 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-xs font-medium text-muted">Тип правила:</span>
+                  <select
+                    className="rounded-md border border-line bg-card px-2 py-1 text-xs font-medium text-ink focus:border-accent focus:outline-none"
+                    value={cat.rule_type || 'custom_tlds'}
+                    onChange={(e) => updateCategory(idx, { rule_type: e.target.value })}
+                  >
+                    <option value="custom_tlds">{t('admin.cat.rule_custom')}</option>
+                    <option value="price_max">{t('admin.cat.rule_price')}</option>
+                    <option value="featured">{t('admin.cat.rule_featured')}</option>
+                    <option value="all">{t('admin.cat.rule_all')}</option>
+                  </select>
+
+                  {cat.rule_type === 'price_max' && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted">
+                      <span>до</span>
+                      <input
+                        type="number"
+                        className="w-20 rounded-md border border-line bg-card px-2 py-1 text-xs font-bold text-ink focus:border-accent focus:outline-none"
+                        value={cat.rule_value ?? 700}
+                        onChange={(e) => updateCategory(idx, { rule_value: Number(e.target.value) })}
+                      />
+                      <span>₽ (динамический отбор зон с ценой ниже этого порога)</span>
+                    </div>
+                  )}
+
+                  {cat.rule_type === 'featured' && (
+                    <span className="text-xs text-muted">
+                      (автоматически включает все зоны с отметкой ★ Топ в ценах TLD)
+                    </span>
+                  )}
+                  {cat.rule_type === 'all' && (
+                    <span className="text-xs text-muted">
+                      (все 800+ зон с постраничной загрузкой)
+                    </span>
+                  )}
+                </div>
+
+                {/* TLD List (for custom_tlds or fallback) */}
+                {(cat.rule_type === 'custom_tlds' || cat.rule_type === 'price_max') && (
+                  <div className="mt-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-muted">
+                        {cat.rule_type === 'price_max' ? 'Резервный список зон:' : 'Список зон в категории:'}
+                      </span>
+                      <span className="text-[11px] text-muted">{(cat.tlds || []).length} зон</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-line bg-card/60">
+                      {(cat.tlds || []).map((tld) => (
+                        <span
+                          key={tld}
+                          className="inline-flex items-center gap-1 rounded bg-elevated border border-line px-2 py-0.5 text-xs font-mono font-medium text-ink"
+                        >
+                          .{tld}
+                          <button
+                            type="button"
+                            onClick={() => removeTld(idx, tld)}
+                            className="text-muted hover:text-danger ml-0.5 text-[10px] cursor-pointer"
+                            title="Удалить"
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                      <div className="inline-flex items-center gap-1">
+                        <input
+                          type="text"
+                          placeholder="зона (.ai)"
+                          className="w-20 rounded border border-line bg-surface px-2 py-0.5 text-xs font-mono text-ink focus:border-accent focus:outline-none"
+                          value={tldInputs[idx] || ''}
+                          onChange={(e) => setTldInputs({ ...tldInputs, [idx]: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddTld(idx);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddTld(idx)}
+                          className="rounded bg-elevated border border-line px-2 py-0.5 text-xs font-medium text-muted hover:text-ink cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

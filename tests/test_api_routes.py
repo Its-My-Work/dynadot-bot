@@ -623,8 +623,9 @@ def test_retry_of_an_unknown_task_is_404(client):
 
 
 def test_admin_auth_protects_routes_when_configured(client, monkeypatch):
-    import app.api.deps as deps_module
     from pydantic import SecretStr
+
+    import app.api.deps as deps_module
 
     # Configure admin credentials
     current_settings = deps_module.get_settings()
@@ -646,19 +647,24 @@ def test_admin_auth_protects_routes_when_configured(client, monkeypatch):
 
 
 def test_admin_login_endpoint(client, monkeypatch):
-    import app.api.deps as deps_module
     from pydantic import SecretStr
+
+    import app.api.deps as deps_module
 
     current_settings = deps_module.get_settings()
     monkeypatch.setattr(current_settings, "admin_username", "admin")
     monkeypatch.setattr(current_settings, "admin_password", SecretStr("secret123"))
 
     # Invalid login -> 401
-    resp = client.post("/api/v1/admin/login", json={"username": "admin", "password": "wrongpassword"})
+    resp = client.post(
+        "/api/v1/admin/login", json={"username": "admin", "password": "wrongpassword"}
+    )
     assert resp.status_code == 401
 
     # Valid login -> 200
-    resp = client.post("/api/v1/admin/login", json={"username": "admin", "password": "secret123"})
+    resp = client.post(
+        "/api/v1/admin/login", json={"username": "admin", "password": "secret123"}
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
@@ -715,7 +721,9 @@ def test_domain_watchlist_crud_api(client):
     assert items[0]["domain"] == "wantedbrand.com"
 
     # 3. Delete from watchlist
-    res_del = client.delete(f"/api/v1/domains/watchlist/wantedbrand.com?telegram_id={tg_id}")
+    res_del = client.delete(
+        f"/api/v1/domains/watchlist/wantedbrand.com?telegram_id={tg_id}"
+    )
     assert res_del.status_code == 200
     assert res_del.json()["ok"] is True
 
@@ -763,3 +771,35 @@ def test_search_transliteration_and_typo_normalizer(client):
     data = res.json()
     assert data["query"] == "kofeshop"
 
+
+def test_domain_categories_endpoints(client):
+    # 1. Public list
+    res = client.get("/api/v1/domains/categories")
+    assert res.status_code == 200
+    data = res.json()
+    assert "categories" in data
+    cats = data["categories"]
+    assert len(cats) >= 5
+    assert cats[0]["id"] == "budget"
+
+    # 2. Admin list
+    res_admin = client.get("/api/v1/admin/categories")
+    assert res_admin.status_code == 200
+    admin_cats = res_admin.json()["categories"]
+    assert len(admin_cats) >= 5
+
+    # 3. Admin update
+    updated_cats = list(admin_cats)
+    updated_cats[0]["name"] = "Супер Дешевые"
+    res_put = client.put("/api/v1/admin/categories", json=updated_cats)
+    assert res_put.status_code == 200
+    assert res_put.json()["categories"][0]["name"] == "Супер Дешевые"
+
+    # Verify public reflection
+    res_pub = client.get("/api/v1/domains/categories")
+    assert res_pub.json()["categories"][0]["name"] == "Супер Дешевые"
+
+    # 4. Admin reset
+    res_reset = client.post("/api/v1/admin/categories/reset")
+    assert res_reset.status_code == 200
+    assert res_reset.json()["categories"][0]["name"] == "До 700 ₽"

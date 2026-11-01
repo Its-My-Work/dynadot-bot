@@ -109,9 +109,7 @@ class DomainRedirect(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     """HTTP 301/302 URL/Telegram redirection for a registered domain."""
 
     __tablename__ = "domain_redirects"
-    __table_args__ = (
-        UniqueConstraint("domain_name", name="uq_domain_redirects_name"),
-    )
+    __table_args__ = (UniqueConstraint("domain_name", name="uq_domain_redirects_name"),)
 
     domain_id: Mapped[str] = mapped_column(
         ForeignKey("domains.id", ondelete="CASCADE"), index=True, nullable=False
@@ -136,7 +134,9 @@ class DomainWatchlist(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     domain: Mapped[str] = mapped_column(String(253), index=True, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     def __repr__(self) -> str:
         return f"<DomainWatchlist {self.domain} user={self.telegram_id}>"
