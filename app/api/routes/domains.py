@@ -456,11 +456,27 @@ async def ai_suggest_domains(
     }
 
     if is_concept:
+        platform_acronyms = {
+            "hh",
+            "tg",
+            "wb",
+            "vk",
+            "yt",
+            "ai",
+            "hr",
+            "it",
+            "ad",
+            "pr",
+            "vc",
+            "ui",
+            "ux",
+        }
         keywords = [
             w.strip()
             for w in raw_query.split()
-            if len(w.strip()) > 2 and w.strip().lower() not in stop_words
-        ][:4]
+            if (len(w.strip()) > 2 or w.strip().lower() in platform_acronyms)
+            and w.strip().lower() not in stop_words
+        ][:5]
     else:
         brand_base = raw_query.split(".")[0].replace(" ", "").strip()
         if brand_base:
@@ -473,9 +489,10 @@ async def ai_suggest_domains(
                     f"You are an elite domain name strategist and startup branding agency. A user is looking for a domain for their business concept or keywords: '{raw_query}'.\n"
                     f"Extract the core business themes and keywords, and suggest 14 short, punchy, modern brandable domain names (under 12 chars per name, 2-3 syllables) {tld_spec}.\n"
                     f"Guidelines:\n"
-                    f"1. Blend the keywords into memorable English/Latin startup brands (e.g. for 'кофе доставка спб' -> piterbrew.co, coffeerun.pro, nordiccup.io, spbcoffee.store; for 'ремонт квартир' -> flatmaker.pro, remontpro.co, homecraft.io).\n"
-                    f"2. Never produce long clumsy domains like 'kofespbdostavka.com'. Make them short, professional, and brandable.\n"
-                    f"3. Return ONLY a clean comma-separated list of domain names, nothing else."
+                    f"1. Blend the keywords into memorable English/Latin startup brands (e.g. for 'кофе доставка спб' -> piterbrew.co, coffeerun.pro, nordiccup.io, spbcoffee.store).\n"
+                    f"2. Platform & marketplace awareness: If the user mentions a specific platform or ecosystem (e.g. 'hh / headhunter', 'avito', 'wb / wildberries', 'ozon', 'telegram / tg', 'vk', 'youtube / yt', 'crypto', 'ai'), at least 40% of suggestions MUST directly feature that recognizable platform name or abbreviation (e.g. for 'поиск работы на hh' -> hhbot.pro, hhpilot.tech, autohh.co, hhhunt.pro, hhapply.site; for 'парсер авито' -> avitobot.pro, avitoparse.io, autoavito.tech; for 'бот тг' -> tgfeed.io, tghunter.pro).\n"
+                    f"3. Never produce clumsy long transliterations like 'avtomatizatsiyapoiska.com'. Keep domains concise, modern, and brandable.\n"
+                    f"4. Return ONLY a clean comma-separated list of domain names, nothing else."
                 )
             else:
                 brand_base = raw_query.split(".")[0].replace(" ", "").strip()
