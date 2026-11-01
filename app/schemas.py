@@ -17,6 +17,7 @@ from app.models.enums import (
     ServerStatus,
     TaskStatus,
     Theme,
+    UserRole,
     VpsProvider,
 )
 
@@ -64,6 +65,7 @@ class UserRead(ORMModel):
     email: str | None = None
     telegram_username: str | None = None
     has_password: bool = False
+    role: UserRole = UserRole.USER
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None

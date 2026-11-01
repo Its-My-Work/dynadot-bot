@@ -205,6 +205,7 @@ const catalogues = {
     'profile.edit_title': 'Редактирование профиля владельца',
     'profile.create_title': 'Создание профиля владельца',
     'profile.empty_prompt': 'У вас пока не заполнен профиль владельца. Заполните его один раз, чтобы мгновенно покупать домены в 1 клик.',
+    'profile.no_contact_yet': 'У вас пока не заполнен профиль владельца. Заполните его один раз, чтобы мгновенно покупать домены в 1 клик.',
     'profile.saved': 'Данные профиля успешно сохранены!',
 
     'orders.empty': 'Заказов пока нет.',
@@ -509,6 +510,7 @@ const catalogues = {
     'profile.edit_title': 'Edit Owner Profile',
     'profile.create_title': 'Create Owner Profile',
     'profile.empty_prompt': 'You have not set up your owner profile yet. Fill it once to register domains in 1 click.',
+    'profile.no_contact_yet': 'You have not set up your owner profile yet. Fill it once to register domains in 1 click.',
     'profile.saved': 'Profile data saved successfully!',
 
     'orders.empty': 'No orders yet.',

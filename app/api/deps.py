@@ -94,32 +94,57 @@ _basic_security = HTTPBasic(auto_error=False)
 
 async def require_admin(
     credentials: Annotated[HTTPBasicCredentials | None, Depends(_basic_security)],
+    session: DbSession,
 ) -> str | None:
-    """Validate HTTP Basic Auth if admin credentials are configured in settings."""
+    """Validate HTTP Basic Auth against settings or database admin users."""
     settings = get_settings()
-    if not settings.admin_password or not settings.admin_username:
-        return None
 
     if not credentials:
+        if not settings.admin_password or not settings.admin_username:
+            return None
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Admin credentials required",
         )
 
-    correct_username = secrets.compare_digest(
-        credentials.username.encode("utf8"), settings.admin_username.encode("utf8")
-    )
-    correct_password = secrets.compare_digest(
-        credentials.password.encode("utf8"),
-        settings.admin_password.get_secret_value().encode("utf8"),
-    )
-
-    if not (correct_username and correct_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+    # 1. Check system credentials if configured
+    if settings.admin_username and settings.admin_password:
+        correct_username = secrets.compare_digest(
+            credentials.username.encode("utf8"), settings.admin_username.encode("utf8")
         )
-    return credentials.username
+        correct_password = secrets.compare_digest(
+            credentials.password.encode("utf8"),
+            settings.admin_password.get_secret_value().encode("utf8"),
+        )
+        if correct_username and correct_password:
+            return credentials.username
+
+    # 2. Check database admin users
+    from sqlalchemy import func, select
+
+    from app.models.enums import UserRole
+    from app.models.user import User
+    from app.services.security import verify_password
+
+    norm_login = credentials.username.strip().lower()
+    db_user = await session.scalar(
+        select(User).where(
+            (func.lower(User.email) == norm_login)
+            | (func.lower(User.username) == norm_login)
+        )
+    )
+    if (
+        db_user is not None
+        and db_user.role == UserRole.ADMIN
+        and db_user.has_password
+        and verify_password(credentials.password, db_user.password_hash)
+    ):
+        return db_user.email or db_user.username
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Incorrect username or password",
+    )
 
 
 AdminUser = Annotated[str | None, Depends(require_admin)]
