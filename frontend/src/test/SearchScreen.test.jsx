@@ -43,10 +43,10 @@ describe('SearchScreen', () => {
   it('loads category filter chips and catalog button', async () => {
     render(<SearchScreen t={t} onSelect={vi.fn()} />);
 
-    expect(await screen.findByText('All zones')).toBeInTheDocument();
+    expect(await screen.findByText('🌐 Main')).toBeInTheDocument();
     expect(screen.getByText('🔥 Top')).toBeInTheDocument();
     expect(screen.getByText('🤖 AI & IT')).toBeInTheDocument();
-    expect(screen.getByText(/All 800\+ Zones/)).toBeInTheDocument();
+    expect(screen.getByText(/800\+ Catalog/)).toBeInTheDocument();
   });
 
   it('still renders when the zone list fails to load', async () => {
