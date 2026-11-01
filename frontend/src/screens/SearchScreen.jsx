@@ -499,9 +499,65 @@ export default function SearchScreen({ t, onSelect }) {
       )}
 
       {/* Categories Bar & Catalog Button (Single, unified category selector) */}
-      <div className="border-b border-card-border/50 pb-2">
+      <div className="relative border-b border-card-border/50 pb-2">
         <div className="no-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 py-0.5">
-          {CATEGORIES.map((cat) => {
+          {selectedAiZones.length > 0 && (
+            <span className="badge shrink-0 border-2 border-accent bg-accent/20 text-accent font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-xs whitespace-nowrap">
+              <span>✓ {t('search.ai_custom_selection')} ({selectedAiZones.length})</span>
+              <button
+                type="button"
+                onClick={() => setSelectedAiZones([])}
+                className="hover:text-ink cursor-pointer ml-1 text-xs"
+                title="Сбросить"
+              >
+                ✕
+              </button>
+            </span>
+          )}
+
+          {/* All Zones */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedAiZones([]);
+              handleCategoryChange('all');
+            }}
+            className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+              activeCategory === 'all' && selectedAiZones.length === 0
+                ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
+                : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+            }`}
+          >
+            {t('search.cat.all')}
+          </button>
+
+          {/* Top Featured */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedAiZones([]);
+              handleCategoryChange('popular');
+            }}
+            className={`badge shrink-0 cursor-pointer border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+              activeCategory === 'popular' && selectedAiZones.length === 0
+                ? 'border-accent bg-accent/20 text-accent font-semibold border-2 shadow-xs'
+                : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
+            }`}
+          >
+            {t('search.cat.popular')}
+          </button>
+
+          {/* 800+ Catalog Modal Trigger (placed right after Top so it is visible immediately without scrolling) */}
+          <button
+            type="button"
+            onClick={openCatalog}
+            className="badge shrink-0 cursor-pointer border border-accent/60 bg-accent/15 px-3 py-1.5 text-xs font-bold text-accent hover:bg-accent/25 transition-all shadow-xs whitespace-nowrap active:scale-95"
+          >
+            📚 {t('search.catalog_btn')}
+          </button>
+
+          {/* Remaining categories */}
+          {CATEGORIES.filter((c) => c.id !== 'all' && c.id !== 'popular').map((cat) => {
             const isSelected = activeCategory === cat.id && selectedAiZones.length === 0;
             return (
               <button
@@ -521,28 +577,6 @@ export default function SearchScreen({ t, onSelect }) {
               </button>
             );
           })}
-
-          {selectedAiZones.length > 0 && (
-            <span className="badge shrink-0 border-2 border-accent bg-accent/20 text-accent font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-xs whitespace-nowrap">
-              <span>✓ {t('search.ai_custom_selection')} ({selectedAiZones.length})</span>
-              <button
-                type="button"
-                onClick={() => setSelectedAiZones([])}
-                className="hover:text-ink cursor-pointer ml-1 text-xs"
-                title="Сбросить"
-              >
-                ✕
-              </button>
-            </span>
-          )}
-
-          <button
-            type="button"
-            onClick={openCatalog}
-            className="badge shrink-0 cursor-pointer border border-accent/50 bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent hover:bg-accent/20 transition-colors shadow-2xs whitespace-nowrap"
-          >
-            📚 {t('search.catalog_btn')}
-          </button>
         </div>
       </div>
 
