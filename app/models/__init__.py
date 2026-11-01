@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from app.db.base import Base
 from app.models.audit import AppSetting, DynadotApiLog, DynadotTask
-from app.models.domain import Domain, TldPricing
+from app.models.domain import Domain, DomainRedirect, DomainWatchlist, TldPricing
 from app.models.enums import (
     DEFAULT_THEME,
     ApiCallStatus,
@@ -36,7 +36,9 @@ __all__ = [
     "ContactProfile",
     "Currency",
     "Domain",
+    "DomainRedirect",
     "DomainStatus",
+    "DomainWatchlist",
     "DynadotApiLog",
     "DynadotTask",
     "Language",

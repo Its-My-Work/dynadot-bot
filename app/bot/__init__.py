@@ -5,9 +5,11 @@ from __future__ import annotations
 from app.bot.keyboards import language_menu, main_menu, payment_keyboard
 from app.bot.middlewares import UserContextMiddleware
 from app.bot.notifications import (
+    notify_domain_expiry_warning,
     notify_order_status,
     notify_payment_created,
     notify_payment_status,
+    notify_watchlist_available,
     safe_send,
 )
 from app.bot.runner import (
@@ -25,9 +27,11 @@ __all__ = [
     "create_dispatcher",
     "language_menu",
     "main_menu",
+    "notify_domain_expiry_warning",
     "notify_order_status",
     "notify_payment_created",
     "notify_payment_status",
+    "notify_watchlist_available",
     "payment_keyboard",
     "run_polling",
     "safe_send",

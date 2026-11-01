@@ -92,6 +92,8 @@ def test_all_expected_tables_exist():
         "users",
         "contact_profiles",
         "domains",
+        "domain_redirects",
+        "domain_watchlist",
         "tld_pricing",
         "orders",
         "payments",

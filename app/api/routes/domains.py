@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
 import time
-import httpx
 
+import httpx
 from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 
@@ -19,7 +18,7 @@ from app.api.deps import DbSession, Dynadot, Translate
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.integrations.dynadot.exceptions import DynadotError
-from app.models.domain import Domain
+from app.models.domain import Domain, DomainRedirect, DomainWatchlist
 from app.models.enums import OrderStatus
 from app.models.order import Order
 from app.models.user import User
@@ -34,14 +33,19 @@ from app.schemas import (
     DomainPrivacyPayload,
     DomainQuickPresetPayload,
     DomainRead,
+    DomainRedirectResponse,
+    DomainRedirectUpdate,
     DomainRenewPayload,
     DomainRenewResponse,
     DomainSearchRequest,
     DomainSearchResponse,
     DomainSearchResult,
+    DomainWatchlistRequest,
+    DomainWatchlistResponse,
     NameserverUpdate,
 )
 from app.services.pricing import PricingService
+from app.services.query_normalizer import normalize_domain_query
 from app.services.registration import RegistrationService
 
 logger = get_logger(__name__)
@@ -109,7 +113,9 @@ async def search_domains(
 ) -> DomainSearchResponse:
     """Check availability of a name across zones with category and pagination support."""
     pricing_svc = PricingService(session, settings)
-    name = payload.query.strip().lower()
+    raw_input = payload.query.strip().lower()
+    norm_name, suggested_query = normalize_domain_query(raw_input)
+    name = norm_name or raw_input
 
     if "." in name:
         base, _, tld = name.rpartition(".")
@@ -182,6 +188,8 @@ async def search_domains(
         alternatives=alternatives,
         has_more=has_more,
         total_available_zones=total_zones,
+        suggested_query=suggested_query,
+        original_query=raw_input if (suggested_query or norm_name != raw_input) else None,
     )
 
 
@@ -582,10 +590,35 @@ async def apply_quick_preset(
         ]
         domain = await service.update_dns_records(domain, records)
     elif p_type == "telegram":
-        target = (payload.target or "t.me/channel").strip()
+        raw_target = (payload.target or "").strip()
+        if not raw_target:
+            raw_target = "https://t.me/"
+        elif not raw_target.startswith(("http://", "https://")):
+            raw_target = f"https://{raw_target}"
+
+        # 1. Update or create DomainRedirect
+        existing_redir = await session.scalar(
+            select(DomainRedirect).where(DomainRedirect.domain_id == domain.id)
+        )
+        if existing_redir:
+            existing_redir.target_url = raw_target
+            existing_redir.is_active = True
+        else:
+            session.add(
+                DomainRedirect(
+                    domain_id=domain.id,
+                    domain_name=domain.name,
+                    target_url=raw_target,
+                    http_status=302,
+                    is_active=True,
+                )
+            )
+        await session.commit()
+
+        # Point DNS records
         records = [
             {"type": "CNAME", "host": "@", "value": "t.me", "ttl": 300},
-            {"type": "TXT", "host": "_telegram", "value": target, "ttl": 300},
+            {"type": "TXT", "host": "_telegram", "value": raw_target, "ttl": 300},
         ]
         domain = await service.update_dns_records(domain, records)
     elif p_type == "yandex_mail":
@@ -593,6 +626,21 @@ async def apply_quick_preset(
             {"type": "MX", "host": "@", "value": "mx.yandex.net.", "ttl": 300, "priority": 10},
             {"type": "TXT", "host": "@", "value": "v=spf1 redirect=_spf.yandex.net", "ttl": 300},
             {"type": "CNAME", "host": "mail", "value": "domain.mail.yandex.net.", "ttl": 300},
+        ]
+        domain = await service.update_dns_records(domain, records)
+    elif p_type == "improvmx":
+        records = [
+            {"type": "MX", "host": "@", "value": "mx1.improvmx.com.", "ttl": 300, "priority": 10},
+            {"type": "MX", "host": "@", "value": "mx2.improvmx.com.", "ttl": 300, "priority": 20},
+            {"type": "TXT", "host": "@", "value": "v=spf1 include:spf.improvmx.com ~all", "ttl": 300},
+        ]
+        domain = await service.update_dns_records(domain, records)
+    elif p_type == "cloudflare_mail":
+        records = [
+            {"type": "MX", "host": "@", "value": "route1.mx.cloudflare.net.", "ttl": 300, "priority": 10},
+            {"type": "MX", "host": "@", "value": "route2.mx.cloudflare.net.", "ttl": 300, "priority": 20},
+            {"type": "MX", "host": "@", "value": "route3.mx.cloudflare.net.", "ttl": 300, "priority": 30},
+            {"type": "TXT", "host": "@", "value": "v=spf1 include:_spf.mx.cloudflare.net ~all", "ttl": 300},
         ]
         domain = await service.update_dns_records(domain, records)
     elif p_type == "cloudflare":
@@ -721,8 +769,9 @@ async def _to_result(
     elif isinstance(prem_raw, bool):
         is_premium = prem_raw
 
-    # Extract wholesale registration price in USD
+    # Extract wholesale registration and renewal price in USD
     cost_usd: float | None = None
+    renewal_cost_usd: float | None = None
     price_list = item.get("price_list")
     if isinstance(price_list, list) and len(price_list) > 0:
         p1 = next(
@@ -730,11 +779,17 @@ async def _to_result(
             price_list[0],
         )
         reg_p = p1.get("registration_price") or p1.get("price")
+        renew_p = p1.get("renewal_price")
         if reg_p is not None:
             try:
                 cost_usd = float(reg_p)
             except (ValueError, TypeError):
                 cost_usd = None
+        if renew_p is not None:
+            try:
+                renewal_cost_usd = float(renew_p)
+            except (ValueError, TypeError):
+                renewal_cost_usd = None
 
     if cost_usd is None:
         raw_p = item.get("price") or item.get("register_price")
@@ -745,6 +800,9 @@ async def _to_result(
 
     # Calculate resale price in RUB through PricingService
     quote = await pricing_svc.quote(tld=tld, cost_usd=cost_usd or 0.0, years=1)
+    renew_quote = await pricing_svc.quote_renewal(
+        tld=tld, cost_usd=renewal_cost_usd, years=1
+    )
 
     if available:
         price_rub = quote.price_rub
@@ -757,6 +815,9 @@ async def _to_result(
         price_rub = None
         price_usd = None
 
+    renewal_price_rub = renew_quote.price_rub if renew_quote else None
+    renewal_price_usd = renew_quote.cost_usd if renew_quote else None
+
     msg = t("search.available") if available else t("search.taken")
     if available and is_premium:
         msg = f"{t('search.available')} · {t('search.premium')}"
@@ -768,5 +829,191 @@ async def _to_result(
         is_premium=is_premium,
         price_usd=price_usd,
         price_rub=price_rub,
+        renewal_price_rub=renewal_price_rub,
+        renewal_price_usd=renewal_price_usd,
         message=msg,
     )
+
+
+# ---------------------------------------------------------------- redirects
+
+
+@router.get("/{domain_id}/redirect", response_model=DomainRedirectResponse)
+async def get_domain_redirect(
+    domain_id: str,
+    session: DbSession,
+    t: Translate,
+) -> DomainRedirectResponse:
+    """Get active redirect configuration for domain."""
+    redir = await session.scalar(
+        select(DomainRedirect).where(DomainRedirect.domain_id == domain_id)
+    )
+    if redir is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No redirect configured"
+        )
+    return DomainRedirectResponse(
+        domain_id=redir.domain_id,
+        domain_name=redir.domain_name,
+        target_url=redir.target_url,
+        http_status=redir.http_status,
+        is_active=redir.is_active,
+    )
+
+
+@router.put("/{domain_id}/redirect", response_model=DomainRedirectResponse)
+async def set_domain_redirect(
+    domain_id: str,
+    payload: DomainRedirectUpdate,
+    session: DbSession,
+    dynadot: Dynadot,
+    t: Translate,
+) -> DomainRedirectResponse:
+    """Configure or toggle HTTP 301/302 URL/Telegram redirection for domain."""
+    domain = await session.scalar(select(Domain).where(Domain.id == domain_id))
+    if domain is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+
+    target = payload.target_url.strip()
+    if not target.startswith(("http://", "https://")):
+        target = f"https://{target}"
+
+    redir = await session.scalar(
+        select(DomainRedirect).where(DomainRedirect.domain_id == domain_id)
+    )
+    if redir:
+        redir.target_url = target
+        redir.http_status = payload.http_status
+        redir.is_active = payload.is_active
+    else:
+        redir = DomainRedirect(
+            domain_id=domain.id,
+            domain_name=domain.name,
+            target_url=target,
+            http_status=payload.http_status,
+            is_active=payload.is_active,
+        )
+        session.add(redir)
+    await session.commit()
+    await session.refresh(redir)
+
+    if redir.is_active:
+        service = RegistrationService(session, dynadot, settings)
+        records = [
+            {"type": "A", "host": "@", "value": "45.192.12.105", "ttl": 300},
+            {"type": "A", "host": "www", "value": "45.192.12.105", "ttl": 300},
+            {"type": "TXT", "host": "_telegram", "value": target, "ttl": 300},
+        ]
+        try:
+            await service.update_dns_records(domain, records)
+        except Exception as exc:
+            logger.warning("failed to set redirect dns records", extra={"error": str(exc)})
+
+    return DomainRedirectResponse(
+        domain_id=redir.domain_id,
+        domain_name=redir.domain_name,
+        target_url=redir.target_url,
+        http_status=redir.http_status,
+        is_active=redir.is_active,
+    )
+
+
+@router.delete("/{domain_id}/redirect")
+async def delete_domain_redirect(
+    domain_id: str,
+    session: DbSession,
+) -> dict[str, bool]:
+    """Delete redirection for domain."""
+    redir = await session.scalar(
+        select(DomainRedirect).where(DomainRedirect.domain_id == domain_id)
+    )
+    if redir:
+        await session.delete(redir)
+        await session.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- watchlist
+
+
+@router.post("/watchlist", response_model=DomainWatchlistResponse)
+async def add_to_watchlist(
+    payload: DomainWatchlistRequest,
+    session: DbSession,
+) -> DomainWatchlistResponse:
+    """Add a taken domain to user watchlist to notify when it becomes available."""
+    clean_domain = payload.domain.strip().lower()
+    item = await session.scalar(
+        select(DomainWatchlist).where(
+            DomainWatchlist.telegram_id == payload.telegram_id,
+            DomainWatchlist.domain == clean_domain,
+        )
+    )
+    if item:
+        item.is_active = True
+    else:
+        item = DomainWatchlist(
+            telegram_id=payload.telegram_id,
+            domain=clean_domain,
+            is_active=True,
+        )
+        session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    return DomainWatchlistResponse(
+        id=item.id,
+        domain=item.domain,
+        telegram_id=item.telegram_id,
+        is_active=item.is_active,
+        created_at=item.created_at,
+    )
+
+
+@router.get("/watchlist", response_model=list[DomainWatchlistResponse])
+async def list_watchlist(
+    telegram_id: int,
+    session: DbSession,
+) -> list[DomainWatchlistResponse]:
+    """List domains monitored by user."""
+    items = list(
+        await session.scalars(
+            select(DomainWatchlist)
+            .where(
+                DomainWatchlist.telegram_id == telegram_id,
+                DomainWatchlist.is_active.is_(True),
+            )
+            .order_by(DomainWatchlist.created_at.desc())
+        )
+    )
+    return [
+        DomainWatchlistResponse(
+            id=i.id,
+            domain=i.domain,
+            telegram_id=i.telegram_id,
+            is_active=i.is_active,
+            created_at=i.created_at,
+        )
+        for i in items
+    ]
+
+
+@router.delete("/watchlist/{domain}")
+async def remove_from_watchlist(
+    domain: str,
+    telegram_id: int,
+    session: DbSession,
+) -> dict[str, bool]:
+    """Remove a domain from user watchlist."""
+    clean_domain = domain.strip().lower()
+    item = await session.scalar(
+        select(DomainWatchlist).where(
+            DomainWatchlist.telegram_id == telegram_id,
+            DomainWatchlist.domain == clean_domain,
+        )
+    )
+    if item:
+        item.is_active = False
+        await session.commit()
+    return {"ok": True}

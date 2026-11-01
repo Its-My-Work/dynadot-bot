@@ -74,5 +74,7 @@
   "status.failed": "Ошибка",
   "status.refund_required": "Требуется возврат",
   "status.refunded": "Возвращён",
-  "status.cancelled": "Отменён"
+  "status.cancelled": "Отменён",
+  "domain.expiry_warning": "⚠️ Срок регистрации домена {domain} истекает через {days} дн.! Нажмите кнопку ниже, чтобы продлить домен через СБП в 1 клик.",
+  "domain.watchlist_available": "🎉 Домен {domain} освободился и готов к регистрации! Успейте занять в 1 клик."
 }

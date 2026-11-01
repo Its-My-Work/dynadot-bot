@@ -101,6 +101,48 @@ class PricingService:
             fx_rate=fx,
         )
 
+    async def quote_renewal(
+        self, *, tld: str, cost_usd: float | None = None, years: int = 1
+    ) -> Quote:
+        """Price ``years`` of domain renewal in RUB."""
+        tld = tld.lstrip(".").lower()
+        override = await self.get_override(tld)
+        fx = float(self._settings.usd_to_rub_rate)
+
+        if cost_usd is None or cost_usd <= 0:
+            if override is not None and override.renew_cost_usd:
+                cost_usd = float(override.renew_cost_usd)
+            elif override is not None and override.register_cost_usd:
+                cost_usd = float(override.register_cost_usd)
+            else:
+                cost_usd = 12.0
+
+        if override is not None and override.fixed_price_rub is not None:
+            price = float(override.fixed_price_rub) * years
+            return Quote(
+                tld=tld,
+                cost_usd=round(cost_usd * years, 2),
+                price_rub=round(price, 2),
+                markup_percent=0.0,
+                fx_rate=fx,
+                is_fixed=True,
+            )
+
+        markup = (
+            float(override.markup_percent)
+            if override is not None and override.markup_percent is not None
+            else float(self._settings.default_markup_percent)
+        )
+        total_cost = cost_usd * years
+        price = total_cost * (1 + markup / 100) * fx
+        return Quote(
+            tld=tld,
+            cost_usd=round(total_cost, 2),
+            price_rub=round(price, 2),
+            markup_percent=markup,
+            fx_rate=fx,
+        )
+
     async def enabled_tlds(self, fallback: list[str]) -> list[str]:
         """Zones offered in the search grid.
 

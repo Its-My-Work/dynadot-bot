@@ -98,3 +98,60 @@ async def notify_order_status(
     if key is None:
         return False
     return await safe_send(bot, telegram_id, translate(key, language, domain=domain))
+
+
+async def notify_domain_expiry_warning(
+    bot: Bot,
+    telegram_id: int,
+    *,
+    language: str,
+    domain: str,
+    days_left: int,
+    web_app_url: str | None = None,
+) -> bool:
+    """Remind user that their domain registration is about to expire."""
+    text = translate("domain.expiry_warning", language, domain=domain, days=str(days_left))
+    markup = None
+    if web_app_url:
+        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+        btn_text = "🔄 Продлить через СБП" if language == "ru" else "🔄 Renew now"
+        markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=btn_text,
+                        web_app=WebAppInfo(url=web_app_url),
+                    )
+                ]
+            ]
+        )
+    return await safe_send(bot, telegram_id, text, reply_markup=markup)
+
+
+async def notify_watchlist_available(
+    bot: Bot,
+    telegram_id: int,
+    *,
+    language: str,
+    domain: str,
+    web_app_url: str | None = None,
+) -> bool:
+    """Notify user that a domain from their watchlist became available."""
+    text = translate("domain.watchlist_available", language, domain=domain)
+    markup = None
+    if web_app_url:
+        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+        btn_text = "✨ Зарегистрировать" if language == "ru" else "✨ Register now"
+        markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=btn_text,
+                        web_app=WebAppInfo(url=f"{web_app_url}?query={domain}"),
+                    )
+                ]
+            ]
+        )
+    return await safe_send(bot, telegram_id, text, reply_markup=markup)

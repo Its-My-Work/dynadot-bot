@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Enum,
@@ -102,3 +103,40 @@ class TldPricing(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<TldPricing .{self.tld} cost={self.register_cost_usd}>"
+
+
+class DomainRedirect(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """HTTP 301/302 URL/Telegram redirection for a registered domain."""
+
+    __tablename__ = "domain_redirects"
+    __table_args__ = (
+        UniqueConstraint("domain_name", name="uq_domain_redirects_name"),
+    )
+
+    domain_id: Mapped[str] = mapped_column(
+        ForeignKey("domains.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    domain_name: Mapped[str] = mapped_column(String(253), index=True, nullable=False)
+    target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    http_status: Mapped[int] = mapped_column(Integer, default=302, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<DomainRedirect {self.domain_name} -> {self.target_url}>"
+
+
+class DomainWatchlist(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Domains a customer wants to be notified about when they become available."""
+
+    __tablename__ = "domain_watchlist"
+    __table_args__ = (
+        UniqueConstraint("telegram_id", "domain", name="uq_watchlist_user_domain"),
+    )
+
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    domain: Mapped[str] = mapped_column(String(253), index=True, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<DomainWatchlist {self.domain} user={self.telegram_id}>"

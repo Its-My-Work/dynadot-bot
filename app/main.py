@@ -209,6 +209,40 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def domain_redirect_middleware(request: Request, call_next):
+        host = request.headers.get("host", "").split(":")[0].lower()
+        if not host or host in ("localhost", "127.0.0.1", "testserver", "dynadot.itsmywork.vip"):
+            return await call_next(request)
+
+        if request.url.path.startswith(("/api/", "/webhooks/")):
+            return await call_next(request)
+
+        norm_host = host.removeprefix("www.")
+        try:
+            from sqlalchemy import select
+            from starlette.responses import RedirectResponse
+            from app.db.session import get_session_factory
+            from app.models.domain import DomainRedirect
+
+            factory = get_session_factory()
+            async with factory() as session:
+                redir = await session.scalar(
+                    select(DomainRedirect).where(
+                        DomainRedirect.domain_name.in_([host, norm_host]),
+                        DomainRedirect.is_active.is_(True),
+                    )
+                )
+                if redir and redir.target_url:
+                    return RedirectResponse(
+                        url=redir.target_url,
+                        status_code=redir.http_status or 302,
+                    )
+        except Exception:
+            pass
+
+        return await call_next(request)
+
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     _register_exception_handlers(app)
     _mount_frontend(app)

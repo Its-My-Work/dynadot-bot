@@ -74,6 +74,9 @@ export default function SearchScreen({ t, onSelect }) {
   const [filterSort, setFilterSort] = useState('default'); // default, cheap, expensive, az
   const [filterTldQuery, setFilterTldQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [suggestedQuery, setSuggestedQuery] = useState(null);
+  const [watchedDomains, setWatchedDomains] = useState(new Set());
+  const [shareToast, setShareToast] = useState(false);
 
   const abortRef = useRef(null);
   const timerRef = useRef(null);
@@ -142,6 +145,11 @@ export default function SearchScreen({ t, onSelect }) {
         } else {
           setResults(newItems);
           setAlternatives(res?.alternatives ?? []);
+          if (res?.suggested_query && res.suggested_query !== clean) {
+            setSuggestedQuery(res.suggested_query);
+          } else {
+            setSuggestedQuery(null);
+          }
           lastSearchedRef.current = { query: clean, category };
           offsetRef.current = newItems.length;
         }
@@ -410,6 +418,32 @@ export default function SearchScreen({ t, onSelect }) {
     setFilterTldQuery('');
   };
 
+  const handleWatchDomain = async (domainName) => {
+    try {
+      haptic('light');
+      const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 1;
+      await api.addToWatchlist(domainName, tgId);
+      setWatchedDomains((prev) => new Set([...prev, domainName]));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleShare = () => {
+    haptic('medium');
+    const shareUrl = `https://dynadot.itsmywork.vip/?query=${encodeURIComponent(query)}`;
+    const shareText = t('search.share_text');
+    if (window.Telegram?.WebApp?.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink(
+        `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`
+      );
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+      setShareToast(true);
+      setTimeout(() => setShareToast(false), 2500);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Search Input Bar */}
@@ -444,6 +478,25 @@ export default function SearchScreen({ t, onSelect }) {
           {loading || isTyping ? <Spinner /> : <span aria-hidden="true">⌕</span>}
         </div>
       </div>
+
+      {/* Transliteration & Typo Suggestion */}
+      {suggestedQuery && (
+        <div className="flex items-center gap-1.5 text-xs text-muted -mt-2 px-1">
+          <span>{t('search.did_you_mean')}</span>
+          <button
+            type="button"
+            onClick={() => {
+              haptic('light');
+              setQuery(suggestedQuery);
+              setSuggestedQuery(null);
+              runSearch(suggestedQuery, activeCategory, false);
+            }}
+            className="font-bold text-accent hover:underline cursor-pointer"
+          >
+            {suggestedQuery}
+          </button>
+        </div>
+      )}
 
       {/* Categories Bar & Catalog Button (Single, unified category selector) */}
       <div className="flex items-center justify-between gap-2 border-b border-card-border/50 pb-2">
@@ -696,6 +749,23 @@ export default function SearchScreen({ t, onSelect }) {
         <EmptyState icon="∅" title={t('search.empty')} />
       ) : null}
 
+      {/* Search Results Summary & Share Button */}
+      {results && results.length > 0 && !loading && (
+        <div className="flex items-center justify-between px-1 text-xs">
+          <span className="text-muted font-medium">
+            {t('search.results_count', { count: available.length })}
+          </span>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="flex items-center gap-1.5 text-accent hover:underline font-bold cursor-pointer transition-transform active:scale-95"
+          >
+            <span>✈️</span>
+            <span>{shareToast ? t('search.share_copied') : t('search.share_btn')}</span>
+          </button>
+        </div>
+      )}
+
       {/* Domain Results List with subtle dimming when updating */}
       <div className={`space-y-4 transition-opacity duration-150 ${loading ? 'opacity-50' : 'opacity-100'}`}>
         {available.length > 0 ? (
@@ -716,9 +786,15 @@ export default function SearchScreen({ t, onSelect }) {
 
         {/* Taken Domains List */}
         {taken.length > 0 ? (
-          <ul className="space-y-2 opacity-55">
+          <ul className="space-y-2 opacity-80">
             {taken.map((result) => (
-              <ResultRow key={result.domain} result={result} t={t} />
+              <ResultRow
+                key={result.domain}
+                result={result}
+                t={t}
+                onWatch={() => handleWatchDomain(result.domain)}
+                isWatched={watchedDomains.has(result.domain)}
+              />
             ))}
           </ul>
         ) : null}
@@ -896,7 +972,7 @@ export default function SearchScreen({ t, onSelect }) {
   );
 }
 
-function ResultRow({ result, t, onSelect }) {
+function ResultRow({ result, t, onSelect, onWatch, isWatched }) {
   const buyable = result.available && onSelect;
   const price = formatPrice(result.price_rub, t.language);
 
@@ -944,17 +1020,43 @@ function ResultRow({ result, t, onSelect }) {
         </div>
 
         {buyable ? (
-          <button
-            type="button"
-            onClick={onSelect}
-            className="btn-primary shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm font-bold"
-            aria-label={`${result.domain} — ${price} RUB`}
-          >
-            <span aria-hidden="true">🛒</span>
-            {price} ₽
-          </button>
+          <div className="flex flex-col items-end shrink-0 gap-0.5">
+            <button
+              type="button"
+              onClick={onSelect}
+              className="btn-primary flex items-center gap-1.5 px-4 py-2 text-sm font-bold shadow-sm"
+              aria-label={`${result.domain} — ${price} RUB`}
+            >
+              <span aria-hidden="true">🛒</span>
+              {price} ₽
+            </button>
+            {result.renewal_price_rub ? (
+              <span className="text-[10px] text-muted tracking-tight">
+                {t('search.renewal_price', {
+                  price: formatPrice(result.renewal_price_rub, t.language),
+                })}
+              </span>
+            ) : null}
+          </div>
         ) : (
-          <span className="shrink-0 text-sm text-faint">—</span>
+          <div className="flex items-center gap-2 shrink-0">
+            {onWatch ? (
+              <button
+                type="button"
+                onClick={onWatch}
+                disabled={isWatched}
+                className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
+                  isWatched
+                    ? 'bg-ok/15 text-ok border-ok/30'
+                    : 'bg-canvas text-muted hover:text-ink hover:border-accent border-card-border/60'
+                }`}
+              >
+                {isWatched ? t('search.watchlist_watching') : t('search.watchlist_btn')}
+              </button>
+            ) : (
+              <span className="text-sm text-faint">—</span>
+            )}
+          </div>
         )}
       </div>
     </li>

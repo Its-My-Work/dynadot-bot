@@ -74,5 +74,7 @@
   "status.failed": "Failed",
   "status.refund_required": "Refund required",
   "status.refunded": "Refunded",
-  "status.cancelled": "Cancelled"
+  "status.cancelled": "Cancelled",
+  "domain.expiry_warning": "⚠️ Domain {domain} expires in {days} days! Tap below to renew in 1 click.",
+  "domain.watchlist_available": "🎉 Domain {domain} is now available for registration! Tap below to claim it."
 }

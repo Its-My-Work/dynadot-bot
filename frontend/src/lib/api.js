@@ -200,6 +200,26 @@ export const api = {
       method: 'PUT',
       body: { nameservers },
     }),
+  getDomainRedirect: (domainId) => request(`/domains/${domainId}/redirect`),
+  setDomainRedirect: (domainId, targetUrl, httpStatus = 302, isActive = true) =>
+    request(`/domains/${domainId}/redirect`, {
+      method: 'PUT',
+      body: { target_url: targetUrl, http_status: httpStatus, is_active: isActive },
+    }),
+  deleteDomainRedirect: (domainId) =>
+    request(`/domains/${domainId}/redirect`, { method: 'DELETE' }),
+  addToWatchlist: (domain, telegramId) =>
+    request('/domains/watchlist', {
+      method: 'POST',
+      body: { domain, telegram_id: telegramId },
+    }),
+  watchlist: (telegramId) =>
+    request('/domains/watchlist', { params: { telegram_id: telegramId } }),
+  removeFromWatchlist: (domain, telegramId) =>
+    request(`/domains/watchlist/${domain}`, {
+      method: 'DELETE',
+      params: { telegram_id: telegramId },
+    }),
 
   // --- contacts -----------------------------------------------------------
   contacts: (telegramId) => request('/contacts', { params: { telegram_id: telegramId } }),

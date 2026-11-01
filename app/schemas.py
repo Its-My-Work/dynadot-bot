@@ -137,6 +137,8 @@ class DomainSearchResult(BaseModel):
     is_premium: bool = False
     price_rub: float | None = None
     price_usd: float | None = None
+    renewal_price_rub: float | None = None
+    renewal_price_usd: float | None = None
     message: str | None = None
 
 
@@ -147,6 +149,8 @@ class DomainSearchResponse(BaseModel):
     ai_suggestions: list[DomainSearchResult] = Field(default_factory=list)
     has_more: bool = False
     total_available_zones: int = 0
+    suggested_query: str | None = None
+    original_query: str | None = None
 
 
 class AiSuggestRequest(BaseModel):
@@ -169,6 +173,34 @@ class CatalogTldItem(BaseModel):
     price_rub: float
     category: str
     is_featured: bool = False
+    renewal_price_rub: float | None = None
+
+
+class DomainRedirectResponse(BaseModel):
+    domain_id: str
+    domain_name: str
+    target_url: str
+    http_status: int = 302
+    is_active: bool = True
+
+
+class DomainRedirectUpdate(BaseModel):
+    target_url: str
+    http_status: int = 302
+    is_active: bool = True
+
+
+class DomainWatchlistRequest(BaseModel):
+    domain: str
+    telegram_id: int
+
+
+class DomainWatchlistResponse(BaseModel):
+    id: str
+    domain: str
+    telegram_id: int
+    is_active: bool
+    created_at: datetime
 
 
 # ---------------------------------------------------------------- domains

@@ -692,3 +692,74 @@ def test_admin_test_connection_endpoint(client):
     assert data["provider"] == "telegram"
     assert "ok" in data
     assert "message" in data
+
+
+def test_domain_watchlist_crud_api(client):
+    tg_id = 999888777
+    # 1. Add domain to watchlist
+    res_add = client.post(
+        "/api/v1/domains/watchlist",
+        json={"domain": "wantedbrand.com", "telegram_id": tg_id},
+    )
+    assert res_add.status_code == 200
+    data = res_add.json()
+    assert data["domain"] == "wantedbrand.com"
+    assert data["telegram_id"] == tg_id
+    assert data["is_active"] is True
+
+    # 2. List user watchlist
+    res_list = client.get(f"/api/v1/domains/watchlist?telegram_id={tg_id}")
+    assert res_list.status_code == 200
+    items = res_list.json()
+    assert len(items) == 1
+    assert items[0]["domain"] == "wantedbrand.com"
+
+    # 3. Delete from watchlist
+    res_del = client.delete(f"/api/v1/domains/watchlist/wantedbrand.com?telegram_id={tg_id}")
+    assert res_del.status_code == 200
+    assert res_del.json()["ok"] is True
+
+    # 4. Verify removed from active
+    res_list2 = client.get(f"/api/v1/domains/watchlist?telegram_id={tg_id}")
+    assert res_list2.status_code == 200
+    assert len(res_list2.json()) == 0
+
+
+def test_domain_redirect_api(client):
+    async def seed():
+        async with _session_factory()() as session:
+            domain = Domain(name="redirtest.com", tld="com", status=DomainStatus.ACTIVE)
+            session.add(domain)
+            await session.commit()
+            return domain.id
+
+    dom_id = run(seed())
+
+    # Set redirect
+    res_set = client.put(
+        f"/api/v1/domains/{dom_id}/redirect",
+        json={"target_url": "t.me/mychannel", "http_status": 302, "is_active": True},
+    )
+    assert res_set.status_code == 200
+    data = res_set.json()
+    assert data["target_url"] == "https://t.me/mychannel"
+    assert data["is_active"] is True
+
+    # Get redirect
+    res_get = client.get(f"/api/v1/domains/{dom_id}/redirect")
+    assert res_get.status_code == 200
+    assert res_get.json()["target_url"] == "https://t.me/mychannel"
+
+    # Delete redirect
+    res_del = client.delete(f"/api/v1/domains/{dom_id}/redirect")
+    assert res_del.status_code == 200
+    assert res_del.json()["ok"] is True
+
+
+def test_search_transliteration_and_typo_normalizer(client):
+    # Russian word input automatically normalizes
+    res = client.post("/api/v1/domains/search", json={"query": "кофешоп"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["query"] == "kofeshop"
+

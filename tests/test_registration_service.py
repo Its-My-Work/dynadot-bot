@@ -95,6 +95,31 @@ class FakeDynadot:
         self.ns_calls.append((domain, nameservers))
         return {"success": True}
 
+    async def search(self, domain: str, *, show_price: bool = True) -> dict[str, Any]:
+        return {
+            "search_result": [
+                {
+                    "domain": domain,
+                    "available": "yes" if self.available else "no",
+                    "price": 10.0,
+                    "price_list": [{"unit": "1 year", "registration_price": "10.00", "renewal_price": "12.00"}],
+                }
+            ]
+        }
+
+    async def bulk_search(self, domains: list[str]) -> dict[str, Any]:
+        return {
+            "search_result": [
+                {
+                    "domain": d,
+                    "available": "yes" if self.available else "no",
+                    "price": 10.0,
+                    "price_list": [{"unit": "1 year", "registration_price": "10.00", "renewal_price": "12.00"}],
+                }
+                for d in domains
+            ]
+        }
+
 
 @pytest_asyncio.fixture
 async def session_factory():

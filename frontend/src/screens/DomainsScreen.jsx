@@ -242,6 +242,8 @@ function DomainManager({ t, domain, telegramId, initialTab = 'presets', onClose,
       if (type === 'vps') onShowToast('✓ Домен привязан к вашему VPS!');
       else if (type === 'telegram') onShowToast('✓ Редирект в Telegram настроен!');
       else if (type === 'yandex_mail') onShowToast('✓ Настройки Яндекс 360 применены!');
+      else if (type === 'improvmx') onShowToast('✓ Пересылка на Gmail (ImprovMX) настроена!');
+      else if (type === 'cloudflare_mail') onShowToast('✓ Cloudflare Email Routing настроен!');
       else if (type === 'cloudflare') {
         onShowToast('✓ Домен делегирован на Cloudflare!');
         onSaved(updated);
@@ -411,6 +413,40 @@ function DomainManager({ t, domain, telegramId, initialTab = 'presets', onClose,
                   className="btn-ghost border border-card-border hover:border-accent px-3 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
                 >
                   {t('domains.preset_mail_btn')}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-card-border/70 bg-card/70 p-2.5">
+                <div>
+                  <p className="text-xs font-bold text-ink flex items-center gap-1.5">
+                    <span>📬</span> {t('domains.preset_improvmx_title')}
+                  </p>
+                  <p className="text-[11px] text-muted">{t('domains.preset_improvmx_desc')}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => handleApplyPreset('improvmx')}
+                  className="btn-ghost border border-card-border hover:border-accent px-3 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
+                >
+                  {t('domains.preset_improvmx_btn')}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-card-border/70 bg-card/70 p-2.5">
+                <div>
+                  <p className="text-xs font-bold text-ink flex items-center gap-1.5">
+                    <span>🛡️</span> {t('domains.preset_cf_mail_title')}
+                  </p>
+                  <p className="text-[11px] text-muted">{t('domains.preset_cf_mail_desc')}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => handleApplyPreset('cloudflare_mail')}
+                  className="btn-ghost border border-card-border hover:border-accent px-3 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
+                >
+                  {t('domains.preset_cf_mail_btn')}
                 </button>
               </div>
 
