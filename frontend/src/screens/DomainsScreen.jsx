@@ -754,22 +754,22 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
         </div>
       </div>
 
-      {/* Mobile Action Sheet (Modal Bottom Drawer) */}
+      {/* Mobile Action Sheet (Modal Bottom Drawer on mobile, centered modal on desktop) */}
       {actionsOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center p-0 sm:p-4">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
             onClick={() => setActionsOpen(false)}
           />
 
-          {/* Slide-up Sheet */}
+          {/* Slide-up Sheet on Mobile, Centered Modal on Desktop */}
           <div
             ref={actionsRef}
-            className="relative z-50 w-full max-w-lg mx-auto rounded-t-2xl border-t border-card-border/80 bg-card p-4 shadow-2xl space-y-3 text-xs animate-in slide-in-from-bottom duration-200"
+            className="relative z-50 w-full sm:max-w-md mx-auto rounded-t-2xl sm:rounded-2xl border border-card-border/80 bg-card p-5 shadow-2xl space-y-3.5 text-xs animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
           >
-            {/* Grab handle */}
-            <div className="mx-auto h-1 w-10 rounded-full bg-line/80 mb-1" />
+            {/* Grab handle (visible on mobile only) */}
+            <div className="mx-auto h-1 w-10 rounded-full bg-line/80 mb-1 sm:hidden" />
 
             <div className="flex items-center justify-between pb-2 border-b border-card-border/50">
               <div className="flex items-center gap-2">
