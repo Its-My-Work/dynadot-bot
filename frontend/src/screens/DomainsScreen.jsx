@@ -60,7 +60,7 @@ export default function DomainsScreen({ t, telegramId }) {
                   <span>{domain.name}</span>
                 </h3>
                 <p className="text-xs text-muted mt-0.5">
-                  {t('domains.expires')}: {formatDate(domain.expires_at)}
+                  {t('domains.expires', { date: formatDate(domain.expires_at) })}
                 </p>
               </div>
               <StatusBadge status={domain.status} />
@@ -659,7 +659,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                   }}
                   className="badge border border-accent/40 bg-card text-accent font-semibold px-2.5 py-1.5 text-xs cursor-pointer hover:bg-accent/10"
                 >
-                  + {t('domains.dns_add')}
+                  {t('domains.dns_add')}
                 </button>
 
                 <button
