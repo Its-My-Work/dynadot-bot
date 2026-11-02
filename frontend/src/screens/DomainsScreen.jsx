@@ -766,7 +766,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
           {/* Slide-up Sheet on Mobile, Centered Modal on Desktop */}
           <div
             ref={actionsRef}
-            className="relative z-50 w-full sm:max-w-md mx-auto rounded-t-2xl sm:rounded-2xl border border-card-border/80 bg-card p-5 shadow-2xl space-y-3.5 text-xs animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
+            className="relative z-50 w-full sm:max-w-md mx-auto my-auto rounded-t-2xl sm:rounded-2xl border border-card-border/80 bg-card p-5 shadow-2xl space-y-3.5 text-xs animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
           >
             {/* Grab handle (visible on mobile only) */}
             <div className="mx-auto h-1 w-10 rounded-full bg-line/80 mb-1 sm:hidden" />
