@@ -384,7 +384,7 @@ export default function DomainsScreen({ t, telegramId }) {
             <li key={domain.id} className="card p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-mono text-base font-bold text-ink flex items-center gap-1.5">
+                  <h3 className="font-mono text-base font-semibold text-ink flex items-center gap-1.5">
                     <span>🌐</span>
                     <span>{domain.name}</span>
                   </h3>
@@ -392,7 +392,6 @@ export default function DomainsScreen({ t, telegramId }) {
                     <p className="text-xs text-muted">
                       {t('domains.expires', { date: formatDate(domain.expires_at) })}
                     </p>
-                    {domain.uptime_status ? null : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -408,7 +407,7 @@ export default function DomainsScreen({ t, telegramId }) {
                   </a>
                   <StatusBadge
                     status={domain.uptime_status === 'up' ? 'up' : domain.status}
-                    label={domain.uptime_status === 'up' ? 'Онлайн' : (domain.status === 'active' ? 'Доступен' : domain.status)}
+                    label={domain.uptime_status === 'up' ? 'Онлайн' : (domain.status === 'active' ? 'Активен' : domain.status)}
                   />
                 </div>
               </div>
