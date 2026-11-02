@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../lib/api';
 import { formatDate } from '../lib/i18n';
 import { haptic } from '../lib/telegram';
-import StatusBadge from '../components/StatusBadge';
 import { EmptyState, ErrorNote, SkeletonList, Spinner, Toast } from '../components/ui';
 
 export function parseNameservers(text) {
@@ -405,10 +404,10 @@ export default function DomainsScreen({ t, telegramId }) {
                     <span>🌐</span>
                     <span className="text-[10px]">↗</span>
                   </a>
-                  <StatusBadge
-                    status={domain.uptime_status === 'up' ? 'up' : domain.status}
-                    label={domain.uptime_status === 'up' ? 'Онлайн' : (domain.status === 'active' ? 'Активен' : domain.status)}
-                  />
+                  <span className="badge bg-card text-ink border border-card-border/80 px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                    <span>{domain.uptime_status === 'up' ? '🟢' : '⚪'}</span>
+                    <span>{domain.uptime_status === 'up' ? 'Активен · Онлайн' : 'Активен'}</span>
+                  </span>
                 </div>
               </div>
 
