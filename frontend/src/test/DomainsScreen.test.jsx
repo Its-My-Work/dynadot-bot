@@ -98,7 +98,8 @@ describe('DomainsScreen', () => {
     const user = userEvent.setup();
 
     render(<DomainsScreen t={t} telegramId={1} />);
-    await user.click(await screen.findByRole('button', { name: 'Edit NS' }));
+    await user.click(await screen.findByRole('button', { name: /Manage/i }));
+    await user.click(screen.getByRole('button', { name: /Nameservers/i }));
 
     const textarea = screen.getByLabelText('Nameservers');
     await user.clear(textarea);
@@ -122,7 +123,8 @@ describe('DomainsScreen', () => {
     const user = userEvent.setup();
 
     render(<DomainsScreen t={t} telegramId={1} />);
-    await user.click(await screen.findByRole('button', { name: 'Edit NS' }));
+    await user.click(await screen.findByRole('button', { name: /Manage/i }));
+    await user.click(screen.getByRole('button', { name: /Nameservers/i }));
     await user.clear(screen.getByLabelText('Nameservers'));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -141,7 +143,8 @@ describe('DomainsScreen', () => {
     const user = userEvent.setup();
 
     render(<DomainsScreen t={t} telegramId={1} />);
-    await user.click(await screen.findByRole('button', { name: 'Edit NS' }));
+    await user.click(await screen.findByRole('button', { name: /Manage/i }));
+    await user.click(screen.getByRole('button', { name: /Nameservers/i }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -156,10 +159,11 @@ describe('DomainsScreen', () => {
     const user = userEvent.setup();
 
     render(<DomainsScreen t={t} telegramId={1} />);
-    await user.click(await screen.findByRole('button', { name: 'Edit NS' }));
+    await user.click(await screen.findByRole('button', { name: /Manage/i }));
+    await user.click(screen.getByRole('button', { name: /Nameservers/i }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.queryByLabelText('Nameservers')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit NS' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Manage/i })).toBeInTheDocument();
   });
 });

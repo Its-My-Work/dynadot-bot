@@ -223,6 +223,7 @@ class DomainRead(ORMModel):
     is_locked: bool = True
     privacy_enabled: bool = True
     nameservers: str | None = None
+    dns_records: str | None = None
 
 
 class DnsRecordItem(BaseModel):

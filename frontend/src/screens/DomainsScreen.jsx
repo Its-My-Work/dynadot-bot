@@ -16,6 +16,39 @@ export function parseNameservers(text) {
     .filter(Boolean);
 }
 
+export function getDomainRouting(domain) {
+  const isCloudflare = Boolean(
+    domain.nameservers && domain.nameservers.toLowerCase().includes('cloudflare'),
+  );
+
+  let targetIp = null;
+  let targetRedirect = null;
+
+  if (domain.dns_records) {
+    try {
+      const records = JSON.parse(domain.dns_records);
+      if (Array.isArray(records)) {
+        const aRec = records.find((r) => r.type === 'A' && (r.host === '@' || !r.host));
+        if (aRec?.value) {
+          targetIp = aRec.value;
+        }
+        const tgRec = records.find(
+          (r) =>
+            (r.type === 'TXT' || r.type === 'CNAME') &&
+            (r.value?.includes('t.me') || r.value?.startsWith('@')),
+        );
+        if (tgRec?.value) {
+          targetRedirect = tgRec.value;
+        }
+      }
+    } catch {
+      // Ignored: non-JSON data
+    }
+  }
+
+  return { targetIp, targetRedirect, isCloudflare };
+}
+
 export default function DomainsScreen({ t, telegramId }) {
   const [domains, setDomains] = useState(null);
   const [error, setError] = useState(null);
@@ -51,79 +84,144 @@ export default function DomainsScreen({ t, telegramId }) {
   return (
     <>
       <ul className="space-y-3">
-        {domains.map((domain) => (
-          <li key={domain.id} className="card p-4 space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-mono text-base font-bold text-ink flex items-center gap-1.5">
-                  <span>🌐</span>
-                  <span>{domain.name}</span>
-                </h3>
-                <p className="text-xs text-muted mt-0.5">
-                  {t('domains.expires', { date: formatDate(domain.expires_at) })}
-                </p>
-              </div>
-              <StatusBadge status={domain.status} />
-            </div>
+        {domains.map((domain) => {
+          const routing = getDomainRouting(domain);
+          const isManaging = managingDomain?.id === domain.id;
 
-            {domain.nameservers ? (
-              <div className="rounded-lg bg-surface/70 border border-card-border/50 px-3 py-2 text-xs">
-                <span className="text-muted block text-[11px] mb-0.5">{t('domains.ns')}:</span>
-                <span className="font-mono text-ink text-[11px] break-all">{domain.nameservers}</span>
-              </div>
-            ) : null}
-
-            <div className="pt-1">
-              {managingDomain?.id === domain.id ? (
-                <DomainManager
-                  t={t}
-                  domain={domain}
-                  telegramId={telegramId}
-                  initialTab={initialTab}
-                  onClose={() => setManagingDomain(null)}
-                  onSaved={(updated) => {
-                    setDomains((prev) =>
-                      prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
-                    );
-                    setToast({ message: t('domains.ns_saved'), tone: 'ok' });
-                    haptic('success');
-                  }}
-                  onShowToast={(msg) => {
-                    setToast({ message: msg, tone: 'ok' });
-                    haptic('success');
-                  }}
-                />
-              ) : (
-                <div className="flex items-center gap-2 mt-3">
-                  <button
-                    type="button"
-                    className="btn-accent flex-1 py-2 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                    onClick={() => {
-                      haptic('light');
-                      setInitialTab('dns');
-                      setManagingDomain(domain);
-                    }}
-                  >
-                    <span>⚙️</span>
-                    <span>{t('domains.manage')}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn-ghost px-3 py-2 text-xs font-medium border border-card-border hover:border-accent cursor-pointer"
-                    onClick={() => {
-                      haptic('light');
-                      setInitialTab('ns');
-                      setManagingDomain(domain);
-                    }}
-                  >
-                    {t('domains.ns_edit')}
-                  </button>
+          return (
+            <li key={domain.id} className="card p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-mono text-base font-bold text-ink flex items-center gap-1.5">
+                      <span>🌐</span>
+                      <span>{domain.name}</span>
+                    </h3>
+                    <a
+                      href={`https://${domain.name}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted hover:text-accent text-xs transition-colors"
+                      title="Открыть сайт"
+                    >
+                      ↗
+                    </a>
+                  </div>
+                  <p className="text-xs text-muted mt-0.5">
+                    {t('domains.expires', { date: formatDate(domain.expires_at) })}
+                  </p>
                 </div>
-              )}
-            </div>
-          </li>
-        ))}
+                <StatusBadge status={domain.status} />
+              </div>
+
+              {/* Active Routing & Options Summary Box */}
+              <div className="rounded-xl bg-surface/70 border border-card-border/60 p-3 space-y-2 text-xs">
+                {/* Routing destination */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted text-[11px]">Направление:</span>
+                  {routing.targetRedirect ? (
+                    <span className="font-mono font-semibold text-accent flex items-center gap-1 text-xs">
+                      <span>✈️</span>
+                      <span>{routing.targetRedirect}</span>
+                    </span>
+                  ) : routing.targetIp ? (
+                    <span className="font-mono font-semibold text-emerald-400 flex items-center gap-1 text-xs">
+                      <span>📍</span>
+                      <span>{routing.targetIp}</span>
+                    </span>
+                  ) : routing.isCloudflare ? (
+                    <span className="font-semibold text-cyan-400 flex items-center gap-1 text-xs">
+                      <span>☁️</span>
+                      <span>Cloudflare DNS</span>
+                    </span>
+                  ) : (
+                    <span className="text-muted text-[11px] font-mono truncate max-w-[200px]">
+                      {domain.nameservers || 'Dynadot DNS'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Status Badges: Privacy, Lock, Auto-renew */}
+                <div className="flex items-center gap-1.5 pt-1.5 border-t border-card-border/40 overflow-x-auto text-[11px]">
+                  <span
+                    className={`badge px-2 py-0.5 text-[10px] font-semibold ${
+                      domain.privacy_enabled
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-card text-muted border border-card-border/50'
+                    }`}
+                  >
+                    🛡 Privacy: {domain.privacy_enabled ? 'Вкл' : 'Выкл'}
+                  </span>
+
+                  <span
+                    className={`badge px-2 py-0.5 text-[10px] font-semibold ${
+                      domain.is_locked
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-card text-muted border border-card-border/50'
+                    }`}
+                  >
+                    🔒 Lock: {domain.is_locked ? 'Вкл' : 'Выкл'}
+                  </span>
+
+                  {domain.auto_renew ? (
+                    <span className="badge px-2 py-0.5 text-[10px] font-semibold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                      🔄 Автопродление
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Action Buttons: Single "Управление" button + "Сайт ↗" */}
+              <div className="pt-1">
+                {isManaging ? (
+                  <DomainManager
+                    t={t}
+                    domain={domain}
+                    telegramId={telegramId}
+                    initialTab={initialTab}
+                    onClose={() => setManagingDomain(null)}
+                    onSaved={(updated) => {
+                      setDomains((prev) =>
+                        prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
+                      );
+                      setToast({ message: t('domains.ns_saved'), tone: 'ok' });
+                      haptic('success');
+                    }}
+                    onShowToast={(msg) => {
+                      setToast({ message: msg, tone: 'ok' });
+                      haptic('success');
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      type="button"
+                      className="btn-accent flex-1 py-2 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      onClick={() => {
+                        haptic('light');
+                        setInitialTab('dns');
+                        setManagingDomain(domain);
+                      }}
+                    >
+                      <span>⚙️</span>
+                      <span>{t('domains.manage')}</span>
+                    </button>
+
+                    <a
+                      href={`https://${domain.name}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-ghost px-3 py-2 text-xs font-medium border border-card-border hover:border-accent cursor-pointer flex items-center gap-1 text-muted hover:text-ink transition-colors"
+                    >
+                      <span>Сайт</span>
+                      <span>↗</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
       {toast ? <Toast message={toast.message} tone={toast.tone} /> : null}
     </>
