@@ -255,6 +255,10 @@ class DomainLockPayload(BaseModel):
     locked: bool
 
 
+class DomainAutoRenewPayload(BaseModel):
+    auto_renew: bool
+
+
 class DomainRenewPayload(BaseModel):
     years: int = Field(default=1, ge=1, le=10)
 

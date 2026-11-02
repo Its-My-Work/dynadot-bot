@@ -190,6 +190,11 @@ export const api = {
       method: 'PUT',
       body: { locked },
     }),
+  toggleAutoRenew: (domainId, auto_renew) =>
+    request(`/domains/${domainId}/auto-renew`, {
+      method: 'PUT',
+      body: { auto_renew },
+    }),
   renewDomain: (domainId, telegramId, years = 1) =>
     request(`/domains/${domainId}/renew`, {
       method: 'POST',

@@ -35,6 +35,7 @@ from app.schemas import (
     DnsRecordsPayload,
     DomainDetailsResponse,
     DomainLockPayload,
+    DomainAutoRenewPayload,
     DomainPrivacyPayload,
     DomainQuickPresetPayload,
     DomainRead,
@@ -1030,6 +1031,24 @@ async def toggle_lock(
         )
     service = RegistrationService(session, dynadot, settings)
     await service.update_lock(domain, payload.locked)
+    return await get_domain_details(domain.id, session, t)
+
+
+@router.put("/{domain_id}/auto-renew", response_model=DomainDetailsResponse)
+async def toggle_auto_renew(
+    domain_id: str,
+    payload: DomainAutoRenewPayload,
+    session: DbSession,
+    dynadot: Dynadot,
+    t: Translate,
+) -> DomainDetailsResponse:
+    domain = await session.scalar(select(Domain).where(Domain.id == domain_id))
+    if domain is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+    service = RegistrationService(session, dynadot, settings)
+    await service.update_auto_renew(domain, payload.auto_renew)
     return await get_domain_details(domain.id, session, t)
 
 

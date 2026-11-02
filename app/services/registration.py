@@ -419,6 +419,12 @@ class RegistrationService:
         await self._session.refresh(domain)
         return domain
 
+    async def update_auto_renew(self, domain: Domain, enabled: bool) -> Domain:
+        domain.auto_renew = enabled
+        await self._session.commit()
+        await self._session.refresh(domain)
+        return domain
+
 
 # ------------------------------------------------------------------ parsing
 #

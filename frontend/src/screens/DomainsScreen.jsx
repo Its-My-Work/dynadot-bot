@@ -335,6 +335,94 @@ export default function DomainsScreen({ t, telegramId }) {
   const [managingDomain, setManagingDomain] = useState(null);
   const [initialTab, setInitialTab] = useState('dns');
   const [toast, setToast] = useState(null);
+  const [togglingMap, setTogglingMap] = useState({});
+  const [activeTooltip, setActiveTooltip] = useState(null);
+
+  // Close tooltip on outside click
+  useEffect(() => {
+    if (!activeTooltip) return;
+    const handler = () => setActiveTooltip(null);
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  }, [activeTooltip]);
+
+  const handleToggleDomainPrivacy = async (domain) => {
+    const key = `${domain.id}_privacy`;
+    if (togglingMap[key]) return;
+    setTogglingMap((p) => ({ ...p, [key]: true }));
+    const nextVal = !domain.privacy_enabled;
+    try {
+      await api.togglePrivacy(domain.id, nextVal);
+      setDomains((prev) =>
+        prev.map((d) => (d.id === domain.id ? { ...d, privacy_enabled: nextVal } : d)),
+      );
+      if (managingDomain?.id === domain.id) {
+        setManagingDomain((prev) => ({ ...prev, privacy_enabled: nextVal }));
+      }
+      setToast({
+        message: nextVal ? '✓ WHOIS Privacy включен' : '✓ WHOIS Privacy выключен',
+        tone: 'ok',
+      });
+      haptic('light');
+    } catch (err) {
+      setToast({ message: err.message || 'Ошибка изменения Privacy', tone: 'danger' });
+      haptic('warning');
+    } finally {
+      setTogglingMap((p) => ({ ...p, [key]: false }));
+    }
+  };
+
+  const handleToggleDomainLock = async (domain) => {
+    const key = `${domain.id}_lock`;
+    if (togglingMap[key]) return;
+    setTogglingMap((p) => ({ ...p, [key]: true }));
+    const nextVal = !domain.is_locked;
+    try {
+      await api.toggleLock(domain.id, nextVal);
+      setDomains((prev) =>
+        prev.map((d) => (d.id === domain.id ? { ...d, is_locked: nextVal } : d)),
+      );
+      if (managingDomain?.id === domain.id) {
+        setManagingDomain((prev) => ({ ...prev, is_locked: nextVal }));
+      }
+      setToast({
+        message: nextVal ? '✓ Защита от трансфера включена' : '✓ Защита от трансфера выключена',
+        tone: 'ok',
+      });
+      haptic('light');
+    } catch (err) {
+      setToast({ message: err.message || 'Ошибка изменения Lock', tone: 'danger' });
+      haptic('warning');
+    } finally {
+      setTogglingMap((p) => ({ ...p, [key]: false }));
+    }
+  };
+
+  const handleToggleDomainAutoRenew = async (domain) => {
+    const key = `${domain.id}_autorenew`;
+    if (togglingMap[key]) return;
+    setTogglingMap((p) => ({ ...p, [key]: true }));
+    const nextVal = !domain.auto_renew;
+    try {
+      await api.toggleAutoRenew(domain.id, nextVal);
+      setDomains((prev) =>
+        prev.map((d) => (d.id === domain.id ? { ...d, auto_renew: nextVal } : d)),
+      );
+      if (managingDomain?.id === domain.id) {
+        setManagingDomain((prev) => ({ ...prev, auto_renew: nextVal }));
+      }
+      setToast({
+        message: nextVal ? '✓ Автопродление включено' : '✓ Автопродление выключено',
+        tone: 'ok',
+      });
+      haptic('light');
+    } catch (err) {
+      setToast({ message: err.message || 'Ошибка изменения автопродления', tone: 'danger' });
+      haptic('warning');
+    } finally {
+      setTogglingMap((p) => ({ ...p, [key]: false }));
+    }
+  };
 
   const load = useCallback(async () => {
     setError(null);
@@ -377,7 +465,6 @@ export default function DomainsScreen({ t, telegramId }) {
       <ul className="space-y-3">
         {domains.map((domain) => {
           const routing = getDomainRouting(domain);
-          const isManaging = managingDomain?.id === domain.id;
 
           return (
             <li key={domain.id} className="card p-4 space-y-3">
@@ -438,78 +525,187 @@ export default function DomainsScreen({ t, telegramId }) {
                   )}
                 </div>
 
-                {/* Status Badges: Privacy, Lock, Auto-renew */}
-                <div className="flex items-center gap-1.5 pt-1.5 border-t border-line overflow-x-auto text-[11px]">
-                  <span
-                    className={`badge px-2 py-0.5 text-[10px] font-normal ${
-                      domain.privacy_enabled
-                        ? 'bg-surface text-ink border border-line'
-                        : 'bg-surface text-muted border border-line opacity-60'
-                    }`}
-                  >
-                    🛡 Privacy: <span className="font-medium text-ink">{domain.privacy_enabled ? 'Вкл' : 'Выкл'}</span>
-                  </span>
+                {/* Interactive Toggles with Tooltips: Privacy, Lock, Auto-renew */}
+                <div className="flex items-center gap-2 pt-2 border-t border-line overflow-x-visible text-[11px]">
+                  {/* Privacy Toggle */}
+                  <div className="relative inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleDomainPrivacy(domain)}
+                      disabled={togglingMap[`${domain.id}_privacy`]}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+                        domain.privacy_enabled
+                          ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
+                          : 'bg-surface border-line text-muted hover:text-ink'
+                      }`}
+                      title="Нажмите для переключения Privacy"
+                    >
+                      <span>🛡</span>
+                      <span>Privacy:</span>
+                      <span className={domain.privacy_enabled ? 'font-semibold text-accent' : 'font-medium text-muted'}>
+                        {togglingMap[`${domain.id}_privacy`] ? '...' : domain.privacy_enabled ? 'Вкл' : 'Выкл'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveTooltip(activeTooltip === `privacy_${domain.id}` ? null : `privacy_${domain.id}`);
+                      }}
+                      className="ml-1 text-muted hover:text-accent cursor-pointer text-xs p-0.5 rounded transition-colors"
+                      title="Подробнее о Privacy"
+                    >
+                      ⓘ
+                    </button>
+                    {activeTooltip === `privacy_${domain.id}` && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute bottom-full left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
+                      >
+                        <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
+                          <span>🛡 WHOIS Privacy</span>
+                          <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
+                        </div>
+                        <p className="text-muted leading-tight text-[10px]">
+                          Скрывает паспортные данные, телефон и email владельца из общедоступной базы WHOIS.
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-                  <span
-                    className={`badge px-2 py-0.5 text-[10px] font-normal ${
-                      domain.is_locked
-                        ? 'bg-surface text-ink border border-line'
-                        : 'bg-surface text-muted border border-line opacity-60'
-                    }`}
-                  >
-                    🔒 Lock: <span className="font-medium text-ink">{domain.is_locked ? 'Вкл' : 'Выкл'}</span>
-                  </span>
+                  {/* Lock Toggle */}
+                  <div className="relative inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleDomainLock(domain)}
+                      disabled={togglingMap[`${domain.id}_lock`]}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+                        domain.is_locked
+                          ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
+                          : 'bg-surface border-line text-muted hover:text-ink'
+                      }`}
+                      title="Нажмите для переключения Transfer Lock"
+                    >
+                      <span>🔒</span>
+                      <span>Lock:</span>
+                      <span className={domain.is_locked ? 'font-semibold text-accent' : 'font-medium text-muted'}>
+                        {togglingMap[`${domain.id}_lock`] ? '...' : domain.is_locked ? 'Вкл' : 'Выкл'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveTooltip(activeTooltip === `lock_${domain.id}` ? null : `lock_${domain.id}`);
+                      }}
+                      className="ml-1 text-muted hover:text-accent cursor-pointer text-xs p-0.5 rounded transition-colors"
+                      title="Подробнее о Lock"
+                    >
+                      ⓘ
+                    </button>
+                    {activeTooltip === `lock_${domain.id}` && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute bottom-full left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
+                      >
+                        <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
+                          <span>🔒 Transfer Lock</span>
+                          <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
+                        </div>
+                        <p className="text-muted leading-tight text-[10px]">
+                          Блокирует перенос (трансфер) домена к другому регистратору без вашего ведома.
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-                  {domain.auto_renew ? (
-                    <span className="badge px-2 py-0.5 text-[10px] font-normal bg-surface text-ink border border-line">
-                      🔄 Автопродление
-                    </span>
-                  ) : null}
+                  {/* Auto-renew Toggle */}
+                  <div className="relative inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleDomainAutoRenew(domain)}
+                      disabled={togglingMap[`${domain.id}_autorenew`]}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+                        domain.auto_renew
+                          ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
+                          : 'bg-surface border-line text-muted hover:text-ink'
+                      }`}
+                      title="Нажмите для переключения автопродления"
+                    >
+                      <span>🔄</span>
+                      <span>Продление:</span>
+                      <span className={domain.auto_renew ? 'font-semibold text-accent' : 'font-medium text-muted'}>
+                        {togglingMap[`${domain.id}_autorenew`] ? '...' : domain.auto_renew ? 'Вкл' : 'Выкл'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveTooltip(activeTooltip === `autorenew_${domain.id}` ? null : `autorenew_${domain.id}`);
+                      }}
+                      className="ml-1 text-muted hover:text-accent cursor-pointer text-xs p-0.5 rounded transition-colors"
+                      title="Подробнее об автопродлении"
+                    >
+                      ⓘ
+                    </button>
+                    {activeTooltip === `autorenew_${domain.id}` && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute bottom-full right-0 sm:left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
+                      >
+                        <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
+                          <span>🔄 Автопродление</span>
+                          <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
+                        </div>
+                        <p className="text-muted leading-tight text-[10px]">
+                          Автоматически продлевает домен за 30 дней до окончания срока при наличии баланса.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Action Buttons: Single "Управление" button + "Сайт ↗" */}
+              {/* Action Button: Open Slide-over Drawer for DNS/NS/Presets */}
               <div className="pt-1">
-                {isManaging ? (
-                  <DomainManager
-                    t={t}
-                    domain={domain}
-                    telegramId={telegramId}
-                    initialTab={initialTab}
-                    onClose={() => setManagingDomain(null)}
-                    onSaved={(updated) => {
-                      setDomains((prev) =>
-                        prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
-                      );
-                      setToast({ message: t('domains.ns_saved'), tone: 'ok' });
-                      haptic('success');
-                    }}
-                    onShowToast={(msg) => {
-                      setToast({ message: msg, tone: 'ok' });
-                      haptic('success');
-                    }}
-                  />
-                ) : (
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      className="btn-accent w-full py-2 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                      onClick={() => {
-                        haptic('light');
-                        setInitialTab('dns');
-                        setManagingDomain(domain);
-                      }}
-                    >
-                      <span>⚙️</span>
-                      <span>{t('domains.manage')}</span>
-                    </button>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  className="btn-accent w-full py-2 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  onClick={() => {
+                    haptic('light');
+                    setInitialTab('dns');
+                    setManagingDomain(domain);
+                  }}
+                >
+                  <span>⚙️</span>
+                  <span>{t('domains.manage')} (DNS, NS, Пресеты)</span>
+                </button>
               </div>
             </li>
           );
         })}
       </ul>
+      {managingDomain && (
+        <DomainManager
+          t={t}
+          domain={managingDomain}
+          telegramId={telegramId}
+          initialTab={initialTab}
+          onClose={() => setManagingDomain(null)}
+          onSaved={(updated) => {
+            setDomains((prev) =>
+              prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
+            );
+            setToast({ message: t('domains.ns_saved'), tone: 'ok' });
+            haptic('success');
+          }}
+          onShowToast={(msg) => {
+            setToast({ message: msg, tone: 'ok' });
+            haptic('success');
+          }}
+        />
+      )}
       {toast ? <Toast message={toast.message} tone={toast.tone} /> : null}
     </>
   );
@@ -723,37 +919,43 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
   };
 
   return (
-    <div className="mt-3 rounded-xl border border-accent/30 bg-surface/80 p-3.5 space-y-3.5 shadow-sm">
-      {/* Top Header: Domain title + Action Sheet dropdown button + Close */}
-      <div className="flex items-center justify-between border-b border-card-border/60 pb-2.5">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-xs text-ink">{domain.name}</span>
-          <span className="badge text-[10px] bg-teal-500/15 text-teal-700 dark:text-teal-300 font-semibold px-1.5 py-0.5">
-            {domain.status}
-          </span>
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+      <div className="relative z-10 w-full sm:max-w-xl h-full max-h-screen bg-surface border-l border-line shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+        {/* Top Header: Domain title + Action Sheet dropdown button + Close */}
+        <div className="flex items-center justify-between p-4 border-b border-line bg-surface/95 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-mono font-medium text-sm text-ink">{domain.name}</span>
+            <span className="badge text-[10px] bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-1.5 py-0.5">
+              {domain.uptime_status === 'up' ? '🟢 Онлайн' : 'Активен'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Quick Actions Dropdown Button */}
+            <button
+              type="button"
+              onClick={() => setActionsOpen(true)}
+              className="badge border border-accent/40 bg-accent/10 text-accent font-medium px-2.5 py-1 text-xs cursor-pointer hover:bg-accent/20 flex items-center gap-1.5 transition-colors"
+            >
+              <span>⚡ Действия</span>
+              <span className="text-[10px]">▾</span>
+            </button>
+
+            {/* Close Manager */}
+            <button
+              type="button"
+              className="text-sm text-muted hover:text-ink cursor-pointer p-1.5 rounded-lg hover:bg-surface transition-colors"
+              onClick={onClose}
+              aria-label="Закрыть"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Quick Actions Dropdown Button */}
-          <button
-            type="button"
-            onClick={() => setActionsOpen(true)}
-            className="badge border border-accent/40 bg-accent/10 text-accent font-semibold px-2.5 py-1 text-xs cursor-pointer hover:bg-accent/20 flex items-center gap-1.5 transition-colors"
-          >
-            <span>⚡ Действия</span>
-            <span className="text-[10px]">▾</span>
-          </button>
-
-          {/* Close Manager */}
-          <button
-            type="button"
-            className="text-xs text-muted hover:text-ink cursor-pointer p-1"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </div>
-      </div>
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
       {/* Mobile Action Sheet (Modal Bottom Drawer on mobile, centered modal on desktop) */}
       {actionsOpen && (
@@ -1248,7 +1450,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
           )}
 
           {/* Bottom dismiss button */}
-          <div className="flex justify-end pt-2 border-t border-card-border/40">
+          <div className="flex justify-end pt-2 border-t border-line">
             <button
               type="button"
               className="text-xs text-muted hover:text-ink cursor-pointer"
@@ -1269,6 +1471,8 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
         onCancel={() => setPendingPreset(null)}
         saving={saving}
       />
+        </div>
+      </div>
     </div>
   );
 }
