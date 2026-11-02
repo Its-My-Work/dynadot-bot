@@ -384,7 +384,7 @@ export default function DomainsScreen({ t, telegramId }) {
                     {domain.uptime_status ? (
                       <span className={`badge px-1.5 py-0.2 text-[10px] font-semibold flex items-center gap-1 ${
                         domain.uptime_status === 'up'
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                          ? 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/25'
                           : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
                       }`}>
                         <span>{domain.uptime_status === 'up' ? '🟢 Онлайн' : '🔴 Сбой'}</span>
@@ -421,12 +421,12 @@ export default function DomainsScreen({ t, telegramId }) {
                       <span>{routing.targetRedirect}</span>
                     </span>
                   ) : routing.targetIp ? (
-                    <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 text-xs">
+                    <span className="font-mono font-semibold text-teal-700 dark:text-teal-300 flex items-center gap-1 text-xs">
                       <span>📍</span>
                       <span>{routing.targetIp}</span>
                     </span>
                   ) : routing.isCloudflare ? (
-                    <span className="font-semibold text-cyan-600 dark:text-cyan-400 flex items-center gap-1 text-xs">
+                    <span className="font-semibold text-sky-700 dark:text-sky-300 flex items-center gap-1 text-xs">
                       <span>☁️</span>
                       <span>Cloudflare DNS</span>
                     </span>
@@ -437,12 +437,12 @@ export default function DomainsScreen({ t, telegramId }) {
                   )}
                 </div>
 
-                {/* Status Badges: Privacy, Lock, Auto-renew */}
+                  {/* Status Badges: Privacy, Lock, Auto-renew */}
                 <div className="flex items-center gap-1.5 pt-1.5 border-t border-card-border/40 overflow-x-auto text-[11px]">
                   <span
                     className={`badge px-2 py-0.5 text-[10px] font-semibold ${
                       domain.privacy_enabled
-                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                        ? 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/25'
                         : 'bg-card text-muted border border-card-border/50'
                     }`}
                   >
@@ -452,7 +452,7 @@ export default function DomainsScreen({ t, telegramId }) {
                   <span
                     className={`badge px-2 py-0.5 text-[10px] font-semibold ${
                       domain.is_locked
-                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                        ? 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/25'
                         : 'bg-card text-muted border border-card-border/50'
                     }`}
                   >
@@ -460,7 +460,7 @@ export default function DomainsScreen({ t, telegramId }) {
                   </span>
 
                   {domain.auto_renew ? (
-                    <span className="badge px-2 py-0.5 text-[10px] font-semibold bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30">
+                    <span className="badge px-2 py-0.5 text-[10px] font-semibold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25">
                       🔄 Автопродление
                     </span>
                   ) : null}
