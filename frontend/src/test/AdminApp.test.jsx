@@ -68,12 +68,15 @@ describe('overview', () => {
     });
   });
 
-  it('renders a skeleton until stats arrive', () => {
+  it('renders a skeleton until stats arrive', async () => {
     api.adminStats.mockReturnValue(new Promise(() => {}));
 
     render(<AdminApp />);
 
     expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+    });
   });
 
   it('survives a stats failure without blanking the panel', async () => {

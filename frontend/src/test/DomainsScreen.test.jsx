@@ -49,12 +49,15 @@ describe('parseNameservers', () => {
 });
 
 describe('DomainsScreen', () => {
-  it('shows a skeleton before the list arrives', () => {
+  it('shows a skeleton before the list arrives', async () => {
     vi.spyOn(api, 'myDomains').mockReturnValue(new Promise(() => {}));
 
     render(<DomainsScreen t={t} telegramId={1} />);
 
     expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+    });
   });
 
   it('renders the empty state for a new customer', async () => {
