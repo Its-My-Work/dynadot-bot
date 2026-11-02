@@ -182,17 +182,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await worker.start()
         app.state.registration_worker = worker
 
-        # Start periodic uptime and expiry check loop (every 30 mins)
+        # Start periodic uptime and expiry check loop with dynamic interval from settings
         async def _uptime_loop():
+            await asyncio.sleep(60)  # initial delay
             while True:
-                await asyncio.sleep(60)  # initial delay
                 try:
                     await check_domain_uptime_and_expiry(
                         get_session_factory(), app.state.bot
                     )
                 except Exception:
                     logger.exception("uptime/expiry check loop failed")
-                await asyncio.sleep(1800)
+
+                interval = float(settings.uptime_check_interval_seconds or 1800)
+                await asyncio.sleep(max(60.0, interval))
 
         app.state.uptime_task = asyncio.create_task(_uptime_loop())
 

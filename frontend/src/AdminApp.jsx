@@ -2051,6 +2051,7 @@ function Settings({ language }) {
 
   // Worker
   const [workerEnabled, setWorkerEnabled] = useState(true);
+  const [uptimeInterval, setUptimeInterval] = useState('1800');
 
   const t = makeTranslator(language);
   const isRu = language === 'ru';
@@ -2075,6 +2076,7 @@ function Settings({ language }) {
         setOmnirouteUrl(cfg.omniroute_base_url || 'http://main_omniroute:20128/v1');
         setOmnirouteModel(cfg.omniroute_model || 'fast');
         setWorkerEnabled(Boolean(cfg.registration_worker_enabled));
+        setUptimeInterval(String(cfg.uptime_check_interval_seconds ?? 1800));
       })
       .catch(() => setError('Could not load system settings.'))
       .finally(() => setLoading(false));
@@ -2102,6 +2104,7 @@ function Settings({ language }) {
       omniroute_base_url: omnirouteUrl.trim() || undefined,
       omniroute_model: omnirouteModel.trim() || undefined,
       registration_worker_enabled: workerEnabled,
+      uptime_check_interval_seconds: Number(uptimeInterval) || 1800,
     };
 
     if (dynadotKey.trim()) payload.dynadot_api_key = dynadotKey.trim();
@@ -2510,7 +2513,7 @@ function Settings({ language }) {
         </div>
 
         {/* 7. Worker & System */}
-        <div className="card space-y-3 p-5">
+        <div className="card space-y-3.5 p-5">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
             {t('admin.settings.worker')}
           </h3>
@@ -2526,6 +2529,23 @@ function Settings({ language }) {
               {t('admin.settings.worker_enable')}
             </span>
           </label>
+
+          <div className="space-y-1 pt-2 border-t border-card-border/50">
+            <label className="text-xs font-medium text-ink block">
+              {isRu ? 'Интервал проверки Uptime (сек):' : 'Uptime Check Interval (sec):'}
+            </label>
+            <input
+              type="number"
+              value={uptimeInterval}
+              onChange={(e) => setUptimeInterval(e.target.value)}
+              className="input text-xs w-full py-1.5 px-3 font-mono"
+              min="60"
+              max="86400"
+            />
+            <p className="text-[11px] text-muted">
+              {isRu ? 'Рекомендуется: 1800 сек (30 минут).' : 'Recommended: 1800 sec (30 mins).'}
+            </p>
+          </div>
         </div>
 
         {/* System info */}

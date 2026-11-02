@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     # over tasks and waste Dynadot's single request slot.
     registration_worker_enabled: bool = False
     registration_worker_interval: float = 5.0
+    uptime_check_interval_seconds: int = 1800
     registration_max_attempts: int = 4
 
     # --- Payments (Platega / RU gateways) ---------------------------------

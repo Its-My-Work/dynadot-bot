@@ -683,6 +683,12 @@ async def get_admin_settings(session: DbSession) -> AdminSettingsRead:
             "registration_worker_enabled", str(settings.registration_worker_enabled)
         ).lower()
         in ("true", "1", "yes"),
+        uptime_check_interval_seconds=int(
+            db_map.get(
+                "uptime_check_interval_seconds",
+                str(settings.uptime_check_interval_seconds),
+            )
+        ),
         environment=settings.environment,
         app_version="0.1.0",
         omniroute_base_url=str(
@@ -821,7 +827,7 @@ async def update_admin_settings(
         await _upsert("vps_reality_sni", val, "VLESS Reality SNI Masquerade")
         settings.vps_reality_sni = val
 
-    # Worker
+    # Worker & Automation
     if payload.registration_worker_enabled is not None:
         await _upsert(
             "registration_worker_enabled",
@@ -829,6 +835,14 @@ async def update_admin_settings(
             "Registration worker enabled",
         )
         settings.registration_worker_enabled = payload.registration_worker_enabled
+
+    if payload.uptime_check_interval_seconds is not None:
+        await _upsert(
+            "uptime_check_interval_seconds",
+            str(payload.uptime_check_interval_seconds),
+            "Uptime check interval in seconds",
+        )
+        settings.uptime_check_interval_seconds = payload.uptime_check_interval_seconds
 
     await session.commit()
 

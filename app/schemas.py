@@ -567,6 +567,8 @@ class AdminSettingsRead(BaseModel):
 
     # Automation & System
     registration_worker_enabled: bool
+    registration_worker_interval: float = 5.0
+    uptime_check_interval_seconds: int = 1800
     environment: str
     app_version: str = "0.1.0"
 
@@ -612,6 +614,7 @@ class AdminSettingsUpdate(BaseModel):
 
     # Automation
     registration_worker_enabled: bool | None = None
+    uptime_check_interval_seconds: int | None = None
 
 
 class ConnectionTestResponse(BaseModel):
