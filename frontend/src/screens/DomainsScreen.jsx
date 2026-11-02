@@ -373,26 +373,30 @@ export default function DomainsScreen({ t, telegramId }) {
             <li key={domain.id} className="card p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-mono text-base font-bold text-ink flex items-center gap-1.5">
-                      <span>🌐</span>
-                      <span>{domain.name}</span>
-                    </h3>
-                    <a
-                      href={`https://${domain.name}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted hover:text-accent text-xs transition-colors"
-                      title="Открыть сайт"
-                    >
-                      ↗
-                    </a>
-                  </div>
+                  <h3 className="font-mono text-base font-bold text-ink flex items-center gap-1.5">
+                    <span>🌐</span>
+                    <span>{domain.name}</span>
+                  </h3>
                   <p className="text-xs text-muted mt-0.5">
                     {t('domains.expires', { date: formatDate(domain.expires_at) })}
                   </p>
                 </div>
-                <StatusBadge status={domain.status} />
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://${domain.name}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="badge bg-accent/15 text-accent hover:bg-accent/25 px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1 shadow-xs"
+                    title="Открыть сайт"
+                  >
+                    <span>Сайт</span>
+                    <span>↗</span>
+                  </a>
+                  <StatusBadge
+                    status={domain.status}
+                    label={domain.status === 'active' ? 'Доступен' : domain.status}
+                  />
+                </div>
               </div>
 
               {/* Active Routing & Options Summary Box */}
@@ -474,10 +478,10 @@ export default function DomainsScreen({ t, telegramId }) {
                     }}
                   />
                 ) : (
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="mt-2">
                     <button
                       type="button"
-                      className="btn-accent flex-1 py-2 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      className="btn-accent w-full py-2 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                       onClick={() => {
                         haptic('light');
                         setInitialTab('dns');
@@ -487,16 +491,6 @@ export default function DomainsScreen({ t, telegramId }) {
                       <span>⚙️</span>
                       <span>{t('domains.manage')}</span>
                     </button>
-
-                    <a
-                      href={`https://${domain.name}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-ghost px-3 py-2 text-xs font-medium border border-card-border hover:border-accent cursor-pointer flex items-center gap-1 text-muted hover:text-ink transition-colors"
-                    >
-                      <span>Сайт</span>
-                      <span>↗</span>
-                    </a>
                   </div>
                 )}
               </div>
