@@ -135,19 +135,19 @@ export default function ProfileScreen({ t, telegramId }) {
               {isAdmin ? '👑' : '👤'}
             </div>
             <div>
-              <p className="font-bold text-sm text-ink flex items-center gap-2">
+              <p className="font-semibold text-sm text-ink flex items-center gap-2">
                 <span>{user?.email || (user?.username ? `@${user.username}` : t('profile.title'))}</span>
                 {isAdmin ? (
-                  <span className="badge text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold px-2 py-0.5">
+                  <span className="badge text-[10px] bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/30 font-medium px-2 py-0.5">
                     Администратор
                   </span>
                 ) : user?.has_password ? (
-                  <span className="badge text-[10px] bg-teal-500/15 text-teal-700 dark:text-teal-300 font-semibold px-2 py-0.5">
+                  <span className="badge text-[10px] bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-2 py-0.5">
                     ✓ Активен
                   </span>
                 ) : null}
               </p>
-              <p className="text-xs text-muted font-medium mt-0.5">
+              <p className="text-xs text-muted font-normal mt-0.5">
                 {user?.email ? 'Основной аккаунт' : `Сессия: ID ${telegramId}`}
               </p>
             </div>
@@ -155,7 +155,7 @@ export default function ProfileScreen({ t, telegramId }) {
           <button
             type="button"
             onClick={() => setAuthModalOpen(true)}
-            className="badge border border-accent/40 bg-accent/10 text-accent font-semibold px-3 py-1.5 text-xs cursor-pointer hover:bg-accent/20 transition-colors"
+            className="badge border border-accent/40 bg-accent/10 text-accent font-medium px-3 py-1.5 text-xs cursor-pointer hover:bg-accent/20 transition-colors"
           >
             Войти / Сменить
           </button>
@@ -164,23 +164,23 @@ export default function ProfileScreen({ t, telegramId }) {
         {/* Bindings list */}
         <div className="space-y-2.5 text-xs">
           {/* Email binding */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-surface/70 border border-card-border/40">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-surface/70 border border-line">
             <div className="flex items-center gap-2.5">
               <span className="text-base">✉️</span>
               <div>
-                <div className="font-semibold text-ink">Email</div>
+                <div className="font-medium text-ink">Email</div>
                 <div className="text-muted text-[11px]">{user?.email || 'Не привязан'}</div>
               </div>
             </div>
             {user?.email ? (
-              <span className="badge bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30 font-semibold px-2 py-0.5 text-[11px]">
+              <span className="badge bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-2 py-0.5 text-[11px]">
                 ✓ Привязан
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => setIsLinkingEmail(!isLinkingEmail)}
-                className="badge border border-accent/40 bg-accent/15 text-accent font-semibold px-2.5 py-1 text-[11px] cursor-pointer hover:bg-accent/25 transition-colors"
+                className="badge border border-accent/40 bg-accent/15 text-accent font-medium px-2.5 py-1 text-[11px] cursor-pointer hover:bg-accent/25 transition-colors"
               >
                 + Привязать Email
               </button>
@@ -229,18 +229,18 @@ export default function ProfileScreen({ t, telegramId }) {
           )}
 
           {/* Telegram binding */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-surface/70 border border-card-border/40">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-surface/70 border border-line">
             <div className="flex items-center gap-2.5">
               <span className="text-base">✈️</span>
               <div>
-                <div className="font-semibold text-ink">Telegram</div>
+                <div className="font-medium text-ink">Telegram</div>
                 <div className="text-muted text-[11px]">
                   {user?.telegram_username ? `@${user.telegram_username}` : isRealTelegram ? 'Подключен через бота' : 'Не привязан'}
                 </div>
               </div>
             </div>
             {isRealTelegram || user?.telegram_username ? (
-              <span className="badge bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30 font-semibold px-2 py-0.5 text-[11px]">
+              <span className="badge bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-2 py-0.5 text-[11px]">
                 ✓ Привязан
               </span>
             ) : (
@@ -248,7 +248,7 @@ export default function ProfileScreen({ t, telegramId }) {
                 type="button"
                 onClick={handleGenerateTelegramLink}
                 disabled={generatingTgLink}
-                className="badge border border-accent/40 bg-accent/15 text-accent font-semibold px-2.5 py-1 text-[11px] cursor-pointer hover:bg-accent/25 transition-colors"
+                className="badge border border-accent/40 bg-accent/15 text-accent font-medium px-2.5 py-1 text-[11px] cursor-pointer hover:bg-accent/25 transition-colors"
               >
                 {generatingTgLink ? 'Секунду...' : '🔗 Привязать Telegram'}
               </button>
@@ -257,11 +257,11 @@ export default function ProfileScreen({ t, telegramId }) {
         </div>
 
         {/* Footer actions (Admin portal link + Logout) */}
-        <div className="pt-2 flex items-center justify-between border-t border-card-border/40">
+        <div className="pt-2 flex items-center justify-between border-t border-line">
           {isAdmin ? (
             <a
               href="/admin.html"
-              className="text-xs font-semibold text-amber-300 hover:text-amber-200 flex items-center gap-1 transition-colors"
+              className="text-xs font-medium text-amber-800 dark:text-amber-300 hover:underline flex items-center gap-1 transition-colors"
             >
               <span>⚙️</span>
               <span>Панель управления (Админка) →</span>
@@ -298,8 +298,8 @@ export default function ProfileScreen({ t, telegramId }) {
       {/* Profile Form (Edit Mode) */}
       {editing ? (
         <div className="card p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-card-border/60 pb-2">
-            <h3 className="text-sm font-bold text-ink">
+          <div className="flex items-center justify-between border-b border-line pb-2">
+            <h3 className="text-sm font-semibold text-ink">
               {defaultContact ? t('profile.edit_title') : t('profile.create_title')}
             </h3>
             <button
@@ -322,8 +322,8 @@ export default function ProfileScreen({ t, telegramId }) {
       ) : (
         /* Profile Details (View Mode) */
         <div className="card p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-card-border/60 pb-3">
-            <h3 className="text-sm font-bold text-ink flex items-center gap-2">
+          <div className="flex items-center justify-between border-b border-line pb-3">
+            <h3 className="text-sm font-semibold text-ink flex items-center gap-2">
               <span>📋</span>
               <span>{t('profile.owner_data')}</span>
             </h3>
@@ -333,7 +333,7 @@ export default function ProfileScreen({ t, telegramId }) {
                 haptic('light');
                 setEditing(true);
               }}
-              className="badge border border-accent/40 bg-card text-accent font-semibold px-2.5 py-1 text-xs cursor-pointer hover:bg-accent/10"
+              className="badge border border-accent/40 bg-surface text-accent font-medium px-2.5 py-1 text-xs cursor-pointer hover:bg-accent/10"
             >
               {defaultContact ? t('profile.edit_btn') : t('profile.create_btn')}
             </button>
@@ -341,26 +341,26 @@ export default function ProfileScreen({ t, telegramId }) {
 
           {defaultContact ? (
             <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between items-center py-1.5 border-b border-card-border/30">
+              <div className="flex justify-between items-center py-1.5 border-b border-line">
                 <span className="text-muted">{t('contact.first_name')} / {t('contact.last_name')}:</span>
-                <span className="font-semibold text-ink">
+                <span className="font-medium text-ink">
                   {defaultContact.first_name} {defaultContact.last_name}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center py-1.5 border-b border-card-border/30">
+              <div className="flex justify-between items-center py-1.5 border-b border-line">
                 <span className="text-muted">{t('contact.email')}:</span>
                 <span className="font-mono text-ink">{defaultContact.email}</span>
               </div>
 
-              <div className="flex justify-between items-center py-1.5 border-b border-card-border/30">
+              <div className="flex justify-between items-center py-1.5 border-b border-line">
                 <span className="text-muted">{t('contact.phone')}:</span>
                 <span className="font-mono text-ink">
                   +{defaultContact.phone_country_code} {defaultContact.phone_number}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center py-1.5 border-b border-card-border/30">
+              <div className="flex justify-between items-center py-1.5 border-b border-line">
                 <span className="text-muted">{t('contact.address')}:</span>
                 <span className="text-ink text-right">
                   {defaultContact.address_line1}, {defaultContact.city}, {defaultContact.country_code?.toUpperCase()}
@@ -373,7 +373,7 @@ export default function ProfileScreen({ t, telegramId }) {
               </div>
             </div>
           ) : (
-            <div className="py-6 px-4 text-center space-y-3 rounded-xl bg-surface/50 border border-dashed border-card-border/60">
+            <div className="py-6 px-4 text-center space-y-3 rounded-xl bg-surface/50 border border-dashed border-line">
               <div className="text-2xl">📇</div>
               <p className="text-xs text-muted max-w-sm mx-auto leading-relaxed">
                 {t('profile.no_contact_yet')}
@@ -384,7 +384,7 @@ export default function ProfileScreen({ t, telegramId }) {
                   haptic('light');
                   setEditing(true);
                 }}
-                className="btn-accent px-4 py-2 text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
+                className="btn-accent px-4 py-2 text-xs font-medium cursor-pointer shadow-sm"
               >
                 + {t('profile.create_btn')}
               </button>

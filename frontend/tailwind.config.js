@@ -12,6 +12,8 @@ export default {
       colors: {
         bg: 'rgb(var(--c-bg) / <alpha-value>)',
         surface: 'rgb(var(--c-surface) / <alpha-value>)',
+        card: 'rgb(var(--c-surface) / <alpha-value>)',
+        'card-border': 'rgb(var(--c-line) / <alpha-value>)',
         elevated: 'rgb(var(--c-elevated) / <alpha-value>)',
         line: 'rgb(var(--c-line) / <alpha-value>)',
         ink: 'rgb(var(--c-ink) / <alpha-value>)',
@@ -40,6 +42,7 @@ export default {
         '2xl': '1.125rem',
       },
       boxShadow: {
+        xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
         card: '0 1px 2px rgb(0 0 0 / 0.24), 0 0 0 1px rgb(var(--c-line) / 0.8)',
         pop: '0 12px 32px -8px rgb(0 0 0 / 0.45)',
       },

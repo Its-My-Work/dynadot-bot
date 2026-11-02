@@ -364,12 +364,12 @@ export default function DomainsScreen({ t, telegramId }) {
   return (
     <>
       {/* Domains Summary Header Banner */}
-      <div className="card p-4 bg-gradient-to-r from-accent/10 via-card to-card border border-accent/20 flex items-center justify-between mb-4">
+      <div className="card p-3.5 bg-gradient-to-r from-accent/10 via-surface to-surface border border-accent/20 flex items-center justify-between mb-4">
         <div className="space-y-0.5">
-          <div className="text-[11px] font-semibold text-accent uppercase tracking-wider">Ваши домены</div>
-          <div className="text-base font-bold text-ink">{domains.length} {domains.length === 1 ? 'активный домен' : 'активных доменов'}</div>
+          <div className="text-[11px] font-medium text-accent uppercase tracking-wider">Ваши домены</div>
+          <div className="text-sm font-semibold text-ink">{domains.length} {domains.length === 1 ? 'активный домен' : 'активных доменов'}</div>
         </div>
-        <div className="h-10 w-10 rounded-2xl bg-accent/20 border border-accent/30 flex items-center justify-center text-accent text-lg shadow-inner">
+        <div className="h-9 w-9 rounded-xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent text-base">
           🌐
         </div>
       </div>
@@ -383,7 +383,7 @@ export default function DomainsScreen({ t, telegramId }) {
             <li key={domain.id} className="card p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-mono text-base font-semibold text-ink flex items-center gap-1.5">
+                  <h3 className="font-mono text-[15px] font-medium tracking-tight text-ink flex items-center gap-1.5">
                     <span>🌐</span>
                     <span>{domain.name}</span>
                   </h3>
@@ -398,13 +398,13 @@ export default function DomainsScreen({ t, telegramId }) {
                     href={`https://${domain.name}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="badge bg-accent/15 text-accent hover:bg-accent/25 px-2 py-1 text-xs font-medium transition-colors flex items-center gap-0.5 shadow-xs"
+                    className="badge bg-accent/10 text-accent hover:bg-accent/20 px-2 py-1 text-xs font-medium transition-colors flex items-center gap-0.5"
                     title="Открыть сайт"
                   >
                     <span>🌐</span>
                     <span className="text-[10px]">↗</span>
                   </a>
-                  <span className="badge bg-card text-ink border border-card-border/80 px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                  <span className="badge bg-surface text-ink border border-line px-2 py-0.5 text-[11px] font-medium flex items-center gap-1.5 shadow-xs">
                     <span>{domain.uptime_status === 'up' ? '🟢' : '⚪'}</span>
                     <span>{domain.uptime_status === 'up' ? 'Активен · Онлайн' : 'Активен'}</span>
                   </span>
@@ -412,22 +412,22 @@ export default function DomainsScreen({ t, telegramId }) {
               </div>
 
               {/* Active Routing & Options Summary Box */}
-              <div className="rounded-xl bg-surface/70 border border-card-border/60 p-3 space-y-2 text-xs">
+              <div className="rounded-xl bg-surface/70 border border-line p-3 space-y-2 text-xs">
                 {/* Routing destination */}
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted text-[11px]">Куда ведет:</span>
                   {routing.targetRedirect ? (
-                    <span className="font-mono font-semibold text-accent flex items-center gap-1 text-xs">
+                    <span className="font-mono font-normal text-accent flex items-center gap-1 text-xs">
                       <span>✈️</span>
                       <span>{routing.targetRedirect}</span>
                     </span>
                   ) : routing.targetIp ? (
-                    <span className="font-mono font-semibold text-ink flex items-center gap-1 text-xs">
+                    <span className="font-mono font-normal text-ink flex items-center gap-1 text-xs">
                       <span>📍</span>
                       <span>{routing.targetIp}</span>
                     </span>
                   ) : routing.isCloudflare ? (
-                    <span className="font-semibold text-ink flex items-center gap-1 text-xs">
+                    <span className="font-medium text-ink flex items-center gap-1 text-xs">
                       <span>☁️</span>
                       <span>Cloudflare DNS</span>
                     </span>
@@ -438,30 +438,30 @@ export default function DomainsScreen({ t, telegramId }) {
                   )}
                 </div>
 
-                  {/* Status Badges: Privacy, Lock, Auto-renew */}
-                <div className="flex items-center gap-1.5 pt-1.5 border-t border-card-border/40 overflow-x-auto text-[11px]">
+                {/* Status Badges: Privacy, Lock, Auto-renew */}
+                <div className="flex items-center gap-1.5 pt-1.5 border-t border-line overflow-x-auto text-[11px]">
                   <span
-                    className={`badge px-2 py-0.5 text-[10px] font-semibold ${
+                    className={`badge px-2 py-0.5 text-[10px] font-normal ${
                       domain.privacy_enabled
-                        ? 'bg-card text-ink border border-card-border/80'
-                        : 'bg-card text-muted border border-card-border/50'
+                        ? 'bg-surface text-ink border border-line'
+                        : 'bg-surface text-muted border border-line opacity-60'
                     }`}
                   >
-                    🛡 Privacy: {domain.privacy_enabled ? 'Вкл' : 'Выкл'}
+                    🛡 Privacy: <span className="font-medium text-ink">{domain.privacy_enabled ? 'Вкл' : 'Выкл'}</span>
                   </span>
 
                   <span
-                    className={`badge px-2 py-0.5 text-[10px] font-semibold ${
+                    className={`badge px-2 py-0.5 text-[10px] font-normal ${
                       domain.is_locked
-                        ? 'bg-card text-ink border border-card-border/80'
-                        : 'bg-card text-muted border border-card-border/50'
+                        ? 'bg-surface text-ink border border-line'
+                        : 'bg-surface text-muted border border-line opacity-60'
                     }`}
                   >
-                    🔒 Lock: {domain.is_locked ? 'Вкл' : 'Выкл'}
+                    🔒 Lock: <span className="font-medium text-ink">{domain.is_locked ? 'Вкл' : 'Выкл'}</span>
                   </span>
 
                   {domain.auto_renew ? (
-                    <span className="badge px-2 py-0.5 text-[10px] font-semibold bg-card text-ink border border-card-border/80">
+                    <span className="badge px-2 py-0.5 text-[10px] font-normal bg-surface text-ink border border-line">
                       🔄 Автопродление
                     </span>
                   ) : null}
@@ -493,7 +493,7 @@ export default function DomainsScreen({ t, telegramId }) {
                   <div className="mt-2">
                     <button
                       type="button"
-                      className="btn-accent w-full py-2 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      className="btn-accent w-full py-2 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                       onClick={() => {
                         haptic('light');
                         setInitialTab('dns');

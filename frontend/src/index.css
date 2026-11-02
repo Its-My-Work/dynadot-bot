@@ -69,14 +69,14 @@
 
 /* Nordic Mist — clean Scandinavian arctic porcelain with royal cobalt blue. */
 :root[data-theme='nordic-mist'] {
-  --c-bg: 247 248 250;
+  --c-bg: 241 245 249;
   --c-surface: 255 255 255;
-  --c-elevated: 238 241 245;
-  --c-line: 216 221 229;
-  --c-ink: 23 28 38;
-  --c-muted: 91 101 119;
-  --c-faint: 136 146 164;
-  --c-accent: 47 111 237;
+  --c-elevated: 233 238 245;
+  --c-line: 212 220 230;
+  --c-ink: 15 23 42;
+  --c-muted: 71 85 105;
+  --c-faint: 148 163 184;
+  --c-accent: 37 99 235;
   --c-accent-ink: 255 255 255;
   --c-ok: 37 99 235;
   --c-warn: 181 125 10;
@@ -85,30 +85,30 @@
 
 /* Emerald Spring — fresh sage-mint light porcelain with deep vivid emerald. */
 :root[data-theme='emerald-spring'] {
-  --c-bg: 244 249 246;
+  --c-bg: 239 246 242;
   --c-surface: 255 255 255;
-  --c-elevated: 234 243 238;
-  --c-line: 209 228 218;
-  --c-ink: 18 36 28;
-  --c-muted: 74 105 90;
-  --c-faint: 120 152 136;
-  --c-accent: 4 120 87;
+  --c-elevated: 228 238 232;
+  --c-line: 198 216 206;
+  --c-ink: 15 35 24;
+  --c-muted: 55 85 68;
+  --c-faint: 120 150 135;
+  --c-accent: 5 150 105;
   --c-accent-ink: 255 255 255;
-  --c-ok: 4 120 87;
+  --c-ok: 5 150 105;
   --c-warn: 217 119 6;
   --c-danger: 220 38 38;
 }
 
 /* Solar Amber — warm sun-drenched ivory with radiant golden amber. */
 :root[data-theme='solar-amber'] {
-  --c-bg: 254 250 245;
+  --c-bg: 248 244 236;
   --c-surface: 255 255 255;
-  --c-elevated: 251 242 231;
-  --c-line: 240 224 205;
-  --c-ink: 43 27 16;
-  --c-muted: 115 85 60;
-  --c-faint: 179 146 120;
-  --c-accent: 194 65 12;
+  --c-elevated: 240 233 222;
+  --c-line: 224 210 192;
+  --c-ink: 42 26 14;
+  --c-muted: 105 76 50;
+  --c-faint: 165 135 110;
+  --c-accent: 217 119 6;
   --c-accent-ink: 255 255 255;
   --c-ok: 217 119 6;
   --c-warn: 217 119 6;
@@ -119,14 +119,14 @@
  * compatibility: `applyTheme()` used to set `data-theme="light"` and older
  * cached bundles may still do so. */
 :root[data-theme='light'] {
-  --c-bg: 250 250 251;
+  --c-bg: 241 245 249;
   --c-surface: 255 255 255;
-  --c-elevated: 244 244 246;
-  --c-line: 226 226 232;
-  --c-ink: 18 18 22;
-  --c-muted: 98 98 110;
-  --c-faint: 142 142 154;
-  --c-accent: 44 92 240;
+  --c-elevated: 233 238 245;
+  --c-line: 212 220 230;
+  --c-ink: 15 23 42;
+  --c-muted: 71 85 105;
+  --c-faint: 148 163 184;
+  --c-accent: 37 99 235;
   --c-accent-ink: 255 255 255;
   --c-ok: 37 99 235;
   --c-warn: 181 125 10;
@@ -164,7 +164,7 @@
 
 @layer components {
   .card {
-    @apply rounded-xl border border-line bg-surface;
+    @apply rounded-xl border border-line bg-surface shadow-xs;
   }
 
   .btn {
