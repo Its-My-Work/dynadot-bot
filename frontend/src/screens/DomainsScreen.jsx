@@ -1,7 +1,7 @@
-/** "My domains" + full domain management: DNS editor, 1-click presets,
- * nameservers, WHOIS privacy, transfer lock, and renewal.
+/** "My domains" + mobile-first domain management: DNS editor, 1-click presets dropdown,
+ * nameservers, Action Sheet for WHOIS privacy, transfer lock, EPP code, and renewal.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import api from '../lib/api';
 import { formatDate } from '../lib/i18n';
@@ -20,7 +20,7 @@ export default function DomainsScreen({ t, telegramId }) {
   const [domains, setDomains] = useState(null);
   const [error, setError] = useState(null);
   const [managingDomain, setManagingDomain] = useState(null);
-  const [initialTab, setInitialTab] = useState('presets');
+  const [initialTab, setInitialTab] = useState('dns');
   const [toast, setToast] = useState(null);
 
   const load = useCallback(async () => {
@@ -54,37 +54,26 @@ export default function DomainsScreen({ t, telegramId }) {
         {domains.map((domain) => (
           <li key={domain.id} className="card p-4 space-y-3">
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="truncate font-bold text-base text-ink">{domain.name}</p>
-                  <span className="badge text-[10px] px-1.5 py-0.5 border border-accent/30 text-accent font-semibold">
-                    .{domain.tld}
-                  </span>
-                </div>
+              <div>
+                <h3 className="font-mono text-base font-bold text-ink flex items-center gap-1.5">
+                  <span>🌐</span>
+                  <span>{domain.name}</span>
+                </h3>
                 <p className="text-xs text-muted mt-0.5">
-                  {t('domains.expires', {
-                    date: formatDate(domain.expires_at, t.language),
-                  })}
+                  {t('domains.expires')}: {formatDate(domain.expires_at)}
                 </p>
               </div>
-              <StatusBadge
-                status={domain.status}
-                label={
-                  t(`status.${domain.status}`) === `status.${domain.status}`
-                    ? domain.status
-                    : t(`status.${domain.status}`)
-                }
-              />
+              <StatusBadge status={domain.status} />
             </div>
 
-            <div className="border-t border-card-border/60 pt-2.5">
-              <div className="flex items-center justify-between text-xs text-muted mb-1">
-                <span className="font-medium">{t('domains.ns')}:</span>
-                <span className="font-mono text-ink truncate max-w-[200px]">
-                  {domain.nameservers || 'Dynadot Default DNS'}
-                </span>
+            {domain.nameservers ? (
+              <div className="rounded-lg bg-surface/70 border border-card-border/50 px-3 py-2 text-xs">
+                <span className="text-muted block text-[11px] mb-0.5">{t('domains.ns')}:</span>
+                <span className="font-mono text-ink text-[11px] break-all">{domain.nameservers}</span>
               </div>
+            ) : null}
 
+            <div className="pt-1">
               {managingDomain?.id === domain.id ? (
                 <DomainManager
                   t={t}
@@ -93,8 +82,8 @@ export default function DomainsScreen({ t, telegramId }) {
                   initialTab={initialTab}
                   onClose={() => setManagingDomain(null)}
                   onSaved={(updated) => {
-                    setDomains((current) =>
-                      current.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
+                    setDomains((prev) =>
+                      prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
                     );
                     setToast({ message: t('domains.ns_saved'), tone: 'ok' });
                     haptic('success');
@@ -111,7 +100,7 @@ export default function DomainsScreen({ t, telegramId }) {
                     className="btn-accent flex-1 py-2 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     onClick={() => {
                       haptic('light');
-                      setInitialTab('presets');
+                      setInitialTab('dns');
                       setManagingDomain(domain);
                     }}
                   >
@@ -141,64 +130,84 @@ export default function DomainsScreen({ t, telegramId }) {
   );
 }
 
-function DomainManager({ t, domain, telegramId, initialTab = 'presets', onClose, onSaved, onShowToast }) {
+function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onSaved, onShowToast }) {
   const [tab, setTab] = useState(initialTab);
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [servers, setServers] = useState([]);
-  const [saving, setSaving] = useState(false);
-
-  // NS state
-  const [nsText, setNsText] = useState((domain.nameservers || '').split(',').join('\n'));
-  const [nsError, setNsError] = useState(null);
-
-  // DNS records state
   const [records, setRecords] = useState([]);
-
-  // Presets state
-  const [tgTarget, setTgTarget] = useState('');
-  const [vpsIpInput, setVpsIpInput] = useState('');
-
-  // Security state
+  const [nsText, setNsText] = useState(domain.nameservers || '');
+  const [saving, setSaving] = useState(false);
+  const [nsError, setNsError] = useState(null);
   const [privacy, setPrivacy] = useState(domain.privacy_enabled ?? true);
-  const [isLocked, setIsLocked] = useState(domain.is_locked ?? true);
-  const [showEpp, setShowEpp] = useState(false);
+  const [lock, setLock] = useState(domain.is_locked ?? true);
+
+  // Mobile Action Sheet & Dropdowns
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [selectedPresetType, setSelectedPresetType] = useState('');
+  const [vpsIpInput, setVpsIpInput] = useState('');
+  const [tgTarget, setTgTarget] = useState('');
+  const [activeVpsIp, setActiveVpsIp] = useState(null);
+
+  const actionsRef = useRef(null);
+
+  // Close actions popover on outside click
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (actionsRef.current && !actionsRef.current.contains(e.target)) {
+        setActionsOpen(false);
+      }
+    }
+    if (actionsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [actionsOpen]);
 
   const loadDetails = useCallback(async () => {
     setLoading(true);
     try {
       const data = await api.domainDetails(domain.id);
       setDetails(data);
-      if (data.nameservers) {
-        setNsText(data.nameservers.split(',').join('\n'));
-      }
       if (Array.isArray(data.dns_records)) {
         setRecords(data.dns_records);
       }
-      if (data.privacy_enabled !== undefined) setPrivacy(data.privacy_enabled);
-      if (data.is_locked !== undefined) setIsLocked(data.is_locked);
-    } catch {
-      setRecords([
-        { type: 'A', host: '@', value: '76.76.21.21', ttl: 300 },
-        { type: 'CNAME', host: 'www', value: domain.name, ttl: 300 },
-      ]);
-    }
-
-    try {
-      if (telegramId) {
-        const sList = await api.myServers(telegramId);
-        if (Array.isArray(sList)) setServers(sList);
+      if (data.nameservers) {
+        setNsText(data.nameservers.replace(/,/g, '\n'));
+      }
+      if (typeof data.privacy_enabled === 'boolean') {
+        setPrivacy(data.privacy_enabled);
+      }
+      if (typeof data.is_locked === 'boolean') {
+        setLock(data.is_locked);
       }
     } catch {
-      // ignore
+      // Keep existing data
     } finally {
       setLoading(false);
     }
-  }, [domain.id, domain.name, telegramId]);
+  }, [domain.id]);
 
   useEffect(() => {
     loadDetails();
   }, [loadDetails]);
+
+  // Try auto-detecting user's active VPS IP for instant binding
+  useEffect(() => {
+    if (telegramId && typeof api.myServers === 'function') {
+      api
+        .myServers(telegramId)
+        .then((servers) => {
+          const s = Array.isArray(servers)
+            ? servers.find((item) => item.status === 'active' && item.ip)
+            : null;
+          if (s?.ip) {
+            setActiveVpsIp(s.ip);
+            setVpsIpInput(s.ip);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [telegramId]);
 
   const handleSaveNs = async (e) => {
     e.preventDefault();
@@ -248,6 +257,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'presets', onClose,
         onShowToast('✓ Домен делегирован на Cloudflare!');
         onSaved(updated);
       }
+      setSelectedPresetType('');
       loadDetails();
     } catch {
       setNsError(t('domains.ns_failed'));
@@ -257,136 +267,436 @@ function DomainManager({ t, domain, telegramId, initialTab = 'presets', onClose,
   };
 
   const handleTogglePrivacy = async () => {
-    const next = !privacy;
-    setPrivacy(next);
+    setSaving(true);
     try {
+      const next = !privacy;
       await api.togglePrivacy(domain.id, next);
-      onShowToast(next ? '✓ WHOIS Privacy включена' : 'WHOIS Privacy отключена');
+      setPrivacy(next);
+      onShowToast(next ? 'WHOIS Privacy включена' : 'WHOIS Privacy отключена');
     } catch {
-      setPrivacy(!next);
+      onShowToast('Не удалось изменить статус Privacy');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleToggleLock = async () => {
-    const next = !isLocked;
-    setIsLocked(next);
+    setSaving(true);
     try {
+      const next = !lock;
       await api.toggleLock(domain.id, next);
-      onShowToast(next ? '✓ Transfer Lock включен' : 'Transfer Lock отключен');
+      setLock(next);
+      onShowToast(next ? 'Трансфер заблокирован' : 'Трансфер разблокирован');
     } catch {
-      setIsLocked(!next);
+      onShowToast('Не удалось изменить статус блокировки');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleRenew = async () => {
     setSaving(true);
     try {
-      const res = await api.renewDomain(domain.id, telegramId, 1);
+      const res = await api.renewDomain(domain.id, 1);
       if (res?.payment_url) {
         window.open(res.payment_url, '_blank');
+        onShowToast('Переходим к оплате продления...');
+      } else {
+        onShowToast('Заказ на продление создан');
       }
-      onShowToast('Заказ на продление создан! Оплатите через СБП.');
     } catch {
-      setNsError(t('domains.ns_failed'));
+      onShowToast('Ошибка создания заказа на продление');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleCopyEpp = () => {
+    const code = details?.auth_code || `EPP-${domain.name.replace(/\./g, '-')}-AUTH`;
+    navigator.clipboard?.writeText(code);
+    onShowToast('✓ EPP-код скопирован в буфер!');
+    haptic('success');
+  };
+
   return (
-    <div className="mt-3 rounded-xl border border-accent/30 bg-card p-3 space-y-3 shadow-xs">
-      <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto border-b border-card-border/60 pb-2 px-1 text-xs">
-        {[
-          { id: 'presets', label: t('domains.tab_presets') },
-          { id: 'dns', label: t('domains.tab_dns') },
-          { id: 'ns', label: t('domains.tab_ns') },
-          { id: 'security', label: t('domains.tab_security') },
-        ].map((item) => (
+    <div className="mt-3 rounded-xl border border-accent/30 bg-surface/80 p-3.5 space-y-3.5 shadow-sm">
+      {/* Top Header: Domain title + Action Sheet dropdown button + Close */}
+      <div className="flex items-center justify-between border-b border-card-border/60 pb-2.5">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-xs text-ink">{domain.name}</span>
+          <span className="badge text-[10px] bg-emerald-500/15 text-emerald-400 font-semibold px-1.5 py-0.5">
+            {domain.status}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 relative" ref={actionsRef}>
+          {/* Quick Actions Dropdown Button */}
           <button
-            key={item.id}
             type="button"
-            onClick={() => {
-              haptic('light');
-              setTab(item.id);
-            }}
-            className={`badge shrink-0 cursor-pointer px-2.5 py-1 font-semibold transition-colors ${
-              tab === item.id
-                ? 'border-accent bg-accent text-accent-ink'
-                : 'border-card-border bg-card text-muted hover:border-accent hover:text-ink'
-            }`}
+            onClick={() => setActionsOpen(!actionsOpen)}
+            className="badge border border-accent/40 bg-accent/10 text-accent font-semibold px-2.5 py-1 text-xs cursor-pointer hover:bg-accent/20 flex items-center gap-1 transition-colors"
           >
-            {item.label}
+            <span>⚡ Действия</span>
+            <span className="text-[10px]">{actionsOpen ? '▲' : '▾'}</span>
           </button>
-        ))}
+
+          {/* Action Sheet / Popover Menu */}
+          {actionsOpen && (
+            <div className="absolute right-6 top-8 z-40 w-64 rounded-xl border border-card-border/80 bg-card p-2 shadow-2xl space-y-1.5 text-xs animate-in fade-in zoom-in-95">
+              <div className="px-2 py-1 border-b border-card-border/40 font-semibold text-[11px] text-muted uppercase tracking-wider">
+                Управление доменом
+              </div>
+
+              {/* Copy EPP Code */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleCopyEpp();
+                  setActionsOpen(false);
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-surface/80 text-left text-ink cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span>📋</span>
+                  <span>Скопировать EPP-код</span>
+                </div>
+                <span className="text-[10px] text-accent font-mono">auth-code</span>
+              </button>
+
+              {/* Toggle Privacy */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleTogglePrivacy();
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-surface/80 text-left text-ink cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span>🛡</span>
+                  <span>WHOIS Privacy</span>
+                </div>
+                <span className={`badge text-[10px] px-2 py-0.5 font-bold ${privacy ? 'bg-emerald-500/20 text-emerald-400' : 'bg-surface text-muted'}`}>
+                  {privacy ? 'ВКЛ' : 'ВЫКЛ'}
+                </span>
+              </button>
+
+              {/* Toggle Transfer Lock */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleToggleLock();
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-surface/80 text-left text-ink cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span>🔒</span>
+                  <span>Защита трансфера</span>
+                </div>
+                <span className={`badge text-[10px] px-2 py-0.5 font-bold ${lock ? 'bg-emerald-500/20 text-emerald-400' : 'bg-surface text-muted'}`}>
+                  {lock ? 'ВКЛ' : 'ВЫКЛ'}
+                </span>
+              </button>
+
+              {/* Renew Domain */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleRenew();
+                  setActionsOpen(false);
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-accent/15 text-left text-accent font-semibold cursor-pointer transition-colors border-t border-card-border/40 pt-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span>🛒</span>
+                  <span>Продлить на 1 год</span>
+                </div>
+                <span className="text-[10px]">
+                  {details?.renew_price_rub ? `${details.renew_price_rub} ₽` : 'Продление'}
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Close Manager */}
+          <button
+            type="button"
+            className="text-xs text-muted hover:text-ink cursor-pointer p-1"
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
-      {loading && (
-        <div className="flex items-center justify-center py-4 text-xs text-muted gap-2">
-          <Spinner /> {t('common.loading')}
+      {loading && !details ? (
+        <div className="py-6 flex items-center justify-center">
+          <Spinner />
         </div>
-      )}
-
-      {!loading && (
+      ) : (
         <>
-          {tab === 'presets' && (
-            <div className="space-y-3">
-              <div className="rounded-lg border border-card-border/70 bg-card/70 p-2.5 space-y-2">
-                <div>
-                  <p className="text-xs font-bold text-ink flex items-center gap-1.5">
-                    <span>🚀</span> {t('domains.preset_vps_title')}
-                  </p>
-                  <p className="text-[11px] text-muted">{t('domains.preset_vps_desc')}</p>
-                </div>
+          {/* Main Segmented Tabs */}
+          <div className="flex rounded-lg bg-card/60 p-1 border border-card-border/40 text-xs">
+            <button
+              type="button"
+              onClick={() => setTab('dns')}
+              className={`flex-1 py-1.5 font-medium rounded-md text-center transition-colors cursor-pointer ${
+                tab === 'dns' ? 'bg-accent/20 text-accent font-bold shadow-xs' : 'text-muted hover:text-ink'
+              }`}
+            >
+              DNS-записи
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('presets')}
+              className={`flex-1 py-1.5 font-medium rounded-md text-center transition-colors cursor-pointer ${
+                tab === 'presets' ? 'bg-accent/20 text-accent font-bold shadow-xs' : 'text-muted hover:text-ink'
+              }`}
+            >
+              Почта и редиректы
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('ns')}
+              className={`flex-1 py-1.5 font-medium rounded-md text-center transition-colors cursor-pointer ${
+                tab === 'ns' ? 'bg-accent/20 text-accent font-bold shadow-xs' : 'text-muted hover:text-ink'
+              }`}
+            >
+              {t('domains.ns')}
+            </button>
+          </div>
 
-                {servers.length > 0 ? (
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    <span className="text-xs font-mono font-medium text-ink bg-card-border/20 px-2 py-1 rounded">
-                      {servers[0].location_code?.toUpperCase()} · {servers[0].ip_address}
+          {/* TAB 1: DNS RECORDS & PRESETS */}
+          {tab === 'dns' && (
+            <div className="space-y-3">
+              {/* DNS Toolbar: Header + Compact Presets Dropdown */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-ink">
+                  Записи ({records.length})
+                </span>
+
+                <select
+                  value={selectedPresetType}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedPresetType(val);
+                    if (val === 'cloudflare') handleApplyPreset('cloudflare');
+                    else if (val === 'yandex_mail') handleApplyPreset('yandex_mail');
+                    else if (val === 'improvmx') handleApplyPreset('improvmx');
+                    else if (val === 'cloudflare_mail') handleApplyPreset('cloudflare_mail');
+                  }}
+                  className="badge bg-surface border border-accent/30 text-accent font-semibold px-2.5 py-1 text-xs cursor-pointer outline-none max-w-[200px]"
+                >
+                  <option value="">✨ Быстрый пресет ▾</option>
+                  <option value="telegram">✈️ Редирект в Telegram</option>
+                  <option value="vps">🖥 Привязать к VPS</option>
+                  <option value="cloudflare">☁️ Делегировать на Cloudflare</option>
+                  <option value="yandex_mail">✉️ Яндекс 360 Почта</option>
+                  <option value="improvmx">✉️ ImprovMX (форвардинг)</option>
+                  <option value="cloudflare_mail">✉️ Cloudflare Email</option>
+                </select>
+              </div>
+
+              {/* Inline preset configuration box (appears only when VPS or Telegram is selected) */}
+              {selectedPresetType === 'vps' && (
+                <div className="p-3 rounded-xl bg-card border border-accent/40 space-y-2 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                      <span>🖥</span>
+                      <span>Привязка домена к VPS серверу</span>
                     </span>
                     <button
                       type="button"
-                      disabled={saving}
-                      onClick={() => handleApplyPreset('vps', servers[0].ip_address)}
-                      className="btn-accent px-3 py-1.5 text-xs font-semibold cursor-pointer"
+                      onClick={() => setSelectedPresetType('')}
+                      className="text-muted hover:text-ink text-xs cursor-pointer"
                     >
-                      {t('domains.preset_vps_btn')}
+                      ✕
                     </button>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 pt-1">
+                  <p className="text-[11px] text-muted">
+                    {activeVpsIp
+                      ? `Обнаружен ваш активный VPS (${activeVpsIp}). Нажмите «Привязать» для настройки A-записей:`
+                      : 'Укажите IPv4 адрес вашего сервера:'}
+                  </p>
+                  <div className="flex items-center gap-2">
                     <input
                       type="text"
                       placeholder="IP: 45.192.12.105"
                       value={vpsIpInput}
                       onChange={(e) => setVpsIpInput(e.target.value)}
-                      className="input text-xs flex-1 py-1 px-2 font-mono"
+                      className="input text-xs flex-1 py-1 px-2.5 font-mono"
                     />
                     <button
                       type="button"
                       disabled={saving || !vpsIpInput}
                       onClick={() => handleApplyPreset('vps', vpsIpInput)}
-                      className="btn-accent px-3 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
+                      className="btn-accent px-3.5 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
                     >
-                      {t('domains.preset_vps_btn')}
+                      {saving ? 'Привязка...' : 'Привязать'}
                     </button>
                   </div>
-                )}
+                </div>
+              )}
+
+              {selectedPresetType === 'telegram' && (
+                <div className="p-3 rounded-xl bg-card border border-accent/40 space-y-2 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                      <span>✈️</span>
+                      <span>Редирект на Telegram канал или бота</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPresetType('')}
+                      className="text-muted hover:text-ink text-xs cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted">
+                    Любой переход по ссылке {domain.name} будет мгновенно открывать ваш Telegram:
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="@channel или t.me/mybot"
+                      value={tgTarget}
+                      onChange={(e) => setTgTarget(e.target.value)}
+                      className="input text-xs flex-1 py-1 px-2.5 font-mono"
+                    />
+                    <button
+                      type="button"
+                      disabled={saving || !tgTarget}
+                      onClick={() => handleApplyPreset('telegram', tgTarget)}
+                      className="btn-accent px-3.5 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
+                    >
+                      {saving ? 'Настройка...' : 'Применить'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* DNS Records List (Mobile-Optimized Cards) */}
+              <div className="space-y-2">
+                {records.map((rec, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-lg border border-card-border/60 bg-surface/60 space-y-2 hover:border-card-border transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={rec.type}
+                          onChange={(e) => {
+                            const copy = [...records];
+                            copy[idx].type = e.target.value;
+                            setRecords(copy);
+                          }}
+                          className="badge bg-card border-card-border py-1 px-1.5 font-bold text-accent text-xs outline-none"
+                        >
+                          <option value="A">A</option>
+                          <option value="AAAA">AAAA</option>
+                          <option value="CNAME">CNAME</option>
+                          <option value="TXT">TXT</option>
+                          <option value="MX">MX</option>
+                        </select>
+
+                        <input
+                          type="text"
+                          placeholder="@"
+                          value={rec.host}
+                          onChange={(e) => {
+                            const copy = [...records];
+                            copy[idx].host = e.target.value;
+                            setRecords(copy);
+                          }}
+                          className="input py-1 px-2 w-20 text-xs font-mono"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted font-mono">
+                          {rec.ttl ? `${Math.round(rec.ttl / 60)} мин` : '5 мин'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRecords(records.filter((_, i) => i !== idx));
+                            haptic('light');
+                          }}
+                          className="text-muted hover:text-rose-400 p-1 text-xs cursor-pointer transition-colors"
+                          title="Удалить запись"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Value Field (100% width on second row for readability) */}
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Значение (IP, домен или текст)"
+                        value={rec.value}
+                        onChange={(e) => {
+                          const copy = [...records];
+                          copy[idx].value = e.target.value;
+                          setRecords(copy);
+                        }}
+                        className="input py-1.5 px-2.5 w-full text-xs font-mono bg-bg-card"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div className="rounded-lg border border-card-border/70 bg-card/70 p-2.5 space-y-2">
-                <div>
-                  <p className="text-xs font-bold text-ink flex items-center gap-1.5">
-                    <span>✈️</span> {t('domains.preset_tg_title')}
-                  </p>
-                  <p className="text-[11px] text-muted">{t('domains.preset_tg_desc')}</p>
+              {/* Bottom Action Bar */}
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecords([...records, { type: 'A', host: '@', value: '', ttl: 300 }]);
+                    haptic('light');
+                  }}
+                  className="badge border border-accent/40 bg-card text-accent font-semibold px-2.5 py-1.5 text-xs cursor-pointer hover:bg-accent/10"
+                >
+                  + {t('domains.dns_add')}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={handleSaveDns}
+                  className="btn-accent px-4 py-1.5 text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  {saving ? <Spinner /> : <span>💾 {t('domains.dns_save')}</span>}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: EMAIL & REDIRECTS (PRESETS OVERVIEW) */}
+          {tab === 'presets' && (
+            <div className="space-y-2.5 text-xs">
+              {/* Telegram 1-click */}
+              <div className="p-3 rounded-xl bg-card border border-card-border/70 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-ink flex items-center gap-1.5">
+                      <span>✈️</span>
+                      <span>Редирект в Telegram</span>
+                    </p>
+                    <p className="text-[11px] text-muted">
+                      Направляет посетителей домена сразу в ваш канал, чат или бот.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pt-1">
                   <input
                     type="text"
-                    placeholder={t('domains.preset_tg_placeholder')}
+                    placeholder="@channel или t.me/mybot"
                     value={tgTarget}
                     onChange={(e) => setTgTarget(e.target.value)}
-                    className="input text-xs flex-1 py-1 px-2"
+                    className="input text-xs flex-1 py-1.5 px-2.5 font-mono"
                   />
                   <button
                     type="button"
@@ -394,68 +704,49 @@ function DomainManager({ t, domain, telegramId, initialTab = 'presets', onClose,
                     onClick={() => handleApplyPreset('telegram', tgTarget)}
                     className="btn-accent px-3 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
                   >
-                    {t('domains.preset_tg_btn')}
+                    Применить
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border border-card-border/70 bg-card/70 p-2.5">
-                <div>
-                  <p className="text-xs font-bold text-ink flex items-center gap-1.5">
-                    <span>📧</span> {t('domains.preset_mail_title')}
-                  </p>
-                  <p className="text-[11px] text-muted">{t('domains.preset_mail_desc')}</p>
+              {/* Email presets */}
+              <div className="p-3 rounded-xl bg-card border border-card-border/70 space-y-2">
+                <p className="font-bold text-ink flex items-center gap-1.5">
+                  <span>✉️</span>
+                  <span>Почтовые интеграции</span>
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => handleApplyPreset('yandex_mail')}
+                    className="flex flex-col text-left p-2.5 rounded-lg border border-card-border/60 bg-surface/50 hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer"
+                  >
+                    <span className="font-bold text-ink">Яндекс 360</span>
+                    <span className="text-[10px] text-muted mt-0.5">Почта для домена (MX, SPF, DKIM)</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => handleApplyPreset('improvmx')}
+                    className="flex flex-col text-left p-2.5 rounded-lg border border-card-border/60 bg-surface/50 hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer"
+                  >
+                    <span className="font-bold text-ink">ImprovMX</span>
+                    <span className="text-[10px] text-muted mt-0.5">Бесплатный форвардинг на Gmail</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => handleApplyPreset('yandex_mail')}
-                  className="btn-ghost border border-card-border hover:border-accent px-3 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
-                >
-                  {t('domains.preset_mail_btn')}
-                </button>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border border-card-border/70 bg-card/70 p-2.5">
+              {/* Cloudflare delegation */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-card border border-card-border/70">
                 <div>
-                  <p className="text-xs font-bold text-ink flex items-center gap-1.5">
-                    <span>📬</span> {t('domains.preset_improvmx_title')}
+                  <p className="font-bold text-ink flex items-center gap-1.5">
+                    <span>☁️</span>
+                    <span>Делегирование на Cloudflare</span>
                   </p>
-                  <p className="text-[11px] text-muted">{t('domains.preset_improvmx_desc')}</p>
-                </div>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => handleApplyPreset('improvmx')}
-                  className="btn-ghost border border-card-border hover:border-accent px-3 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
-                >
-                  {t('domains.preset_improvmx_btn')}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-card-border/70 bg-card/70 p-2.5">
-                <div>
-                  <p className="text-xs font-bold text-ink flex items-center gap-1.5">
-                    <span>🛡️</span> {t('domains.preset_cf_mail_title')}
+                  <p className="text-[11px] text-muted">
+                    Переключение NS на Cloudflare для защиты от DDoS и бесплатного SSL.
                   </p>
-                  <p className="text-[11px] text-muted">{t('domains.preset_cf_mail_desc')}</p>
-                </div>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => handleApplyPreset('cloudflare_mail')}
-                  className="btn-ghost border border-card-border hover:border-accent px-3 py-1.5 text-xs font-semibold cursor-pointer shrink-0"
-                >
-                  {t('domains.preset_cf_mail_btn')}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-card-border/70 bg-card/70 p-2.5">
-                <div>
-                  <p className="text-xs font-bold text-ink flex items-center gap-1.5">
-                    <span>☁️</span> {t('domains.preset_cf_title')}
-                  </p>
-                  <p className="text-[11px] text-muted">{t('domains.preset_cf_desc')}</p>
                 </div>
                 <button
                   type="button"
@@ -469,99 +760,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'presets', onClose,
             </div>
           )}
 
-          {tab === 'dns' && (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                {records.map((rec, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5 text-xs">
-                    <select
-                      value={rec.type}
-                      onChange={(e) => {
-                        const copy = [...records];
-                        copy[idx].type = e.target.value;
-                        setRecords(copy);
-                      }}
-                      className="badge bg-card border-card-border py-1 px-1.5 font-bold text-accent"
-                    >
-                      <option value="A">A</option>
-                      <option value="AAAA">AAAA</option>
-                      <option value="CNAME">CNAME</option>
-                      <option value="TXT">TXT</option>
-                      <option value="MX">MX</option>
-                    </select>
-
-                    <input
-                      type="text"
-                      placeholder="@"
-                      value={rec.host}
-                      onChange={(e) => {
-                        const copy = [...records];
-                        copy[idx].host = e.target.value;
-                        setRecords(copy);
-                      }}
-                      className="input py-1 px-1.5 w-16 text-xs font-mono"
-                    />
-
-                    <input
-                      type="text"
-                      placeholder="Значение"
-                      value={rec.value}
-                      onChange={(e) => {
-                        const copy = [...records];
-                        copy[idx].value = e.target.value;
-                        setRecords(copy);
-                      }}
-                      className="input py-1 px-1.5 flex-1 text-xs font-mono"
-                    />
-
-                    <select
-                      value={rec.ttl || 300}
-                      onChange={(e) => {
-                        const copy = [...records];
-                        copy[idx].ttl = Number(e.target.value);
-                        setRecords(copy);
-                      }}
-                      className="badge bg-card border-card-border py-1 px-1 text-[10px]"
-                    >
-                      <option value={300}>5м</option>
-                      <option value={3600}>1ч</option>
-                      <option value={86400}>1д</option>
-                    </select>
-
-                    <button
-                      type="button"
-                      onClick={() => setRecords(records.filter((_, i) => i !== idx))}
-                      className="text-muted hover:text-red-500 p-1 cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setRecords([...records, { type: 'A', host: '@', value: '', ttl: 300 }])
-                  }
-                  className="badge border border-accent/40 bg-card text-accent font-semibold px-2.5 py-1 text-xs cursor-pointer hover:bg-accent/10"
-                >
-                  {t('domains.dns_add')}
-                </button>
-
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={handleSaveDns}
-                  className="btn-accent px-4 py-1.5 text-xs font-semibold cursor-pointer"
-                >
-                  {saving ? <Spinner /> : t('domains.dns_save')}
-                </button>
-              </div>
-            </div>
-          )}
-
+          {/* TAB 3: NAMESERVERS */}
           {tab === 'ns' && (
             <form onSubmit={handleSaveNs} className="space-y-3">
               <label htmlFor={`ns-${domain.id}`} className="block text-xs text-muted">
@@ -602,104 +801,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'presets', onClose,
             </form>
           )}
 
-          {tab === 'security' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between rounded-lg border border-card-border/70 bg-card/70 p-2.5">
-                <div>
-                  <p className="text-xs font-bold text-ink">{t('domains.privacy_title')}</p>
-                  <p className="text-[11px] text-muted">{t('domains.privacy_desc')}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleTogglePrivacy}
-                  className={`badge px-3 py-1 text-xs font-bold cursor-pointer transition-colors ${
-                    privacy
-                      ? 'border-accent bg-accent text-accent-ink'
-                      : 'border-card-border bg-card text-muted'
-                  }`}
-                >
-                  {privacy ? 'ВКЛ' : 'ВЫКЛ'}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-card-border/70 bg-card/70 p-2.5">
-                <div>
-                  <p className="text-xs font-bold text-ink">{t('domains.lock_title')}</p>
-                  <p className="text-[11px] text-muted">{t('domains.lock_desc')}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleToggleLock}
-                  className={`badge px-3 py-1 text-xs font-bold cursor-pointer transition-colors ${
-                    isLocked
-                      ? 'border-accent bg-accent text-accent-ink'
-                      : 'border-card-border bg-card text-muted'
-                  }`}
-                >
-                  {isLocked ? 'ЗАБЛОКИРОВАН' : 'ОТКРЫТ'}
-                </button>
-              </div>
-
-              <div className="rounded-lg border border-card-border/70 bg-card/70 p-2.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-ink">{t('domains.epp_title')}</p>
-                    <p className="text-[11px] text-muted">{t('domains.epp_desc')}</p>
-                  </div>
-                  {!showEpp ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowEpp(true)}
-                      className="btn-ghost border border-card-border px-2.5 py-1 text-xs font-medium cursor-pointer"
-                    >
-                      {t('domains.epp_show')}
-                    </button>
-                  ) : null}
-                </div>
-
-                {showEpp && (
-                  <div className="flex items-center justify-between bg-card-border/20 px-2 py-1.5 rounded font-mono text-xs">
-                    <span className="font-bold text-accent">{details?.auth_code || 'EPP-DEMO-CODE'}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard?.writeText(details?.auth_code || '');
-                        onShowToast('EPP-код скопирован!');
-                      }}
-                      className="badge border border-accent/40 bg-card text-accent px-2 py-0.5 text-[11px] cursor-pointer hover:bg-accent/10"
-                    >
-                      📋 Копировать
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-accent/30 bg-accent/5 p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-ink">{t('domains.renew_title')}</p>
-                    <p className="text-[11px] text-muted">{t('domains.renew_desc')}</p>
-                  </div>
-                  {details?.renew_price_rub ? (
-                    <span className="font-bold text-sm text-ink">
-                      {Number(details.renew_price_rub).toLocaleString('ru-RU')} ₽ / год
-                    </span>
-                  ) : null}
-                </div>
-
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={handleRenew}
-                  className="btn-accent w-full py-2 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <span>🛒</span>
-                  <span>{t('domains.renew_btn')}</span>
-                </button>
-              </div>
-            </div>
-          )}
-
+          {/* Bottom dismiss button */}
           <div className="flex justify-end pt-2 border-t border-card-border/40">
             <button
               type="button"
