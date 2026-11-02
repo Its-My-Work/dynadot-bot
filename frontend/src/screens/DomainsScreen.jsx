@@ -329,93 +329,16 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
           </span>
         </div>
 
-        <div className="flex items-center gap-2 relative" ref={actionsRef}>
+        <div className="flex items-center gap-2">
           {/* Quick Actions Dropdown Button */}
           <button
             type="button"
-            onClick={() => setActionsOpen(!actionsOpen)}
-            className="badge border border-accent/40 bg-accent/10 text-accent font-semibold px-2.5 py-1 text-xs cursor-pointer hover:bg-accent/20 flex items-center gap-1 transition-colors"
+            onClick={() => setActionsOpen(true)}
+            className="badge border border-accent/40 bg-accent/10 text-accent font-semibold px-2.5 py-1 text-xs cursor-pointer hover:bg-accent/20 flex items-center gap-1.5 transition-colors"
           >
             <span>⚡ Действия</span>
-            <span className="text-[10px]">{actionsOpen ? '▲' : '▾'}</span>
+            <span className="text-[10px]">▾</span>
           </button>
-
-          {/* Action Sheet / Popover Menu */}
-          {actionsOpen && (
-            <div className="absolute right-6 top-8 z-40 w-64 rounded-xl border border-card-border/80 bg-card p-2 shadow-2xl space-y-1.5 text-xs animate-in fade-in zoom-in-95">
-              <div className="px-2 py-1 border-b border-card-border/40 font-semibold text-[11px] text-muted uppercase tracking-wider">
-                Управление доменом
-              </div>
-
-              {/* Copy EPP Code */}
-              <button
-                type="button"
-                onClick={() => {
-                  handleCopyEpp();
-                  setActionsOpen(false);
-                }}
-                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-surface/80 text-left text-ink cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span>📋</span>
-                  <span>Скопировать EPP-код</span>
-                </div>
-                <span className="text-[10px] text-accent font-mono">auth-code</span>
-              </button>
-
-              {/* Toggle Privacy */}
-              <button
-                type="button"
-                onClick={() => {
-                  handleTogglePrivacy();
-                }}
-                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-surface/80 text-left text-ink cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span>🛡</span>
-                  <span>WHOIS Privacy</span>
-                </div>
-                <span className={`badge text-[10px] px-2 py-0.5 font-bold ${privacy ? 'bg-emerald-500/20 text-emerald-400' : 'bg-surface text-muted'}`}>
-                  {privacy ? 'ВКЛ' : 'ВЫКЛ'}
-                </span>
-              </button>
-
-              {/* Toggle Transfer Lock */}
-              <button
-                type="button"
-                onClick={() => {
-                  handleToggleLock();
-                }}
-                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-surface/80 text-left text-ink cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span>🔒</span>
-                  <span>Защита трансфера</span>
-                </div>
-                <span className={`badge text-[10px] px-2 py-0.5 font-bold ${lock ? 'bg-emerald-500/20 text-emerald-400' : 'bg-surface text-muted'}`}>
-                  {lock ? 'ВКЛ' : 'ВЫКЛ'}
-                </span>
-              </button>
-
-              {/* Renew Domain */}
-              <button
-                type="button"
-                onClick={() => {
-                  handleRenew();
-                  setActionsOpen(false);
-                }}
-                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-accent/15 text-left text-accent font-semibold cursor-pointer transition-colors border-t border-card-border/40 pt-2"
-              >
-                <div className="flex items-center gap-2">
-                  <span>🛒</span>
-                  <span>Продлить на 1 год</span>
-                </div>
-                <span className="text-[10px]">
-                  {details?.renew_price_rub ? `${details.renew_price_rub} ₽` : 'Продление'}
-                </span>
-              </button>
-            </div>
-          )}
 
           {/* Close Manager */}
           <button
@@ -427,6 +350,120 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
           </button>
         </div>
       </div>
+
+      {/* Mobile Action Sheet (Modal Bottom Drawer) */}
+      {actionsOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+            onClick={() => setActionsOpen(false)}
+          />
+
+          {/* Slide-up Sheet */}
+          <div
+            ref={actionsRef}
+            className="relative z-50 w-full max-w-lg mx-auto rounded-t-2xl border-t border-card-border/80 bg-card p-4 shadow-2xl space-y-3 text-xs animate-in slide-in-from-bottom duration-200"
+          >
+            {/* Grab handle */}
+            <div className="mx-auto h-1 w-10 rounded-full bg-line/80 mb-1" />
+
+            <div className="flex items-center justify-between pb-2 border-b border-card-border/50">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚡</span>
+                <span className="font-bold text-sm text-ink">Действия: {domain.name}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActionsOpen(false)}
+                className="text-xs text-muted hover:text-ink cursor-pointer px-2 py-1 rounded-md"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              {/* Copy EPP Code */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleCopyEpp();
+                  setActionsOpen(false);
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-surface/70 hover:bg-surface border border-card-border/50 text-left text-ink cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">📋</span>
+                  <div>
+                    <div className="font-semibold text-ink">Скопировать EPP-код</div>
+                    <div className="text-[11px] text-muted">Код авторизации для переноса домена к другому регистратору</div>
+                  </div>
+                </div>
+                <span className="badge border border-accent/40 bg-accent/15 text-accent font-mono text-[11px] px-2 py-0.5 shrink-0">
+                  auth-code
+                </span>
+              </button>
+
+              {/* Toggle Privacy */}
+              <button
+                type="button"
+                onClick={handleTogglePrivacy}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-surface/70 hover:bg-surface border border-card-border/50 text-left text-ink cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🛡</span>
+                  <div>
+                    <div className="font-semibold text-ink">WHOIS Privacy</div>
+                    <div className="text-[11px] text-muted">Скрытие личных контактов и email в публичном WHOIS</div>
+                  </div>
+                </div>
+                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${privacy ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-surface text-muted border border-card-border'}`}>
+                  {privacy ? '✓ ВКЛ' : 'ВЫКЛ'}
+                </span>
+              </button>
+
+              {/* Toggle Transfer Lock */}
+              <button
+                type="button"
+                onClick={handleToggleLock}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-surface/70 hover:bg-surface border border-card-border/50 text-left text-ink cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🔒</span>
+                  <div>
+                    <div className="font-semibold text-ink">Защита от трансфера (Lock)</div>
+                    <div className="text-[11px] text-muted">Блокировка случайной или несанкционированной смены регистратора</div>
+                  </div>
+                </div>
+                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${lock ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-surface text-muted border border-card-border'}`}>
+                  {lock ? '✓ ВКЛ' : 'ВЫКЛ'}
+                </span>
+              </button>
+
+              {/* Renew Domain */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleRenew();
+                  setActionsOpen(false);
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-accent/15 hover:bg-accent/25 border border-accent/40 text-left text-ink cursor-pointer transition-colors mt-2"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🛒</span>
+                  <div>
+                    <div className="font-bold text-accent">Продлить домен на 1 год</div>
+                    <div className="text-[11px] text-muted">Мгновенное продление срока регистрации</div>
+                  </div>
+                </div>
+                <span className="font-bold text-sm text-ink shrink-0">
+                  {details?.renew_price_rub ? `${Number(details.renew_price_rub).toLocaleString('ru-RU')} ₽` : '690 ₽'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && !details ? (
         <div className="py-6 flex items-center justify-center">
