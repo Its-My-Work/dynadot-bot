@@ -113,8 +113,14 @@ export function ready() {
 
 /** Haptic confirmation on meaningful actions; silently ignored in a browser. */
 export function haptic(type = 'light') {
-  const haptics = webApp()?.HapticFeedback;
+  const app = webApp();
+  const haptics = app?.HapticFeedback;
   if (!haptics) return;
+  try {
+    if (app.isVersionAtLeast && !app.isVersionAtLeast('6.1')) return;
+  } catch {
+    // Ignored
+  }
   if (type === 'success' || type === 'error' || type === 'warning') {
     haptics.notificationOccurred?.(type);
   } else {
@@ -141,6 +147,11 @@ export function setBackButton(handler) {
   const app = webApp();
   const back = app?.BackButton;
   if (!back) return () => {};
+  try {
+    if (app.isVersionAtLeast && !app.isVersionAtLeast('6.1')) return () => {};
+  } catch {
+    // Ignored
+  }
   if (handler) {
     back.show?.();
     back.onClick?.(handler);
