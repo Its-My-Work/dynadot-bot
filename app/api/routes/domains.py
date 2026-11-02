@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, status
@@ -793,6 +794,48 @@ async def update_dns(
     return await get_domain_details(domain.id, session, t)
 
 
+def merge_dns_records(
+    existing_records: list[dict[str, Any]],
+    preset_records: list[dict[str, Any]],
+    preset_type: str,
+) -> list[dict[str, Any]]:
+    """Smart-merge preset records with existing DNS records based on preset category."""
+    p_type = preset_type.lower()
+
+    if p_type in ("vps", "telegram"):
+        # Web presets: replace A, AAAA, CNAME for '@' and 'www'. Preserve MX, TXT, mail CNAME, etc.
+        kept = [
+            r
+            for r in existing_records
+            if not (
+                r.get("host") in ("@", "www", "")
+                and r.get("type") in ("A", "AAAA", "CNAME")
+            )
+        ]
+        return kept + preset_records
+
+    elif p_type in ("yandex_mail", "improvmx", "cloudflare_mail"):
+        # Mail presets: replace MX, SPF TXT, and 'mail' CNAME. Preserve A, AAAA, other TXT, etc.
+        kept = []
+        for r in existing_records:
+            t = str(r.get("type", "")).upper()
+            h = str(r.get("host", ""))
+            v = str(r.get("value", "")).lower()
+
+            if t == "MX":
+                continue
+            if t == "TXT" and ("v=spf1" in v or "spf" in v):
+                continue
+            if t == "CNAME" and h == "mail":
+                continue
+
+            kept.append(r)
+
+        return kept + preset_records
+
+    return preset_records
+
+
 @router.post("/{domain_id}/quick-preset", response_model=DomainDetailsResponse)
 async def apply_quick_preset(
     domain_id: str,
@@ -810,6 +853,7 @@ async def apply_quick_preset(
 
     service = RegistrationService(session, dynadot, settings)
     p_type = payload.preset_type.lower()
+    records: list[dict[str, Any]] = []
 
     if p_type == "vps":
         ip = (payload.target or "45.192.12.105").strip()
@@ -817,7 +861,6 @@ async def apply_quick_preset(
             {"type": "A", "host": "@", "value": ip, "ttl": 300},
             {"type": "A", "host": "www", "value": ip, "ttl": 300},
         ]
-        domain = await service.update_dns_records(domain, records)
     elif p_type == "telegram":
         raw_target = (payload.target or "").strip()
         if not raw_target:
@@ -849,7 +892,6 @@ async def apply_quick_preset(
             {"type": "CNAME", "host": "@", "value": "t.me", "ttl": 300},
             {"type": "TXT", "host": "_telegram", "value": raw_target, "ttl": 300},
         ]
-        domain = await service.update_dns_records(domain, records)
     elif p_type == "yandex_mail":
         records = [
             {
@@ -872,7 +914,6 @@ async def apply_quick_preset(
                 "ttl": 300,
             },
         ]
-        domain = await service.update_dns_records(domain, records)
     elif p_type == "improvmx":
         records = [
             {
@@ -896,7 +937,6 @@ async def apply_quick_preset(
                 "ttl": 300,
             },
         ]
-        domain = await service.update_dns_records(domain, records)
     elif p_type == "cloudflare_mail":
         records = [
             {
@@ -927,15 +967,30 @@ async def apply_quick_preset(
                 "ttl": 300,
             },
         ]
-        domain = await service.update_dns_records(domain, records)
     elif p_type == "cloudflare":
         cf_ns = ["ada.ns.cloudflare.com", "walt.ns.cloudflare.com"]
         domain = await service.update_nameservers(domain, cf_ns)
+        return await get_domain_details(domain.id, session, t)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported preset"
         )
 
+    existing_records: list[dict[str, Any]] = []
+    if domain.dns_records:
+        try:
+            raw = json.loads(domain.dns_records)
+            if isinstance(raw, list):
+                existing_records = raw
+        except Exception:
+            existing_records = []
+
+    if payload.mode == "merge":
+        final_records = merge_dns_records(existing_records, records, p_type)
+    else:
+        final_records = records
+
+    domain = await service.update_dns_records(domain, final_records)
     return await get_domain_details(domain.id, session, t)
 
 

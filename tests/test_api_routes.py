@@ -392,20 +392,33 @@ def test_domain_management_dns_presets_and_security(client, fake_dynadot):
     assert len(res_dns.json()["dns_records"]) == 2
     assert res_dns.json()["dns_records"][0]["value"] == "1.2.3.4"
 
-    # 3. Quick Presets (VPS and Telegram)
+    # 3. Quick Presets (VPS and Telegram with smart merge)
     res_vps = client.post(
         f"/api/v1/domains/{domain_id}/quick-preset",
-        json={"preset_type": "vps", "target": "8.8.8.8"},
+        json={"preset_type": "vps", "target": "8.8.8.8", "mode": "merge"},
     )
     assert res_vps.status_code == 200
     assert any(r["value"] == "8.8.8.8" for r in res_vps.json()["dns_records"])
 
-    res_tg = client.post(
+    # Yandex mail smart-merged: keeps the 8.8.8.8 A-record while adding MX records!
+    res_mail = client.post(
         f"/api/v1/domains/{domain_id}/quick-preset",
-        json={"preset_type": "telegram", "target": "t.me/mychannel"},
+        json={"preset_type": "yandex_mail", "mode": "merge"},
     )
-    assert res_tg.status_code == 200
-    assert any(r["value"] == "t.me" for r in res_tg.json()["dns_records"])
+    assert res_mail.status_code == 200
+    records = res_mail.json()["dns_records"]
+    assert any(r["value"] == "8.8.8.8" for r in records)
+    assert any("yandex" in r["value"] for r in records)
+
+    # Full replace mode: wipes out A-record
+    res_replace = client.post(
+        f"/api/v1/domains/{domain_id}/quick-preset",
+        json={"preset_type": "vps", "target": "4.4.4.4", "mode": "replace"},
+    )
+    assert res_replace.status_code == 200
+    rep_records = res_replace.json()["dns_records"]
+    assert any(r["value"] == "4.4.4.4" for r in rep_records)
+    assert not any("yandex" in r["value"] for r in rep_records)
 
     # 4. Privacy and Lock toggle
     res_priv = client.put(f"/api/v1/domains/{domain_id}/privacy", json={"enabled": False})

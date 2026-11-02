@@ -175,10 +175,10 @@ export const api = {
       method: 'PUT',
       body: { records },
     }),
-  applyQuickPreset: (domainId, presetType, target) =>
+  applyQuickPreset: (domainId, presetType, target = null, mode = 'merge') =>
     request(`/domains/${domainId}/quick-preset`, {
       method: 'POST',
-      body: { preset_type: presetType, target },
+      body: { preset_type: presetType, target, mode },
     }),
   togglePrivacy: (domainId, enabled) =>
     request(`/domains/${domainId}/privacy`, {

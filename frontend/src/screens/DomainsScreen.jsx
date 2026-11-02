@@ -49,6 +49,287 @@ export function getDomainRouting(domain) {
   return { targetIp, targetRedirect, isCloudflare };
 }
 
+export function getPresetRecords(type, target) {
+  const pType = (type || '').toLowerCase();
+  if (pType === 'vps') {
+    const ip = (target || '45.192.12.105').trim();
+    return [
+      { type: 'A', host: '@', value: ip, ttl: 300 },
+      { type: 'A', host: 'www', value: ip, ttl: 300 },
+    ];
+  }
+  if (pType === 'telegram') {
+    const rawTarget = (target || '').trim();
+    const cleanUrl = rawTarget.startsWith('http') ? rawTarget : `https://${rawTarget}`;
+    return [
+      { type: 'CNAME', host: '@', value: 't.me', ttl: 300 },
+      { type: 'TXT', host: '_telegram', value: cleanUrl, ttl: 300 },
+    ];
+  }
+  if (pType === 'yandex_mail') {
+    return [
+      { type: 'MX', host: '@', value: 'mx.yandex.net.', ttl: 300, priority: 10 },
+      { type: 'TXT', host: '@', value: 'v=spf1 redirect=_spf.yandex.net', ttl: 300 },
+      { type: 'CNAME', host: 'mail', value: 'domain.mail.yandex.net.', ttl: 300 },
+    ];
+  }
+  if (pType === 'improvmx') {
+    return [
+      { type: 'MX', host: '@', value: 'mx1.improvmx.com.', ttl: 300, priority: 10 },
+      { type: 'MX', host: '@', value: 'mx2.improvmx.com.', ttl: 300, priority: 20 },
+      { type: 'TXT', host: '@', value: 'v=spf1 include:spf.improvmx.com ~all', ttl: 300 },
+    ];
+  }
+  if (pType === 'cloudflare_mail') {
+    return [
+      { type: 'MX', host: '@', value: 'route1.mx.cloudflare.net.', ttl: 300, priority: 10 },
+      { type: 'MX', host: '@', value: 'route2.mx.cloudflare.net.', ttl: 300, priority: 20 },
+      { type: 'MX', host: '@', value: 'route3.mx.cloudflare.net.', ttl: 300, priority: 30 },
+      { type: 'TXT', host: '@', value: 'v=spf1 include:_spf.mx.cloudflare.net ~all', ttl: 300 },
+    ];
+  }
+  if (pType === 'cloudflare') {
+    return [
+      { type: 'NS', host: '@', value: 'ada.ns.cloudflare.com', ttl: 300 },
+      { type: 'NS', host: '@', value: 'walt.ns.cloudflare.com', ttl: 300 },
+    ];
+  }
+  return [];
+}
+
+export function calculatePresetDiff(existingRecords, presetType, target) {
+  const pType = (presetType || '').toLowerCase();
+  const newRecords = getPresetRecords(pType, target);
+
+  let kept = [];
+  let replaced = [];
+
+  if (['vps', 'telegram'].includes(pType)) {
+    kept = existingRecords.filter(
+      (r) =>
+        !(
+          (r.host === '@' || r.host === 'www' || !r.host) &&
+          ['A', 'AAAA', 'CNAME'].includes(r.type)
+        ),
+    );
+    replaced = existingRecords.filter(
+      (r) =>
+        (r.host === '@' || r.host === 'www' || !r.host) &&
+        ['A', 'AAAA', 'CNAME'].includes(r.type),
+    );
+  } else if (['yandex_mail', 'improvmx', 'cloudflare_mail'].includes(pType)) {
+    kept = existingRecords.filter((r) => {
+      const t = (r.type || '').toUpperCase();
+      const h = (r.host || '').toLowerCase();
+      const v = String(r.value || '').toLowerCase();
+      if (t === 'MX') return false;
+      if (t === 'TXT' && (v.includes('spf') || v.includes('v=spf1'))) return false;
+      if (t === 'CNAME' && h === 'mail') return false;
+      return true;
+    });
+    replaced = existingRecords.filter((r) => !kept.includes(r));
+  } else {
+    kept = [];
+    replaced = [...existingRecords];
+  }
+
+  return { newRecords, kept, replaced };
+}
+
+export function PresetConfirmModal({
+  preset,
+  mode,
+  onModeChange,
+  onConfirm,
+  onCancel,
+  saving,
+}) {
+  if (!preset) return null;
+
+  const presetLabels = {
+    vps: '🖥 Привязка к VPS (IPv4)',
+    telegram: '✈️ Редирект в Telegram',
+    yandex_mail: '✉️ Яндекс 360 Почта',
+    improvmx: '✉️ Gmail форвардинг (ImprovMX)',
+    cloudflare_mail: '✉️ Cloudflare Email Routing',
+    cloudflare: '☁️ Делегирование на Cloudflare DNS',
+  };
+
+  const isCf = preset.type === 'cloudflare';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-in fade-in"
+        onClick={onCancel}
+      />
+
+      {/* Modal Dialog */}
+      <div className="relative w-full max-w-md rounded-2xl bg-surface border border-accent/40 shadow-2xl p-5 space-y-4 z-10 animate-in zoom-in-95 duration-150">
+        <div className="flex items-start justify-between gap-3 border-b border-card-border/60 pb-3">
+          <div>
+            <span className="text-[11px] text-accent font-semibold uppercase tracking-wider block">
+              Подтверждение изменений
+            </span>
+            <h3 className="font-bold text-base text-ink mt-0.5">
+              {presetLabels[preset.type] || preset.type}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-muted hover:text-ink text-sm p-1 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        {isCf ? (
+          <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-ink space-y-1.5">
+            <p className="font-semibold text-cyan-300">Внимание:</p>
+            <p className="text-muted">
+              NS-серверы домена будут переключены на{' '}
+              <code className="text-cyan-300 font-mono">ada.ns.cloudflare.com</code> и{' '}
+              <code className="text-cyan-300 font-mono">walt.ns.cloudflare.com</code>.
+            </p>
+            <p className="text-muted text-[11px]">
+              Управление DNS-записями после этого будет происходить через панель Cloudflare.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Mode Selector */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-ink block">Режим применения:</span>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onModeChange('merge')}
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                    mode === 'merge'
+                      ? 'bg-accent/15 border-accent text-ink shadow-xs'
+                      : 'bg-card/60 border-card-border/60 text-muted hover:text-ink'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold flex items-center gap-1.5">
+                      <span className={mode === 'merge' ? 'text-accent' : 'text-muted'}>
+                        {mode === 'merge' ? '●' : '○'}
+                      </span>
+                      <span>Дополнить текущие записи (Smart Merge)</span>
+                    </span>
+                    <span className="badge text-[9px] bg-emerald-500/20 text-emerald-400 font-semibold px-1.5 py-0.5">
+                      Рекомендуется
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted mt-1 pl-4">
+                    Сохранит существующие записи сайта и почты, обновив только связанные.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onModeChange('replace')}
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                    mode === 'replace'
+                      ? 'bg-rose-500/15 border-rose-500/40 text-ink shadow-xs'
+                      : 'bg-card/60 border-card-border/60 text-muted hover:text-ink'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold flex items-center gap-1.5">
+                      <span className={mode === 'replace' ? 'text-rose-400' : 'text-muted'}>
+                        {mode === 'replace' ? '●' : '○'}
+                      </span>
+                      <span>Заменить все записи целиком</span>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted mt-1 pl-4">
+                    Очистит все старые DNS-записи и оставит только записи этого пресета.
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Visual Diff Preview */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-ink block">Предпросмотр DNS:</span>
+              <div className="rounded-xl bg-card/80 border border-card-border/60 p-3 space-y-3 text-xs max-h-48 overflow-y-auto">
+                {/* To Add / Update */}
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                    <span>🟢 Будет добавлено/обновлено ({preset.newRecords.length}):</span>
+                  </span>
+                  {preset.newRecords.map((r, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 font-mono text-[11px] bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md text-emerald-300"
+                    >
+                      <span className="font-bold text-accent">[{r.type}]</span>
+                      <span className="text-ink">{r.host || '@'}</span>
+                      <span className="text-muted">➔</span>
+                      <span className="truncate">{r.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* To Keep or Warning */}
+                {mode === 'merge' ? (
+                  <div className="space-y-1 pt-2 border-t border-card-border/40">
+                    <span className="text-[11px] font-semibold text-muted flex items-center gap-1">
+                      <span>⚪️ Останется без изменений ({preset.kept.length}):</span>
+                    </span>
+                    {preset.kept.length > 0 ? (
+                      preset.kept.map((r, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-2 font-mono text-[11px] bg-surface/50 border border-card-border/40 px-2 py-0.5 rounded text-muted"
+                        >
+                          <span className="font-bold text-ink">[{r.type}]</span>
+                          <span className="text-ink">{r.host || '@'}</span>
+                          <span>➔</span>
+                          <span className="truncate">{r.value}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[11px] text-muted italic">Других записей нет</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-300 text-[11px]">
+                    ⚠️ Внимание: все старые записи ({preset.replaced.length + preset.kept.length}) будут удалены.
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Modal Buttons */}
+        <div className="flex items-center gap-2.5 pt-2 border-t border-card-border/60">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="btn-ghost flex-1 py-2 text-xs font-semibold border border-card-border cursor-pointer hover:border-accent"
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={saving}
+            className="btn-accent flex-1 py-2 text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+          >
+            {saving ? 'Применение...' : '✓ Применить'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DomainsScreen({ t, telegramId }) {
   const [domains, setDomains] = useState(null);
   const [error, setError] = useState(null);
@@ -246,6 +527,10 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
   const [tgTarget, setTgTarget] = useState('');
   const [activeVpsIp, setActiveVpsIp] = useState(null);
 
+  // Preset Confirmation & Diff Preview State
+  const [pendingPreset, setPendingPreset] = useState(null);
+  const [presetMode, setPresetMode] = useState('merge');
+
   const actionsRef = useRef(null);
 
   // Close actions popover on outside click
@@ -341,10 +626,24 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
     }
   };
 
-  const handleApplyPreset = async (type, target) => {
+  const handleApplyPreset = (type, target) => {
+    const diff = calculatePresetDiff(records, type, target);
+    setPendingPreset({
+      type,
+      target,
+      newRecords: diff.newRecords,
+      kept: diff.kept,
+      replaced: diff.replaced,
+    });
+    setPresetMode('merge');
+  };
+
+  const executeApplyPreset = async () => {
+    if (!pendingPreset) return;
+    const { type, target } = pendingPreset;
     setSaving(true);
     try {
-      const updated = await api.applyQuickPreset(domain.id, type, target);
+      const updated = await api.applyQuickPreset(domain.id, type, target, presetMode);
       setDetails(updated);
       if (type === 'vps') onShowToast('✓ Домен привязан к вашему VPS!');
       else if (type === 'telegram') onShowToast('✓ Редирект в Telegram настроен!');
@@ -356,6 +655,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
         onSaved(updated);
       }
       setSelectedPresetType('');
+      setPendingPreset(null);
       loadDetails();
     } catch {
       setNsError(t('domains.ns_failed'));
@@ -948,6 +1248,16 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
           </div>
         </>
       )}
+
+      {/* Preset Confirmation Modal with Diff Preview */}
+      <PresetConfirmModal
+        preset={pendingPreset}
+        mode={presetMode}
+        onModeChange={setPresetMode}
+        onConfirm={executeApplyPreset}
+        onCancel={() => setPendingPreset(null)}
+        saving={saving}
+      />
     </div>
   );
 }

@@ -241,6 +241,7 @@ class DnsRecordsPayload(BaseModel):
 class DomainQuickPresetPayload(BaseModel):
     preset_type: str  # vps, telegram, yandex_mail, cloudflare
     target: str | None = None
+    mode: str = "merge"  # "merge" or "replace"
 
 
 class DomainPrivacyPayload(BaseModel):
