@@ -34,7 +34,22 @@ const TABS = [
 
 export default function App() {
   const [language, setLang] = useState(() => normalizeLanguage(initialLanguage()));
-  const [tab, setTab] = useState('search');
+  const [tab, setTab] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('dynadot_active_tab');
+      return saved && ['search', 'vps', 'domains', 'orders', 'profile'].includes(saved) ? saved : 'search';
+    } catch {
+      return 'search';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('dynadot_active_tab', tab);
+    } catch {
+      // Ignored
+    }
+  }, [tab]);
   const [candidate, setCandidate] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => getSessionUser());
   const [authModalOpen, setAuthModalOpen] = useState(false);

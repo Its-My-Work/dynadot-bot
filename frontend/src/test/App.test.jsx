@@ -27,6 +27,7 @@ function insideTelegram({ id = 555, language_code = 'en' } = {}) {
 }
 
 beforeEach(() => {
+  window.localStorage.clear();
   vi.spyOn(api, 'zones').mockResolvedValue(['com']);
   vi.spyOn(api, 'myDomains').mockResolvedValue([]);
   vi.spyOn(api, 'orders').mockResolvedValue([]);

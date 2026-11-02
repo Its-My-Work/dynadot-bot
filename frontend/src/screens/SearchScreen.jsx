@@ -804,7 +804,7 @@ export default function SearchScreen({ t, onSelect }) {
 
       {/* 800+ Catalog Multi-Select Modal (Unified for Search & AI) */}
       {showCatalog && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs sm:items-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center p-0 sm:p-4">
           <div className="card flex max-h-[68vh] w-full max-w-md sm:max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-card-border bg-card shadow-2xl">
             <div className="flex items-center justify-between border-b border-card-border p-3.5">
               <div>

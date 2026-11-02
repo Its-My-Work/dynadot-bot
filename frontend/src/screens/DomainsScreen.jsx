@@ -159,11 +159,11 @@ export function PresetConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-in fade-in"
-        onClick={onCancel}
-      />
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+          onClick={onCancel}
+        />
 
       {/* Modal Dialog */}
       <div className="relative w-full max-w-md rounded-2xl bg-surface border border-accent/40 shadow-2xl p-5 space-y-4 z-10 animate-in zoom-in-95 duration-150">
@@ -414,7 +414,7 @@ export default function DomainsScreen({ t, telegramId }) {
               <div className="rounded-xl bg-surface/70 border border-card-border/60 p-3 space-y-2 text-xs">
                 {/* Routing destination */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted text-[11px]">Направление:</span>
+                  <span className="text-muted text-[11px]">Куда ведет:</span>
                   {routing.targetRedirect ? (
                     <span className="font-mono font-semibold text-accent flex items-center gap-1 text-xs">
                       <span>✈️</span>
@@ -759,7 +759,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
         <div className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center p-0 sm:p-4">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
             onClick={() => setActionsOpen(false)}
           />
 
