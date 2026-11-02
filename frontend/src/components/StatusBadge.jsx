@@ -6,8 +6,9 @@
  */
 
 const TONES = {
-  completed: 'bg-ok/15 text-ok',
-  active: 'bg-ok/15 text-ok',
+  completed: 'bg-card text-ink border border-card-border/80',
+  active: 'bg-card text-ink border border-card-border/80',
+  up: 'bg-card text-ink border border-card-border/80',
   paid: 'bg-accent/15 text-accent',
   registering: 'bg-accent/15 text-accent',
   awaiting_payment: 'bg-warn/15 text-warn',
@@ -20,7 +21,7 @@ const TONES = {
   dead_letter: 'bg-danger/15 text-danger',
   queued: 'bg-accent/15 text-accent',
   running: 'bg-accent/15 text-accent',
-  succeeded: 'bg-ok/15 text-ok',
+  succeeded: 'bg-card text-ink border border-card-border/80',
 };
 
 export default function StatusBadge({ status, label, className = '' }) {

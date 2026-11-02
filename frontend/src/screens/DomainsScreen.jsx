@@ -392,15 +392,7 @@ export default function DomainsScreen({ t, telegramId }) {
                     <p className="text-xs text-muted">
                       {t('domains.expires', { date: formatDate(domain.expires_at) })}
                     </p>
-                    {domain.uptime_status ? (
-                      <span className={`badge px-1.5 py-0.2 text-[10px] font-semibold flex items-center gap-1 ${
-                        domain.uptime_status === 'up'
-                          ? 'bg-card text-ink border border-card-border/80'
-                          : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                      }`}>
-                        <span>{domain.uptime_status === 'up' ? '🌐 Онлайн' : '🔴 Сбой'}</span>
-                      </span>
-                    ) : null}
+                    {domain.uptime_status ? null : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -415,8 +407,8 @@ export default function DomainsScreen({ t, telegramId }) {
                     <span className="text-[10px]">↗</span>
                   </a>
                   <StatusBadge
-                    status={domain.status}
-                    label={domain.status === 'active' ? 'Доступен' : domain.status}
+                    status={domain.uptime_status === 'up' ? 'up' : domain.status}
+                    label={domain.uptime_status === 'up' ? 'Онлайн' : (domain.status === 'active' ? 'Доступен' : domain.status)}
                   />
                 </div>
               </div>
