@@ -386,11 +386,11 @@ export default function DomainsScreen({ t, telegramId }) {
                     href={`https://${domain.name}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="badge bg-accent/15 text-accent hover:bg-accent/25 px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1 shadow-xs"
+                    className="badge bg-accent/15 text-accent hover:bg-accent/25 px-2 py-1 text-xs font-medium transition-colors flex items-center gap-0.5 shadow-xs"
                     title="Открыть сайт"
                   >
-                    <span>Сайт</span>
-                    <span>↗</span>
+                    <span>🌐</span>
+                    <span className="text-[10px]">↗</span>
                   </a>
                   <StatusBadge
                     status={domain.status}
