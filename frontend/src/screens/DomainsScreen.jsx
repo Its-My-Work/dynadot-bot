@@ -364,6 +364,17 @@ export default function DomainsScreen({ t, telegramId }) {
 
   return (
     <>
+      {/* Domains Summary Header Banner */}
+      <div className="card p-4 bg-gradient-to-r from-accent/10 via-card to-card border border-accent/20 flex items-center justify-between mb-4">
+        <div className="space-y-0.5">
+          <div className="text-[11px] font-semibold text-accent uppercase tracking-wider">Ваши домены</div>
+          <div className="text-base font-bold text-ink">{domains.length} {domains.length === 1 ? 'активный домен' : 'активных доменов'}</div>
+        </div>
+        <div className="h-10 w-10 rounded-2xl bg-accent/20 border border-accent/30 flex items-center justify-center text-accent text-lg shadow-inner">
+          🌐
+        </div>
+      </div>
+
       <ul className="space-y-3">
         {domains.map((domain) => {
           const routing = getDomainRouting(domain);
