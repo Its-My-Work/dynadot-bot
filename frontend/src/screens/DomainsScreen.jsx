@@ -766,26 +766,31 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
           {/* Slide-up Sheet on Mobile, Centered Modal on Desktop */}
           <div
             ref={actionsRef}
-            className="relative z-50 w-full sm:max-w-md mx-auto my-auto rounded-t-2xl sm:rounded-2xl border border-card-border/80 bg-card p-5 shadow-2xl space-y-3.5 text-xs animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            className="relative z-50 w-full sm:max-w-md mx-auto my-auto rounded-t-3xl sm:rounded-2xl border border-card-border/80 bg-surface p-6 shadow-2xl space-y-4 text-xs animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
           >
             {/* Grab handle (visible on mobile only) */}
-            <div className="mx-auto h-1 w-10 rounded-full bg-line/80 mb-1 sm:hidden" />
+            <div className="mx-auto h-1.5 w-12 rounded-full bg-line/80 mb-2 sm:hidden" />
 
-            <div className="flex items-center justify-between pb-2 border-b border-card-border/50">
-              <div className="flex items-center gap-2">
-                <span className="text-base">⚡</span>
-                <span className="font-bold text-sm text-ink">Действия: {domain.name}</span>
+            <div className="flex items-center justify-between pb-3 border-b border-card-border/60">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/20 text-accent font-bold">
+                  ⚡
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm text-ink">Управление доменом</h3>
+                  <p className="text-[11px] font-mono text-muted">{domain.name}</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setActionsOpen(false)}
-                className="text-xs text-muted hover:text-ink cursor-pointer px-2 py-1 rounded-md"
+                className="text-muted hover:text-ink text-sm p-1.5 rounded-lg hover:bg-card cursor-pointer transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-2 pt-1">
+            <div className="space-y-2.5 pt-1">
               {/* Copy EPP Code */}
               <button
                 type="button"
@@ -793,16 +798,16 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                   handleCopyEpp();
                   setActionsOpen(false);
                 }}
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-surface/70 hover:bg-surface border border-card-border/50 text-left text-ink cursor-pointer transition-colors"
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card hover:bg-card/80 border border-card-border/60 text-left text-ink cursor-pointer transition-all hover:border-accent/40 shadow-xs"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">📋</span>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface text-base">📋</span>
                   <div>
                     <div className="font-semibold text-ink">Скопировать EPP-код</div>
-                    <div className="text-[11px] text-muted">Код авторизации для переноса домена к другому регистратору</div>
+                    <div className="text-[11px] text-muted">Код авторизации для переноса к другому регистратору</div>
                   </div>
                 </div>
-                <span className="badge border border-accent/40 bg-accent/15 text-accent font-mono text-[11px] px-2 py-0.5 shrink-0">
+                <span className="badge border border-accent/40 bg-accent/15 text-accent font-mono text-[11px] px-2.5 py-1 shrink-0 font-bold">
                   auth-code
                 </span>
               </button>
@@ -811,55 +816,55 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
               <button
                 type="button"
                 onClick={handleTogglePrivacy}
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-surface/70 hover:bg-surface border border-card-border/50 text-left text-ink cursor-pointer transition-colors"
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card hover:bg-card/80 border border-card-border/60 text-left text-ink cursor-pointer transition-all hover:border-accent/40 shadow-xs"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">🛡</span>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface text-base">🛡</span>
                   <div>
                     <div className="font-semibold text-ink">WHOIS Privacy</div>
-                    <div className="text-[11px] text-muted">Скрытие личных контактов и email в публичном WHOIS</div>
+                    <div className="text-[11px] text-muted">Скрытие личных контактов в публичном WHOIS</div>
                   </div>
                 </div>
-                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${privacy ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30' : 'bg-surface text-muted border border-card-border'}`}>
+                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${privacy ? 'bg-card text-ink border border-card-border/80' : 'bg-surface text-muted border border-card-border'}`}>
                   {privacy ? '✓ ВКЛ' : 'ВЫКЛ'}
                 </span>
               </button>
 
-              {/* Toggle Transfer Lock */}
+              {/* Toggle Lock */}
               <button
                 type="button"
                 onClick={handleToggleLock}
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-surface/70 hover:bg-surface border border-card-border/50 text-left text-ink cursor-pointer transition-colors"
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card hover:bg-card/80 border border-card-border/60 text-left text-ink cursor-pointer transition-all hover:border-accent/40 shadow-xs"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">🔒</span>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface text-base">🔒</span>
                   <div>
                     <div className="font-semibold text-ink">Защита от трансфера (Lock)</div>
-                    <div className="text-[11px] text-muted">Блокировка случайной или несанкционированной смены регистратора</div>
+                    <div className="text-[11px] text-muted">Блокировка несанкционированной смены регистратора</div>
                   </div>
                 </div>
-                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${lock ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30' : 'bg-surface text-muted border border-card-border'}`}>
+                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${lock ? 'bg-card text-ink border border-card-border/80' : 'bg-surface text-muted border border-card-border'}`}>
                   {lock ? '✓ ВКЛ' : 'ВЫКЛ'}
                 </span>
               </button>
 
-              {/* Renew Domain */}
+              {/* Renew */}
               <button
                 type="button"
                 onClick={() => {
                   handleRenew();
                   setActionsOpen(false);
                 }}
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-accent/15 hover:bg-accent/25 border border-accent/40 text-left text-ink cursor-pointer transition-colors mt-2"
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-accent/15 hover:bg-accent/25 border border-accent/40 text-left text-ink cursor-pointer transition-all shadow-md mt-3"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">🛒</span>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 text-base">🛒</span>
                   <div>
                     <div className="font-bold text-accent">Продлить домен на 1 год</div>
                     <div className="text-[11px] text-muted">Мгновенное продление срока регистрации</div>
                   </div>
                 </div>
-                <span className="font-bold text-sm text-ink shrink-0">
+                <span className="font-bold text-sm text-ink shrink-0 bg-surface/80 px-2.5 py-1 rounded-lg border border-accent/30 font-mono">
                   {details?.renew_price_rub ? `${Number(details.renew_price_rub).toLocaleString('ru-RU')} ₽` : '690 ₽'}
                 </span>
               </button>
