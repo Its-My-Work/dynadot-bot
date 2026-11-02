@@ -219,7 +219,7 @@ export function PresetConfirmModal({
                       </span>
                       <span>Дополнить текущие записи (Smart Merge)</span>
                     </span>
-                    <span className="badge text-[9px] bg-emerald-500/20 text-emerald-400 font-semibold px-1.5 py-0.5">
+                    <span className="badge text-[9px] bg-teal-500/15 text-teal-700 dark:text-teal-300 font-semibold px-1.5 py-0.5">
                       Рекомендуется
                     </span>
                   </div>
@@ -258,13 +258,13 @@ export function PresetConfirmModal({
               <div className="rounded-xl bg-card/80 border border-card-border/60 p-3 space-y-3 text-xs max-h-48 overflow-y-auto">
                 {/* To Add / Update */}
                 <div className="space-y-1">
-                  <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                  <span className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 flex items-center gap-1">
                     <span>🟢 Будет добавлено/обновлено ({preset.newRecords.length}):</span>
                   </span>
                   {preset.newRecords.map((r, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-2 font-mono text-[11px] bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md text-emerald-300"
+                      className="flex items-center gap-2 font-mono text-[11px] bg-teal-500/10 border border-teal-500/20 px-2 py-1 rounded-md text-teal-800 dark:text-teal-200"
                     >
                       <span className="font-bold text-accent">[{r.type}]</span>
                       <span className="text-ink">{r.host || '@'}</span>
@@ -727,7 +727,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
       <div className="flex items-center justify-between border-b border-card-border/60 pb-2.5">
         <div className="flex items-center gap-2">
           <span className="font-bold text-xs text-ink">{domain.name}</span>
-          <span className="badge text-[10px] bg-emerald-500/15 text-emerald-400 font-semibold px-1.5 py-0.5">
+          <span className="badge text-[10px] bg-teal-500/15 text-teal-700 dark:text-teal-300 font-semibold px-1.5 py-0.5">
             {domain.status}
           </span>
         </div>
@@ -820,7 +820,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                     <div className="text-[11px] text-muted">Скрытие личных контактов и email в публичном WHOIS</div>
                   </div>
                 </div>
-                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${privacy ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-surface text-muted border border-card-border'}`}>
+                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${privacy ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30' : 'bg-surface text-muted border border-card-border'}`}>
                   {privacy ? '✓ ВКЛ' : 'ВЫКЛ'}
                 </span>
               </button>
@@ -838,7 +838,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                     <div className="text-[11px] text-muted">Блокировка случайной или несанкционированной смены регистратора</div>
                   </div>
                 </div>
-                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${lock ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-surface text-muted border border-card-border'}`}>
+                <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${lock ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30' : 'bg-surface text-muted border border-card-border'}`}>
                   {lock ? '✓ ВКЛ' : 'ВЫКЛ'}
                 </span>
               </button>

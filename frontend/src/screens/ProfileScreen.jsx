@@ -142,7 +142,7 @@ export default function ProfileScreen({ t, telegramId }) {
                     Администратор
                   </span>
                 ) : user?.has_password ? (
-                  <span className="badge text-[10px] bg-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5">
+                  <span className="badge text-[10px] bg-teal-500/15 text-teal-700 dark:text-teal-300 font-semibold px-2 py-0.5">
                     ✓ Активен
                   </span>
                 ) : null}
@@ -173,7 +173,7 @@ export default function ProfileScreen({ t, telegramId }) {
               </div>
             </div>
             {user?.email ? (
-              <span className="badge bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold px-2 py-0.5 text-[11px]">
+              <span className="badge bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30 font-semibold px-2 py-0.5 text-[11px]">
                 ✓ Привязан
               </span>
             ) : (
@@ -240,7 +240,7 @@ export default function ProfileScreen({ t, telegramId }) {
               </div>
             </div>
             {isRealTelegram || user?.telegram_username ? (
-              <span className="badge bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold px-2 py-0.5 text-[11px]">
+              <span className="badge bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30 font-semibold px-2 py-0.5 text-[11px]">
                 ✓ Привязан
               </span>
             ) : (

@@ -705,7 +705,7 @@ function DomainsManagement({ language }) {
                       ) : null}
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="badge text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5">
+                      <span className="badge text-[10px] font-semibold bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30 px-2 py-0.5">
                         {dom.status}
                       </span>
                       {dom.auto_renew ? (
@@ -840,7 +840,7 @@ function DomainsManagement({ language }) {
             className={`rounded-xl px-4 py-2.5 text-xs font-medium shadow-lg border ${
               toast.tone === 'danger'
                 ? 'bg-rose-950/90 text-rose-200 border-rose-500/40'
-                : 'bg-emerald-950/90 text-emerald-200 border-emerald-500/40'
+                : 'bg-teal-950/90 text-teal-200 border-teal-500/40'
             }`}
           >
             {toast.message}
