@@ -770,6 +770,9 @@ async def get_domain_details(
         dns_records=records,
         renew_price_rub=quote.price_rub,
         auth_code=auth_code,
+        uptime_status=domain.uptime_status,
+        uptime_checked_at=domain.uptime_checked_at,
+        http_status_code=domain.http_status_code,
     )
 
 

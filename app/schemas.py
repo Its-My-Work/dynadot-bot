@@ -218,12 +218,15 @@ class DomainRead(ORMModel):
     tld: str
     status: DomainStatus
     registered_at: datetime | None = None
-    expires_at: datetime | None = None
+    expires_at: datetime | None
     auto_renew: bool
-    is_locked: bool = True
-    privacy_enabled: bool = True
-    nameservers: str | None = None
-    dns_records: str | None = None
+    is_locked: bool
+    privacy_enabled: bool
+    nameservers: str | None
+    dns_records: str | None
+    uptime_status: str | None = None  # 'up', 'down', 'checking'
+    uptime_checked_at: datetime | None = None
+    http_status_code: int | None = None
 
 
 class DnsRecordItem(BaseModel):
@@ -276,6 +279,9 @@ class DomainDetailsResponse(ORMModel):
     dns_records: list[DnsRecordItem] = Field(default_factory=list)
     renew_price_rub: float | None = None
     auth_code: str | None = None
+    uptime_status: str | None = None
+    uptime_checked_at: datetime | None = None
+    http_status_code: int | None = None
 
 
 class NameserverUpdate(BaseModel):

@@ -117,8 +117,68 @@ async def enqueue_registration(
     return task
 
 
-class RegistrationWorker:
-    """Polls for due registration tasks and executes them one at a time."""
+async def check_domain_uptime_and_expiry(
+    session_factory: async_sessionmaker[AsyncSession],
+    bot: Any | None = None,
+) -> None:
+    """Periodic background task: checks domain uptime, expiry reminders, and sends Telegram alerts."""
+    import httpx
+
+    from app.models.domain import Domain
+
+    async with session_factory() as session:
+        domains = (await session.scalars(select(Domain))).all()
+        now = datetime.now(UTC)
+
+        for domain in domains:
+            # 1. Uptime Check
+            try:
+                async with httpx.AsyncClient(
+                    timeout=8.0, follow_redirects=True
+                ) as client:
+                    resp = await client.get(f"https://{domain.name}")
+                    domain.http_status_code = resp.status_code
+                    domain.uptime_status = "up" if resp.status_code < 500 else "down"
+            except Exception:
+                domain.uptime_status = "down"
+                domain.http_status_code = None
+            domain.uptime_checked_at = now
+
+            # 2. Expiry Reminders (30, 7, 3 days)
+            if domain.expires_at and domain.user_id:
+                user = await session.scalar(select(User).where(User.id == domain.user_id))
+                if user and user.telegram_id:
+                    delta = domain.expires_at - now
+                    days_left = delta.days
+
+                    target_stage = 0
+                    if 0 <= days_left <= 3:
+                        target_stage = 3
+                    elif 3 < days_left <= 7:
+                        target_stage = 7
+                    elif 7 < days_left <= 30:
+                        target_stage = 30
+
+                    if target_stage > 0 and domain.expiry_notice_stage != target_stage:
+                        if bot:
+                            try:
+                                msg = (
+                                    f"⚠️ <b>Внимание! Срок действия домена {domain.name} истекает через {days_left} дн.</b>\n\n"
+                                    f"📅 Дата окончания: {domain.expires_at.strftime('%d.%m.%Y')}\n"
+                                    f"💳 Продлите домен в личным кабинете, чтобы избежать его блокировки."
+                                )
+                                await bot.send_message(
+                                    user.telegram_id, msg, parse_mode="HTML"
+                                )
+                                domain.expiry_notice_stage = target_stage
+                                domain.expiry_notified_at = now
+                            except Exception as exc:
+                                logger.warning(
+                                    "failed to send expiry notice",
+                                    extra={"error": str(exc)},
+                                )
+
+        await session.commit()
 
     def __init__(
         self,
@@ -416,7 +476,7 @@ __all__ = [
     "OP_REGISTER_DOMAIN",
     "SHUTDOWN_DRAIN_SECONDS",
     "STALE_RUNNING_MINUTES",
-    "RegistrationWorker",
     "backoff_seconds",
+    "check_domain_uptime_and_expiry",
     "enqueue_registration",
 ]

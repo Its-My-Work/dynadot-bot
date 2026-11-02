@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -169,7 +170,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.registration_worker = None
     if settings.registration_worker_enabled:
         from app.db.session import get_session_factory
-        from app.services.worker import RegistrationWorker
+        from app.services.worker import RegistrationWorker, check_domain_uptime_and_expiry
 
         worker = RegistrationWorker(
             get_session_factory(),
@@ -181,9 +182,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await worker.start()
         app.state.registration_worker = worker
 
+        # Start periodic uptime and expiry check loop (every 30 mins)
+        async def _uptime_loop():
+            while True:
+                await asyncio.sleep(60)  # initial delay
+                try:
+                    await check_domain_uptime_and_expiry(
+                        get_session_factory(), app.state.bot
+                    )
+                except Exception:
+                    logger.exception("uptime/expiry check loop failed")
+                await asyncio.sleep(1800)
+
+        app.state.uptime_task = asyncio.create_task(_uptime_loop())
+
     try:
         yield
     finally:
+        if hasattr(app.state, "uptime_task") and app.state.uptime_task:
+            app.state.uptime_task.cancel()
         if app.state.registration_worker is not None:
             await app.state.registration_worker.stop()
         await _stop_bot(app)

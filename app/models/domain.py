@@ -63,6 +63,16 @@ class Domain(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     # Expiry reminder bookkeeping so the bot does not spam the user.
     expiry_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expiry_notice_stage: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )  # 0: none, 30: 30d, 7: 7d, 3: 3d, 0: expired
+
+    # Uptime check bookkeeping
+    uptime_status: Mapped[str | None] = mapped_column(
+        String(32), default=None
+    )  # 'up', 'down'
+    uptime_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    http_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     user: Mapped[User | None] = relationship(back_populates="domains")
     contact_profile: Mapped[ContactProfile | None] = relationship()

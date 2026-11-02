@@ -377,9 +377,20 @@ export default function DomainsScreen({ t, telegramId }) {
                     <span>🌐</span>
                     <span>{domain.name}</span>
                   </h3>
-                  <p className="text-xs text-muted mt-0.5">
-                    {t('domains.expires', { date: formatDate(domain.expires_at) })}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-muted">
+                      {t('domains.expires', { date: formatDate(domain.expires_at) })}
+                    </p>
+                    {domain.uptime_status ? (
+                      <span className={`badge px-1.5 py-0.2 text-[10px] font-semibold flex items-center gap-1 ${
+                        domain.uptime_status === 'up'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                      }`}>
+                        <span>{domain.uptime_status === 'up' ? '🟢 Онлайн' : '🔴 Сбой'}</span>
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <a
