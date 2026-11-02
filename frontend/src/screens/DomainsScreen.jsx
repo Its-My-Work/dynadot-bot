@@ -186,12 +186,12 @@ export function PresetConfirmModal({
         </div>
 
         {isCf ? (
-          <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-ink space-y-1.5">
-            <p className="font-semibold text-cyan-300">Внимание:</p>
+          <div className="p-3 rounded-xl bg-accent/10 border border-accent/20 text-xs text-ink space-y-1.5">
+            <p className="font-semibold text-accent">Внимание:</p>
             <p className="text-muted">
-              NS-серверы домена будут переключены на{' '}
-              <code className="text-cyan-300 font-mono">ada.ns.cloudflare.com</code> и{' '}
-              <code className="text-cyan-300 font-mono">walt.ns.cloudflare.com</code>.
+              Убедитесь, что ваши NS-серверы в Dynadot заменены на Cloudflare:{' '}
+              <code className="text-accent font-mono">ada.ns.cloudflare.com</code> и{' '}
+              <code className="text-accent font-mono">walt.ns.cloudflare.com</code>.
             </p>
             <p className="text-muted text-[11px]">
               Управление DNS-записями после этого будет происходить через панель Cloudflare.
