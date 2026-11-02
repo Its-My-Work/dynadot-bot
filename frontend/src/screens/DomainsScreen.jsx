@@ -384,10 +384,10 @@ export default function DomainsScreen({ t, telegramId }) {
                     {domain.uptime_status ? (
                       <span className={`badge px-1.5 py-0.2 text-[10px] font-semibold flex items-center gap-1 ${
                         domain.uptime_status === 'up'
-                          ? 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/25'
+                          ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25'
                           : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
                       }`}>
-                        <span>{domain.uptime_status === 'up' ? '🟢 Онлайн' : '🔴 Сбой'}</span>
+                        <span>{domain.uptime_status === 'up' ? '🌐 Онлайн' : '🔴 Сбой'}</span>
                       </span>
                     ) : null}
                   </div>
@@ -442,7 +442,7 @@ export default function DomainsScreen({ t, telegramId }) {
                   <span
                     className={`badge px-2 py-0.5 text-[10px] font-semibold ${
                       domain.privacy_enabled
-                        ? 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/25'
+                        ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25'
                         : 'bg-card text-muted border border-card-border/50'
                     }`}
                   >
@@ -452,7 +452,7 @@ export default function DomainsScreen({ t, telegramId }) {
                   <span
                     className={`badge px-2 py-0.5 text-[10px] font-semibold ${
                       domain.is_locked
-                        ? 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/25'
+                        ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25'
                         : 'bg-card text-muted border border-card-border/50'
                     }`}
                   >
