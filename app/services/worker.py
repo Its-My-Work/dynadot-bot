@@ -180,6 +180,10 @@ async def check_domain_uptime_and_expiry(
 
         await session.commit()
 
+
+class RegistrationWorker:
+    """Polls for due registration tasks and executes them one at a time."""
+
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
