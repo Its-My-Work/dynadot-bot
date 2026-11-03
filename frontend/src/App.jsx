@@ -176,6 +176,8 @@ export default function App() {
                 onSelect={selectTheme}
                 label={t('theme.label')}
                 testId="theme-trigger-sidebar"
+                align="left"
+                drop="up"
               />
               <LangToggle
                 language={language}

@@ -172,7 +172,7 @@ export function PresetConfirmModal({
       />
 
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-md rounded-2xl bg-surface border border-accent/40 shadow-2xl p-5 space-y-4 z-10 animate-in zoom-in-95 duration-150">
+      <div className="relative w-full max-w-xl sm:max-w-2xl rounded-2xl bg-surface border border-accent/40 shadow-2xl p-5 sm:p-6 space-y-4 z-10 animate-in zoom-in-95 duration-150">
         <div className="flex items-start justify-between gap-3 border-b border-card-border/60 pb-3">
           <div>
             <span className="text-[11px] text-accent font-semibold uppercase tracking-wider block">
@@ -228,8 +228,8 @@ export function PresetConfirmModal({
                 </span>
               </div>
 
-              <div className="space-y-2 font-mono text-xs">
-                <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-2.5 py-1.5 focus-within:border-accent shadow-2xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-xs">
+                <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-2.5 py-2 focus-within:border-accent shadow-2xs">
                   <span className="text-[10px] text-muted font-sans font-medium select-none">NS 1:</span>
                   <input
                     type="text"
@@ -239,7 +239,7 @@ export function PresetConfirmModal({
                     placeholder="ada.ns.cloudflare.com"
                   />
                 </div>
-                <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-2.5 py-1.5 focus-within:border-accent shadow-2xs">
+                <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-2.5 py-2 focus-within:border-accent shadow-2xs">
                   <span className="text-[10px] text-muted font-sans font-medium select-none">NS 2:</span>
                   <input
                     type="text"
@@ -261,51 +261,55 @@ export function PresetConfirmModal({
             {/* Mode Selector */}
             <div className="space-y-2">
               <span className="text-xs font-semibold text-ink block">Режим применения:</span>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => onModeChange('merge')}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between ${
                     mode === 'merge'
                       ? 'bg-accent/15 border-accent text-ink shadow-xs'
                       : 'bg-card/60 border-card-border/60 text-muted hover:text-ink'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold flex items-center gap-1.5">
-                      <span className={mode === 'merge' ? 'text-accent' : 'text-muted'}>●</span>
-                      <span>Дополнить текущие записи (Smart Merge)</span>
-                    </span>
-                    <span className="badge text-[9px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 font-bold px-1.5 py-0.5">
-                      Рекомендуется
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="text-xs font-bold flex items-center gap-1.5">
+                        <span className={mode === 'merge' ? 'text-accent' : 'text-muted'}>●</span>
+                        <span>Smart Merge</span>
+                      </span>
+                      <span className="badge text-[9px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 font-bold px-1.5 py-0.5 shrink-0">
+                        Рекомендуется
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
+                      Дополнит записи нужными из пресета. Существующие A/AAAA записи останутся нетронутыми.
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted mt-1 leading-relaxed">
-                    Добавит необходимые записи пресета и обновит конфликтующие. Существующие A/AAAA записи останутся нетронутыми.
-                  </p>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => onModeChange('replace')}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between ${
                     mode === 'replace'
                       ? 'bg-red-500/15 border-red-500 text-ink shadow-xs'
                       : 'bg-card/60 border-card-border/60 text-muted hover:text-ink'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold flex items-center gap-1.5">
-                      <span className={mode === 'replace' ? 'text-red-500' : 'text-muted'}>●</span>
-                      <span>Полная замена (Перезаписать)</span>
-                    </span>
-                    <span className="badge text-[9px] bg-red-500/20 text-red-600 dark:text-red-400 font-bold px-1.5 py-0.5">
-                      Внимание
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="text-xs font-bold flex items-center gap-1.5">
+                        <span className={mode === 'replace' ? 'text-red-500' : 'text-muted'}>●</span>
+                        <span>Полная замена</span>
+                      </span>
+                      <span className="badge text-[9px] bg-red-500/20 text-red-600 dark:text-red-400 font-bold px-1.5 py-0.5 shrink-0">
+                        Внимание
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
+                      Удалит все текущие DNS-записи и запишет только конфигурацию выбранного пресета.
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted mt-1 leading-relaxed">
-                    Удалит все текущие DNS-записи домена и запишет только конфигурацию выбранного пресета.
-                  </p>
                 </button>
               </div>
             </div>
@@ -313,9 +317,9 @@ export function PresetConfirmModal({
             {/* Visual Diff Preview */}
             <div className="space-y-2">
               <span className="text-xs font-semibold text-ink block">Предпросмотр DNS:</span>
-              <div className="rounded-xl bg-card/80 border border-card-border/60 p-3 space-y-3 text-xs max-h-48 overflow-y-auto">
+              <div className="rounded-xl bg-card/80 border border-card-border/60 p-3 space-y-3 text-xs max-h-56 overflow-y-auto">
                 {/* To Add / Update */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
                     <span>Будет добавлено / обновлено ({preset.newRecords.length}):</span>
@@ -323,32 +327,32 @@ export function PresetConfirmModal({
                   {preset.newRecords.map((r, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-2 font-mono text-[11px] bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg text-emerald-950 dark:text-emerald-200 shadow-2xs"
+                      className="flex items-center gap-2 font-mono text-[11px] bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-emerald-950 dark:text-emerald-200 shadow-2xs"
                     >
-                      <span className="font-bold text-accent">[{r.type}]</span>
-                      <span className="text-ink font-semibold">{r.host || '@'}</span>
-                      <span className="text-muted">➔</span>
-                      <span className="truncate flex-1 text-emerald-900 dark:text-emerald-200 font-bold">{r.value}</span>
+                      <span className="font-bold text-accent shrink-0">[{r.type}]</span>
+                      <span className="text-ink font-semibold shrink-0">{r.host || '@'}</span>
+                      <span className="text-muted shrink-0">➔</span>
+                      <span className="flex-1 text-emerald-900 dark:text-emerald-200 font-bold break-all">{r.value}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* To Keep or Warning */}
                 {mode === 'merge' ? (
-                  <div className="space-y-1 pt-2 border-t border-card-border/40">
-                    <span className="text-[11px] font-semibold text-muted flex items-center gap-1">
+                  <div className="space-y-1.5 pt-2 border-t border-card-border/40">
+                    <span className="text-[11px] font-semibold text-muted flex items-center gap-1.5">
                       <span>⚪️ Останется без изменений ({preset.kept.length}):</span>
                     </span>
                     {preset.kept.length > 0 ? (
                       preset.kept.map((r, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-2 font-mono text-[11px] bg-surface/50 border border-line px-2.5 py-1.5 rounded-lg text-muted"
+                          className="flex items-center gap-2 font-mono text-[11px] bg-surface/50 border border-line px-3 py-1.5 rounded-lg text-muted"
                         >
-                          <span className="font-bold text-ink">[{r.type}]</span>
-                          <span className="text-ink">{r.host || '@'}</span>
-                          <span className="text-muted">➔</span>
-                          <span className="truncate flex-1 text-ink/80">{r.value}</span>
+                          <span className="font-bold text-ink shrink-0">[{r.type}]</span>
+                          <span className="text-ink shrink-0">{r.host || '@'}</span>
+                          <span className="text-muted shrink-0">➔</span>
+                          <span className="flex-1 text-ink/80 break-all">{r.value}</span>
                         </div>
                       ))
                     ) : (
@@ -1495,7 +1499,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                     }}
                     className="appearance-none bg-surface border border-line hover:border-accent/50 text-ink font-medium px-3 pr-7 py-1 rounded-lg text-xs cursor-pointer outline-none shadow-2xs transition-colors"
                   >
-                    <option value="">✨ Быстрый пресет</option>
+                    <option value="">⚡ Быстрые настройки</option>
                     <option value="telegram">✈️ Редирект в Telegram</option>
                     <option value="vps">🖥 Привязать к VPS</option>
                     <option value="cloudflare">☁️ Делегировать на Cloudflare</option>

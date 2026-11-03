@@ -178,6 +178,7 @@ export function ThemePicker({
   onSelect,
   label = 'Theme',
   align = 'right',
+  drop = 'down',
   testId = 'theme-trigger',
 }) {
   const [open, setOpen] = useState(false);
@@ -209,16 +210,17 @@ export function ThemePicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         data-testid={testId}
-        className="flex items-center gap-1.5 rounded-md border border-line
-          bg-surface px-2 py-1 text-xs font-medium text-muted
-          transition-colors hover:border-faint hover:text-ink"
+        className="flex items-center gap-1.5 rounded-lg border border-line
+          bg-surface px-2.5 py-1.5 text-xs font-medium text-muted
+          transition-colors hover:border-faint hover:text-ink shadow-2xs cursor-pointer"
       >
         <span
           aria-hidden="true"
           className="h-3 w-3 shrink-0 rounded-full border border-line"
           style={{ background: active.accent }}
         />
-        <span className="hidden sm:inline">{active.name}</span>
+        <span className="truncate max-w-[100px]">{active.name}</span>
+        <span className="text-[10px] text-muted shrink-0">▾</span>
       </button>
 
       {open ? (
@@ -226,9 +228,9 @@ export function ThemePicker({
           role="listbox"
           aria-label={label}
           data-testid={testId === 'theme-trigger' ? 'theme-menu' : `${testId}-menu`}
-          className={`absolute top-full z-50 mt-2 w-56 animate-fade-up
+          className={`absolute ${drop === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} z-50 w-56 animate-fade-up
             overflow-hidden rounded-xl border border-line bg-surface
-            shadow-pop ${align === 'right' ? 'right-0' : 'left-0'}`}
+            shadow-2xl ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
           {THEMES.map((item) => {
             const selected = item.id === active.id;
