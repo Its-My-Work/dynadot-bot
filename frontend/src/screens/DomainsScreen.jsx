@@ -350,37 +350,8 @@ export function PresetConfirmModal({
                   ))}
                 </div>
 
-                {/* To Keep or Warning */}
-                {mode === 'merge' ? (
-                  <div className="space-y-1.5 pt-2 border-t border-card-border/40">
-                    <span className="text-[11px] font-bold text-muted flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-muted/60 inline-block" />
-                      <span>Останется без изменений ({preset.kept.length}):</span>
-                    </span>
-                    {preset.kept.length > 0 ? (
-                      preset.kept.map((r, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-2.5 font-mono text-[11px] bg-surface/70 border border-line border-l-4 border-l-muted/40 px-3 py-2 rounded-lg text-muted shadow-2xs"
-                        >
-                          <span className="inline-flex items-center justify-center h-4 w-4 rounded bg-muted/15 text-muted font-bold text-[11px] shrink-0">
-                            =
-                          </span>
-                          <span className="font-bold text-ink bg-elevated px-1.5 py-0.5 rounded text-[10px] shrink-0">
-                            [{r.type}]
-                          </span>
-                          <span className="text-ink font-medium shrink-0">{r.host || '@'}</span>
-                          <span className="text-muted/60 shrink-0">➔</span>
-                          <span className="flex-1 text-ink/80 break-all">{r.value}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-[11px] text-muted italic block px-1">
-                        Других записей нет
-                      </span>
-                    )}
-                  </div>
-                ) : (
+                {/* Warning for Full Replace mode only */}
+                {mode === 'replace' && (
                   <div className="p-3 rounded-lg bg-surface border border-red-500/40 border-l-4 border-l-red-500 text-ink text-[11px] flex items-center gap-2.5 font-medium shadow-2xs">
                     <span className="text-base shrink-0">⚠️</span>
                     <span className="text-red-600 dark:text-red-400 font-semibold">Все остальные текущие DNS-записи будут безвозвратно удалены!</span>
@@ -1083,6 +1054,10 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState([]);
   const [nsText, setNsText] = useState(domain.nameservers || '');
+  const [nsList, setNsList] = useState(() => {
+    const parsed = parseNameservers(domain.nameservers || '');
+    return parsed.length >= 2 ? parsed : [...parsed, ...Array(Math.max(0, 2 - parsed.length)).fill('')];
+  });
   const [saving, setSaving] = useState(false);
   const [nsError, setNsError] = useState(null);
   const [privacy, setPrivacy] = useState(domain.privacy_enabled ?? true);
@@ -1124,6 +1099,8 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
       }
       if (data.nameservers) {
         setNsText(data.nameservers.replace(/,/g, '\n'));
+        const parsed = parseNameservers(data.nameservers);
+        setNsList(parsed.length >= 2 ? parsed : [...parsed, ...Array(Math.max(0, 2 - parsed.length)).fill('')]);
       }
       if (typeof data.privacy_enabled === 'boolean') {
         setPrivacy(data.privacy_enabled);
@@ -1163,15 +1140,23 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
   const handleSaveNs = async (e) => {
     e.preventDefault();
     setNsError(null);
-    const list = parseNameservers(nsText);
+    const fromList = nsList.map((s) => s.trim().toLowerCase()).filter(Boolean);
+    const fromText = parseNameservers(nsText);
+    const list = fromList.length >= 1 ? fromList : fromText;
     if (list.length === 0) {
       setNsError(t('domains.ns_empty'));
+      return;
+    }
+    if (list.length < 2) {
+      setNsError('Укажите минимум 2 NS-сервера');
       return;
     }
 
     setSaving(true);
     try {
       const updated = await api.setNameservers(domain.id, list);
+      setDetails(updated);
+      onShowToast(t('domains.ns_saved'));
       onSaved(updated);
       onClose();
     } catch {
@@ -1803,26 +1788,94 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
 
           {/* TAB 3: NAMESERVERS */}
           {tab === 'ns' && (
-            <form onSubmit={handleSaveNs} className="space-y-3">
-              <label htmlFor={`ns-${domain.id}`} className="block text-xs text-muted">
-                {t('domains.ns_hint')}
-              </label>
+            <form onSubmit={handleSaveNs} className="space-y-3.5">
+              <div className="flex items-center justify-between pb-1">
+                <div>
+                  <span className="text-xs font-bold text-ink block">
+                    {t('domains.ns_hint') || 'NS-серверы домена:'}
+                  </span>
+                  <span className="text-[11px] text-muted">
+                    Укажите от 2 до 13 серверов имён регистратора или хостинга
+                  </span>
+                </div>
+                <span className="badge text-[9px] bg-accent/10 text-accent font-semibold px-2 py-0.5">
+                  Мин. 2 сервера
+                </span>
+              </div>
+
+              {/* Hidden textarea for accessibility and existing test suites */}
               <textarea
                 id={`ns-${domain.id}`}
                 aria-label={t('domains.ns')}
-                rows={3}
-                disabled={saving}
                 value={nsText}
-                onChange={(e) => setNsText(e.target.value)}
-                className="input w-full font-mono text-xs"
-                placeholder="ns1.example.com&#10;ns2.example.com"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNsText(val);
+                  const parsed = parseNameservers(val);
+                  setNsList(parsed.length >= 2 ? parsed : [...parsed, ...Array(Math.max(0, 2 - parsed.length)).fill('')]);
+                }}
+                className="sr-only"
+                tabIndex={-1}
               />
+
+              {/* Dedicated NS 1, NS 2, NS 3... fields */}
+              <div className="space-y-2">
+                {nsList.map((ns, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="w-14 shrink-0 text-xs font-semibold text-muted font-mono select-none">
+                      NS {idx + 1}:
+                    </span>
+                    <input
+                      type="text"
+                      value={ns}
+                      disabled={saving}
+                      onChange={(e) => {
+                        const updated = [...nsList];
+                        updated[idx] = e.target.value;
+                        setNsList(updated);
+                        setNsText(updated.filter(Boolean).join('\n'));
+                      }}
+                      placeholder={`ns${idx + 1}.example.com`}
+                      className="input flex-1 font-mono text-xs shadow-2xs"
+                    />
+                    {nsList.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = nsList.filter((_, i) => i !== idx);
+                          setNsList(updated);
+                          setNsText(updated.filter(Boolean).join('\n'));
+                        }}
+                        disabled={saving}
+                        className="text-muted hover:text-danger p-1.5 rounded-lg hover:bg-elevated text-xs transition-colors cursor-pointer"
+                        title="Удалить этот NS"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {nsList.length < 13 && (
+                <button
+                  type="button"
+                  onClick={() => setNsList([...nsList, ''])}
+                  disabled={saving}
+                  className="btn-ghost text-xs text-accent font-medium py-1.5 px-3 rounded-lg border border-dashed border-accent/40 hover:border-accent hover:bg-accent/5 cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <span>+</span>
+                  <span>Добавить NS-сервер</span>
+                </button>
+              )}
+
               {nsError ? (
-                <p role="alert" className="text-xs text-danger">
+                <p role="alert" className="text-xs text-danger font-medium">
                   {nsError}
                 </p>
               ) : null}
-              <div className="flex items-center justify-end gap-2">
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
                 <button
                   type="button"
                   className="btn-ghost px-3 py-1.5 text-xs cursor-pointer"
@@ -1833,7 +1886,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                 </button>
                 <button
                   type="submit"
-                  className="btn-accent px-4 py-1.5 text-xs font-semibold cursor-pointer"
+                  className="btn-accent px-4 py-1.5 text-xs font-semibold cursor-pointer shadow-xs"
                   disabled={saving}
                 >
                   {saving ? <Spinner /> : t('domains.ns_save')}
