@@ -143,7 +143,11 @@ export function PresetConfirmModal({
   onConfirm,
   onCancel,
   saving,
+  domain,
 }) {
+  const [cfNs1, setCfNs1] = useState('ada.ns.cloudflare.com');
+  const [cfNs2, setCfNs2] = useState('walt.ns.cloudflare.com');
+
   if (!preset) return null;
 
   const presetLabels = {
@@ -156,14 +160,16 @@ export function PresetConfirmModal({
   };
 
   const isCf = preset.type === 'cloudflare';
+  const currentNs = domain?.nameservers || '';
+  const isAlreadyCf = currentNs.toLowerCase().includes('cloudflare');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
-          onClick={onCancel}
-        />
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+        onClick={onCancel}
+      />
 
       {/* Modal Dialog */}
       <div className="relative w-full max-w-md rounded-2xl bg-surface border border-accent/40 shadow-2xl p-5 space-y-4 z-10 animate-in zoom-in-95 duration-150">
@@ -186,16 +192,69 @@ export function PresetConfirmModal({
         </div>
 
         {isCf ? (
-          <div className="p-3 rounded-xl bg-accent/10 border border-accent/20 text-xs text-ink space-y-1.5">
-            <p className="font-semibold text-accent">Внимание:</p>
-            <p className="text-muted">
-              Убедитесь, что ваши NS-серверы в Dynadot заменены на Cloudflare:{' '}
-              <code className="text-accent font-mono">ada.ns.cloudflare.com</code> и{' '}
-              <code className="text-accent font-mono">walt.ns.cloudflare.com</code>.
-            </p>
-            <p className="text-muted text-[11px]">
-              Управление DNS-записями после этого будет происходить через панель Cloudflare.
-            </p>
+          <div className="space-y-3.5 text-xs">
+            {/* Status of Current NS in Dynadot */}
+            <div
+              className={`p-3 rounded-xl border flex items-start gap-2.5 ${
+                isAlreadyCf
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-950 dark:text-emerald-200'
+                  : 'bg-amber-500/15 border-amber-500/30 text-ink'
+              }`}
+            >
+              <span className="text-base shrink-0 mt-0.5">{isAlreadyCf ? '✓' : 'ℹ️'}</span>
+              <div className="space-y-0.5">
+                <div className="font-semibold text-xs text-ink">
+                  {isAlreadyCf
+                    ? 'NS-серверы уже переключены на Cloudflare'
+                    : 'Текущие NS-серверы в Dynadot'}
+                </div>
+                <div className="text-[11px] text-muted">
+                  Текущие NS:{' '}
+                  <span className="font-mono text-ink font-semibold">
+                    {currentNs || 'Dynadot DNS'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Cloudflare Nameservers Input & 1-Click Action */}
+            <div className="p-3.5 rounded-xl bg-elevated/40 border border-line space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-ink">
+                  Будут установлены NS-серверы Cloudflare:
+                </span>
+                <span className="badge text-[9px] bg-accent/15 text-accent font-bold px-1.5 py-0.5">
+                  1-клик настройка
+                </span>
+              </div>
+
+              <div className="space-y-2 font-mono text-xs">
+                <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-2.5 py-1.5 focus-within:border-accent shadow-2xs">
+                  <span className="text-[10px] text-muted font-sans font-medium select-none">NS 1:</span>
+                  <input
+                    type="text"
+                    value={cfNs1}
+                    onChange={(e) => setCfNs1(e.target.value)}
+                    className="bg-transparent flex-1 outline-none text-ink text-xs font-mono font-medium"
+                    placeholder="ada.ns.cloudflare.com"
+                  />
+                </div>
+                <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-2.5 py-1.5 focus-within:border-accent shadow-2xs">
+                  <span className="text-[10px] text-muted font-sans font-medium select-none">NS 2:</span>
+                  <input
+                    type="text"
+                    value={cfNs2}
+                    onChange={(e) => setCfNs2(e.target.value)}
+                    className="bg-transparent flex-1 outline-none text-ink text-xs font-mono font-medium"
+                    placeholder="walt.ns.cloudflare.com"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[10px] text-muted leading-relaxed">
+                ⚡ Dynadot API автоматически заменит NS-серверы при клике на кнопку ниже. Вручную заходить в панель Dynadot не требуется.
+              </p>
+            </div>
           </div>
         ) : (
           <>
@@ -214,17 +273,15 @@ export function PresetConfirmModal({
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold flex items-center gap-1.5">
-                      <span className={mode === 'merge' ? 'text-accent' : 'text-muted'}>
-                        {mode === 'merge' ? '●' : '○'}
-                      </span>
+                      <span className={mode === 'merge' ? 'text-accent' : 'text-muted'}>●</span>
                       <span>Дополнить текущие записи (Smart Merge)</span>
                     </span>
-                    <span className="badge text-[9px] bg-teal-500/15 text-teal-700 dark:text-teal-300 font-semibold px-1.5 py-0.5">
+                    <span className="badge text-[9px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 font-bold px-1.5 py-0.5">
                       Рекомендуется
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted mt-1 pl-4">
-                    Сохранит существующие записи сайта и почты, обновив только связанные.
+                  <p className="text-[11px] text-muted mt-1 leading-relaxed">
+                    Добавит необходимые записи пресета и обновит конфликтующие. Существующие A/AAAA записи останутся нетронутыми.
                   </p>
                 </button>
 
@@ -233,20 +290,21 @@ export function PresetConfirmModal({
                   onClick={() => onModeChange('replace')}
                   className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                     mode === 'replace'
-                      ? 'bg-rose-500/15 border-rose-500/40 text-ink shadow-xs'
+                      ? 'bg-red-500/15 border-red-500 text-ink shadow-xs'
                       : 'bg-card/60 border-card-border/60 text-muted hover:text-ink'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold flex items-center gap-1.5">
-                      <span className={mode === 'replace' ? 'text-rose-400' : 'text-muted'}>
-                        {mode === 'replace' ? '●' : '○'}
-                      </span>
-                      <span>Заменить все записи целиком</span>
+                      <span className={mode === 'replace' ? 'text-red-500' : 'text-muted'}>●</span>
+                      <span>Полная замена (Перезаписать)</span>
+                    </span>
+                    <span className="badge text-[9px] bg-red-500/20 text-red-600 dark:text-red-400 font-bold px-1.5 py-0.5">
+                      Внимание
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted mt-1 pl-4">
-                    Очистит все старые DNS-записи и оставит только записи этого пресета.
+                  <p className="text-[11px] text-muted mt-1 leading-relaxed">
+                    Удалит все текущие DNS-записи домена и запишет только конфигурацию выбранного пресета.
                   </p>
                 </button>
               </div>
@@ -258,18 +316,19 @@ export function PresetConfirmModal({
               <div className="rounded-xl bg-card/80 border border-card-border/60 p-3 space-y-3 text-xs max-h-48 overflow-y-auto">
                 {/* To Add / Update */}
                 <div className="space-y-1">
-                  <span className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 flex items-center gap-1">
-                    <span>🟢 Будет добавлено/обновлено ({preset.newRecords.length}):</span>
+                  <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
+                    <span>Будет добавлено / обновлено ({preset.newRecords.length}):</span>
                   </span>
                   {preset.newRecords.map((r, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-2 font-mono text-[11px] bg-teal-500/10 border border-teal-500/20 px-2 py-1 rounded-md text-teal-800 dark:text-teal-200"
+                      className="flex items-center gap-2 font-mono text-[11px] bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg text-emerald-950 dark:text-emerald-200 shadow-2xs"
                     >
                       <span className="font-bold text-accent">[{r.type}]</span>
-                      <span className="text-ink">{r.host || '@'}</span>
+                      <span className="text-ink font-semibold">{r.host || '@'}</span>
                       <span className="text-muted">➔</span>
-                      <span className="truncate">{r.value}</span>
+                      <span className="truncate flex-1 text-emerald-900 dark:text-emerald-200 font-bold">{r.value}</span>
                     </div>
                   ))}
                 </div>
@@ -284,21 +343,24 @@ export function PresetConfirmModal({
                       preset.kept.map((r, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-2 font-mono text-[11px] bg-surface/50 border border-card-border/40 px-2 py-0.5 rounded text-muted"
+                          className="flex items-center gap-2 font-mono text-[11px] bg-surface/50 border border-line px-2.5 py-1.5 rounded-lg text-muted"
                         >
                           <span className="font-bold text-ink">[{r.type}]</span>
                           <span className="text-ink">{r.host || '@'}</span>
-                          <span>➔</span>
-                          <span className="truncate">{r.value}</span>
+                          <span className="text-muted">➔</span>
+                          <span className="truncate flex-1 text-ink/80">{r.value}</span>
                         </div>
                       ))
                     ) : (
-                      <p className="text-[11px] text-muted italic">Других записей нет</p>
+                      <span className="text-[11px] text-muted italic block px-1">
+                        Других записей нет
+                      </span>
                     )}
                   </div>
                 ) : (
-                  <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-300 text-[11px]">
-                    ⚠️ Внимание: все старые записи ({preset.replaced.length + preset.kept.length}) будут удалены.
+                  <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-[11px] flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>Все остальные текущие DNS-записи будут безвозвратно удалены!</span>
                   </div>
                 )}
               </div>
@@ -318,11 +380,17 @@ export function PresetConfirmModal({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => {
+              if (isCf) {
+                onConfirm([cfNs1.trim(), cfNs2.trim()].filter(Boolean));
+              } else {
+                onConfirm();
+              }
+            }}
             disabled={saving}
             className="btn-accent flex-1 py-2 text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
           >
-            {saving ? 'Применение...' : '✓ Применить'}
+            {saving ? 'Применение...' : isCf ? '⚡ Настроить NS в 1 клик' : '✓ Применить'}
           </button>
         </div>
       </div>
@@ -1115,21 +1183,27 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
     setPresetMode('merge');
   };
 
-  const executeApplyPreset = async () => {
+  const executeApplyPreset = async (customPayload) => {
     if (!pendingPreset) return;
     const { type, target } = pendingPreset;
     setSaving(true);
     try {
-      const updated = await api.applyQuickPreset(domain.id, type, target, presetMode);
-      setDetails(updated);
-      if (type === 'vps') onShowToast('✓ Домен привязан к вашему VPS!');
-      else if (type === 'telegram') onShowToast('✓ Редирект в Telegram настроен!');
-      else if (type === 'yandex_mail') onShowToast('✓ Настройки Яндекс 360 применены!');
-      else if (type === 'improvmx') onShowToast('✓ Пересылка на Gmail (ImprovMX) настроена!');
-      else if (type === 'cloudflare_mail') onShowToast('✓ Cloudflare Email Routing настроен!');
-      else if (type === 'cloudflare') {
-        onShowToast('✓ Домен делегирован на Cloudflare!');
+      if (type === 'cloudflare') {
+        const cfNs = Array.isArray(customPayload) && customPayload.length > 0
+          ? customPayload
+          : ['ada.ns.cloudflare.com', 'walt.ns.cloudflare.com'];
+        const updated = await api.setNameservers(domain.id, cfNs);
+        setDetails(updated);
+        onShowToast('✓ NS-серверы Cloudflare успешно настроены в Dynadot!');
         onSaved(updated);
+      } else {
+        const updated = await api.applyQuickPreset(domain.id, type, target, presetMode);
+        setDetails(updated);
+        if (type === 'vps') onShowToast('✓ Домен привязан к вашему VPS!');
+        else if (type === 'telegram') onShowToast('✓ Редирект в Telegram настроен!');
+        else if (type === 'yandex_mail') onShowToast('✓ Настройки Яндекс 360 применены!');
+        else if (type === 'improvmx') onShowToast('✓ Пересылка на Gmail (ImprovMX) настроена!');
+        else if (type === 'cloudflare_mail') onShowToast('✓ Cloudflare Email Routing настроен!');
       }
       setSelectedPresetType('');
       setPendingPreset(null);
@@ -1765,6 +1839,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
         onConfirm={executeApplyPreset}
         onCancel={() => setPendingPreset(null)}
         saving={saving}
+        domain={domain}
       />
         </div>
       </div>
