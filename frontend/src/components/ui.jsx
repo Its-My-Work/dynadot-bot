@@ -144,17 +144,21 @@ export function ErrorNote({ message, onRetry, retryLabel = 'Retry' }) {
 export function Toast({ message, tone = 'ok' }) {
   if (!message) return null;
   const tones = {
-    ok: 'border-ok/30 bg-ok/10',
-    warn: 'border-warn/30 bg-warn/10',
-    danger: 'border-danger/30 bg-danger/10',
+    ok: 'border-ok/30 bg-surface/95 text-ink',
+    warn: 'border-warn/30 bg-surface/95 text-ink',
+    danger: 'border-danger/30 bg-surface/95 text-ink',
   };
+  const cleanMessage =
+    typeof message === 'string'
+      ? message.replace(/^(✓|⚠️|✕)\s*/, '')
+      : message;
   return (
     <div
       role="status"
-      className={`fixed inset-x-4 bottom-20 z-50 animate-fade-up rounded-xl border
-        px-4 py-3 text-sm text-ink shadow-pop ${tones[tone] ?? tones.ok}`}
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 rounded-2xl border px-4 py-2.5 text-xs font-medium shadow-2xl backdrop-blur-md max-w-[90vw] sm:max-w-md w-max flex items-center gap-2 ${tones[tone] ?? tones.ok}`}
     >
-      {message}
+      <span>{tone === 'ok' ? '✓' : tone === 'warn' ? '⚠️' : '✕'}</span>
+      <span>{cleanMessage}</span>
     </div>
   );
 }

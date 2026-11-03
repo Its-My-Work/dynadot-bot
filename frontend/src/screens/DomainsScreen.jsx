@@ -525,7 +525,7 @@ export default function DomainsScreen({ t, telegramId }) {
                   )}
                 </div>
 
-                {/* Interactive Toggles with Tooltips: Privacy, Lock, Auto-renew */}
+                {/* Interactive Toggles with Integrated Tooltips: Privacy, Lock, Auto-renew */}
                 <div className="flex items-center gap-2 pt-2 border-t border-line overflow-x-visible text-[11px]">
                   {/* Privacy Toggle */}
                   <div className="relative inline-flex items-center">
@@ -533,7 +533,7 @@ export default function DomainsScreen({ t, telegramId }) {
                       type="button"
                       onClick={() => handleToggleDomainPrivacy(domain)}
                       disabled={togglingMap[`${domain.id}_privacy`]}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
                         domain.privacy_enabled
                           ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
                           : 'bg-surface border-line text-muted hover:text-ink'
@@ -545,17 +545,18 @@ export default function DomainsScreen({ t, telegramId }) {
                       <span className={domain.privacy_enabled ? 'font-semibold text-accent' : 'font-medium text-muted'}>
                         {togglingMap[`${domain.id}_privacy`] ? '...' : domain.privacy_enabled ? 'Вкл' : 'Выкл'}
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveTooltip(activeTooltip === `privacy_${domain.id}` ? null : `privacy_${domain.id}`);
-                      }}
-                      className="ml-1 text-muted hover:text-accent cursor-pointer text-xs p-0.5 rounded transition-colors"
-                      title="Подробнее о Privacy"
-                    >
-                      ⓘ
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTooltip(activeTooltip === `privacy_${domain.id}` ? null : `privacy_${domain.id}`);
+                        }}
+                        className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+                        title="Подробнее о Privacy"
+                      >
+                        ⓘ
+                      </span>
                     </button>
                     {activeTooltip === `privacy_${domain.id}` && (
                       <div
@@ -579,7 +580,7 @@ export default function DomainsScreen({ t, telegramId }) {
                       type="button"
                       onClick={() => handleToggleDomainLock(domain)}
                       disabled={togglingMap[`${domain.id}_lock`]}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
                         domain.is_locked
                           ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
                           : 'bg-surface border-line text-muted hover:text-ink'
@@ -591,17 +592,18 @@ export default function DomainsScreen({ t, telegramId }) {
                       <span className={domain.is_locked ? 'font-semibold text-accent' : 'font-medium text-muted'}>
                         {togglingMap[`${domain.id}_lock`] ? '...' : domain.is_locked ? 'Вкл' : 'Выкл'}
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveTooltip(activeTooltip === `lock_${domain.id}` ? null : `lock_${domain.id}`);
-                      }}
-                      className="ml-1 text-muted hover:text-accent cursor-pointer text-xs p-0.5 rounded transition-colors"
-                      title="Подробнее о Lock"
-                    >
-                      ⓘ
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTooltip(activeTooltip === `lock_${domain.id}` ? null : `lock_${domain.id}`);
+                        }}
+                        className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+                        title="Подробнее о Lock"
+                      >
+                        ⓘ
+                      </span>
                     </button>
                     {activeTooltip === `lock_${domain.id}` && (
                       <div
@@ -625,7 +627,7 @@ export default function DomainsScreen({ t, telegramId }) {
                       type="button"
                       onClick={() => handleToggleDomainAutoRenew(domain)}
                       disabled={togglingMap[`${domain.id}_autorenew`]}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
                         domain.auto_renew
                           ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
                           : 'bg-surface border-line text-muted hover:text-ink'
@@ -637,17 +639,18 @@ export default function DomainsScreen({ t, telegramId }) {
                       <span className={domain.auto_renew ? 'font-semibold text-accent' : 'font-medium text-muted'}>
                         {togglingMap[`${domain.id}_autorenew`] ? '...' : domain.auto_renew ? 'Вкл' : 'Выкл'}
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveTooltip(activeTooltip === `autorenew_${domain.id}` ? null : `autorenew_${domain.id}`);
-                      }}
-                      className="ml-1 text-muted hover:text-accent cursor-pointer text-xs p-0.5 rounded transition-colors"
-                      title="Подробнее об автопродлении"
-                    >
-                      ⓘ
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTooltip(activeTooltip === `autorenew_${domain.id}` ? null : `autorenew_${domain.id}`);
+                        }}
+                        className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+                        title="Подробнее об автопродлении"
+                      >
+                        ⓘ
+                      </span>
                     </button>
                     {activeTooltip === `autorenew_${domain.id}` && (
                       <div
