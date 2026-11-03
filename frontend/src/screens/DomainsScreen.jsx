@@ -1109,10 +1109,10 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
         </div>
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line bg-surface/95 shrink-0">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line bg-elevated/40 shrink-0">
           <div className="flex items-center gap-2.5">
-            <span className="font-mono font-medium text-sm text-ink">{domain.name}</span>
-            <span className="badge text-[10px] bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-2 py-0.5">
+            <span className="font-mono font-semibold text-sm text-ink">{domain.name}</span>
+            <span className="badge text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-medium px-2 py-0.5">
               {domain.uptime_status === 'up' ? '🟢 Онлайн' : 'Активен'}
             </span>
           </div>
@@ -1122,7 +1122,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
             <button
               type="button"
               onClick={() => setActionsOpen(true)}
-              className="badge border border-accent/40 bg-accent/10 text-accent font-medium px-2.5 py-1 text-xs cursor-pointer hover:bg-accent/20 flex items-center gap-1.5 transition-colors"
+              className="px-2.5 py-1 text-xs font-medium rounded-lg border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 cursor-pointer flex items-center gap-1.5 transition-colors shadow-2xs"
             >
               <span>⚡ Действия</span>
               <span className="text-[10px]">▾</span>
@@ -1269,12 +1269,14 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
       ) : (
         <>
           {/* Main Segmented Tabs */}
-          <div className="flex rounded-lg bg-card/60 p-1 border border-card-border/40 text-xs">
+          <div className="flex rounded-xl bg-elevated p-1 border border-line text-xs">
             <button
               type="button"
               onClick={() => setTab('dns')}
-              className={`flex-1 py-1.5 font-medium rounded-md text-center transition-colors cursor-pointer ${
-                tab === 'dns' ? 'bg-accent/20 text-accent font-bold shadow-xs' : 'text-muted hover:text-ink'
+              className={`flex-1 py-1.5 font-medium rounded-lg text-center transition-all cursor-pointer ${
+                tab === 'dns'
+                  ? 'bg-surface text-ink font-semibold shadow-xs border border-line/60'
+                  : 'text-muted hover:text-ink border border-transparent'
               }`}
             >
               DNS-записи
@@ -1282,8 +1284,10 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
             <button
               type="button"
               onClick={() => setTab('presets')}
-              className={`flex-1 py-1.5 font-medium rounded-md text-center transition-colors cursor-pointer ${
-                tab === 'presets' ? 'bg-accent/20 text-accent font-bold shadow-xs' : 'text-muted hover:text-ink'
+              className={`flex-1 py-1.5 font-medium rounded-lg text-center transition-all cursor-pointer ${
+                tab === 'presets'
+                  ? 'bg-surface text-ink font-semibold shadow-xs border border-line/60'
+                  : 'text-muted hover:text-ink border border-transparent'
               }`}
             >
               Почта и редиректы
@@ -1291,8 +1295,10 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
             <button
               type="button"
               onClick={() => setTab('ns')}
-              className={`flex-1 py-1.5 font-medium rounded-md text-center transition-colors cursor-pointer ${
-                tab === 'ns' ? 'bg-accent/20 text-accent font-bold shadow-xs' : 'text-muted hover:text-ink'
+              className={`flex-1 py-1.5 font-medium rounded-lg text-center transition-all cursor-pointer ${
+                tab === 'ns'
+                  ? 'bg-surface text-ink font-semibold shadow-xs border border-line/60'
+                  : 'text-muted hover:text-ink border border-transparent'
               }`}
             >
               {t('domains.ns')}
@@ -1304,30 +1310,33 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
             <div className="space-y-3">
               {/* DNS Toolbar: Header + Compact Presets Dropdown */}
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-ink">
+                <span className="text-xs font-semibold text-ink">
                   Записи ({records.length})
                 </span>
 
-                <select
-                  value={selectedPresetType}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedPresetType(val);
-                    if (val === 'cloudflare') handleApplyPreset('cloudflare');
-                    else if (val === 'yandex_mail') handleApplyPreset('yandex_mail');
-                    else if (val === 'improvmx') handleApplyPreset('improvmx');
-                    else if (val === 'cloudflare_mail') handleApplyPreset('cloudflare_mail');
-                  }}
-                  className="badge bg-surface border border-accent/30 text-accent font-semibold px-2.5 py-1 text-xs cursor-pointer outline-none max-w-[200px]"
-                >
-                  <option value="">✨ Быстрый пресет ▾</option>
-                  <option value="telegram">✈️ Редирект в Telegram</option>
-                  <option value="vps">🖥 Привязать к VPS</option>
-                  <option value="cloudflare">☁️ Делегировать на Cloudflare</option>
-                  <option value="yandex_mail">✉️ Яндекс 360 Почта</option>
-                  <option value="improvmx">✉️ ImprovMX (форвардинг)</option>
-                  <option value="cloudflare_mail">✉️ Cloudflare Email</option>
-                </select>
+                <div className="relative inline-flex items-center">
+                  <select
+                    value={selectedPresetType}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedPresetType(val);
+                      if (val === 'cloudflare') handleApplyPreset('cloudflare');
+                      else if (val === 'yandex_mail') handleApplyPreset('yandex_mail');
+                      else if (val === 'improvmx') handleApplyPreset('improvmx');
+                      else if (val === 'cloudflare_mail') handleApplyPreset('cloudflare_mail');
+                    }}
+                    className="appearance-none bg-surface border border-line hover:border-accent/50 text-ink font-medium px-3 pr-7 py-1 rounded-lg text-xs cursor-pointer outline-none shadow-2xs transition-colors"
+                  >
+                    <option value="">✨ Быстрый пресет</option>
+                    <option value="telegram">✈️ Редирект в Telegram</option>
+                    <option value="vps">🖥 Привязать к VPS</option>
+                    <option value="cloudflare">☁️ Делегировать на Cloudflare</option>
+                    <option value="yandex_mail">✉️ Яндекс 360 Почта</option>
+                    <option value="improvmx">✉️ ImprovMX (форвардинг)</option>
+                    <option value="cloudflare_mail">✉️ Cloudflare Email</option>
+                  </select>
+                  <span className="pointer-events-none absolute right-2.5 text-[10px] text-muted font-bold">▾</span>
+                </div>
               </div>
 
               {/* Inline preset configuration box (appears only when VPS or Telegram is selected) */}
@@ -1409,46 +1418,53 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                 </div>
               )}
 
-              {/* DNS Records List (Mobile-Optimized Cards) */}
+              {/* DNS Records List (Cards with rich contrast) */}
               <div className="space-y-2">
                 {records.map((rec, idx) => (
                   <div
                     key={idx}
-                    className="p-2.5 rounded-lg border border-card-border/60 bg-surface/60 space-y-2 hover:border-card-border transition-colors"
+                    className="p-3 rounded-xl border border-line bg-surface hover:border-accent/40 shadow-xs space-y-2.5 transition-all"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <select
-                          value={rec.type}
-                          onChange={(e) => {
-                            const copy = [...records];
-                            copy[idx].type = e.target.value;
-                            setRecords(copy);
-                          }}
-                          className="badge bg-card border-card-border py-1 px-1.5 font-bold text-accent text-xs outline-none"
-                        >
-                          <option value="A">A</option>
-                          <option value="AAAA">AAAA</option>
-                          <option value="CNAME">CNAME</option>
-                          <option value="TXT">TXT</option>
-                          <option value="MX">MX</option>
-                        </select>
+                      <div className="flex items-center gap-2">
+                        {/* Styled Record Type Select with explicit dropdown arrow */}
+                        <div className="relative inline-flex items-center">
+                          <select
+                            value={rec.type}
+                            onChange={(e) => {
+                              const copy = [...records];
+                              copy[idx].type = e.target.value;
+                              setRecords(copy);
+                            }}
+                            className="appearance-none bg-accent/10 hover:bg-accent/15 border border-accent/40 text-accent font-bold text-xs rounded-lg pl-2.5 pr-6 py-1 cursor-pointer outline-none transition-colors"
+                          >
+                            <option value="A">A</option>
+                            <option value="AAAA">AAAA</option>
+                            <option value="CNAME">CNAME</option>
+                            <option value="TXT">TXT</option>
+                            <option value="MX">MX</option>
+                          </select>
+                          <span className="pointer-events-none absolute right-2 text-[10px] text-accent font-bold">▾</span>
+                        </div>
 
-                        <input
-                          type="text"
-                          placeholder="@"
-                          value={rec.host}
-                          onChange={(e) => {
-                            const copy = [...records];
-                            copy[idx].host = e.target.value;
-                            setRecords(copy);
-                          }}
-                          className="input py-1 px-2 w-20 text-xs font-mono"
-                        />
+                        <div className="flex items-center gap-1 bg-elevated/60 px-2 py-0.5 rounded-lg border border-line">
+                          <span className="text-[10px] text-muted font-medium">Хост:</span>
+                          <input
+                            type="text"
+                            placeholder="@"
+                            value={rec.host}
+                            onChange={(e) => {
+                              const copy = [...records];
+                              copy[idx].host = e.target.value;
+                              setRecords(copy);
+                            }}
+                            className="bg-transparent py-0.5 px-1 w-16 text-xs font-mono font-medium text-ink outline-none"
+                          />
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted font-mono">
+                        <span className="text-[10px] text-muted font-mono bg-elevated/50 px-2 py-0.5 rounded border border-line/40">
                           {rec.ttl ? `${Math.round(rec.ttl / 60)} мин` : '5 мин'}
                         </span>
                         <button
@@ -1457,7 +1473,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                             setRecords(records.filter((_, i) => i !== idx));
                             haptic('light');
                           }}
-                          className="text-muted hover:text-rose-400 p-1 text-xs cursor-pointer transition-colors"
+                          className="text-muted hover:text-danger p-1 rounded-md hover:bg-danger/10 transition-colors cursor-pointer text-xs"
                           title="Удалить запись"
                         >
                           ✕
@@ -1476,7 +1492,7 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                           copy[idx].value = e.target.value;
                           setRecords(copy);
                         }}
-                        className="input py-1.5 px-2.5 w-full text-xs font-mono bg-bg-card"
+                        className="w-full rounded-lg border border-line bg-elevated/40 hover:bg-elevated/60 focus:bg-surface py-1.5 px-3 text-xs font-mono text-ink placeholder:text-muted/60 focus:border-accent outline-none transition-all shadow-2xs"
                       />
                     </div>
                   </div>
@@ -1484,23 +1500,24 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
               </div>
 
               {/* Bottom Action Bar */}
-              <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center justify-between pt-2 border-t border-line">
                 <button
                   type="button"
                   onClick={() => {
                     setRecords([...records, { type: 'A', host: '@', value: '', ttl: 300 }]);
                     haptic('light');
                   }}
-                  className="badge border border-accent/40 bg-card text-accent font-semibold px-2.5 py-1.5 text-xs cursor-pointer hover:bg-accent/10"
+                  className="px-3 py-1.5 rounded-xl border border-line bg-surface hover:bg-elevated text-ink text-xs font-medium cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
                 >
-                  {t('domains.dns_add')}
+                  <span className="text-sm font-bold">+</span>
+                  <span>{t('domains.dns_add')}</span>
                 </button>
 
                 <button
                   type="button"
                   disabled={saving}
                   onClick={handleSaveDns}
-                  className="btn-accent px-4 py-1.5 text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  className="btn-accent px-5 py-2 text-xs font-semibold cursor-pointer flex items-center gap-2 shadow-sm"
                 >
                   {saving ? <Spinner /> : <span>💾 {t('domains.dns_save')}</span>}
                 </button>

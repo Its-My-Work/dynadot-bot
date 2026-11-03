@@ -177,6 +177,10 @@
     @apply btn bg-accent text-accent-ink hover:bg-accent/90;
   }
 
+  .btn-accent {
+    @apply btn bg-accent text-accent-ink hover:bg-accent/90 shadow-xs;
+  }
+
   .btn-ghost {
     @apply btn border border-line bg-elevated text-ink hover:bg-line/60;
   }
