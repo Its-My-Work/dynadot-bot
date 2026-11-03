@@ -42,18 +42,18 @@ export function Brand({ label = 'Dynadot', subtitle = null }) {
  * Shows the language it switches *to*, not the active one: the label is the
  * action, which is what makes it a single unambiguous tap.
  */
-export function LangToggle({ language, onToggle }) {
-  const next = language === 'ru' ? 'en' : 'ru';
+export function LangToggle({ language, onToggle, label = 'Switch language' }) {
+  const target = language === 'ru' ? 'en' : 'ru';
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-label="Switch language"
+      aria-label={label}
       className="rounded-md border border-line bg-surface px-2 py-1 text-xs
         font-medium tabular-nums text-muted transition-colors
         hover:border-faint hover:text-ink"
     >
-      {next.toUpperCase()}
+      {target.toUpperCase()}
     </button>
   );
 }
@@ -155,9 +155,9 @@ export function Toast({ message, tone = 'ok' }) {
   return (
     <div
       role="status"
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 rounded-2xl border px-4 py-2.5 text-xs font-medium shadow-2xl backdrop-blur-md max-w-[90vw] sm:max-w-md w-max flex items-center gap-2 ${tones[tone] ?? tones.ok}`}
+      className={`fixed top-14 left-1/2 -translate-x-1/2 lg:top-6 lg:right-8 lg:left-auto lg:translate-x-0 z-50 animate-in fade-in slide-in-from-top-3 duration-200 rounded-2xl border px-4 py-2.5 text-xs font-medium shadow-2xl backdrop-blur-md max-w-[90vw] sm:max-w-md w-max flex items-center gap-2.5 ${tones[tone] ?? tones.ok}`}
     >
-      <span>{tone === 'ok' ? '✓' : tone === 'warn' ? '⚠️' : '✕'}</span>
+      <span className="text-sm">{tone === 'ok' ? '✓' : tone === 'warn' ? '⚠️' : '✕'}</span>
       <span>{cleanMessage}</span>
     </div>
   );
@@ -173,7 +173,13 @@ export function Toast({ message, tone = 'ok' }) {
  * Closes on outside click and on Escape — a popover that can only be
  * dismissed by re-tapping the trigger traps the user on a narrow screen.
  */
-export function ThemePicker({ theme, onSelect, label = 'Theme', align = 'right' }) {
+export function ThemePicker({
+  theme,
+  onSelect,
+  label = 'Theme',
+  align = 'right',
+  testId = 'theme-trigger',
+}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const active = themeMeta(theme);
@@ -202,7 +208,7 @@ export function ThemePicker({ theme, onSelect, label = 'Theme', align = 'right' 
         aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}
-        data-testid="theme-trigger"
+        data-testid={testId}
         className="flex items-center gap-1.5 rounded-md border border-line
           bg-surface px-2 py-1 text-xs font-medium text-muted
           transition-colors hover:border-faint hover:text-ink"
@@ -219,7 +225,7 @@ export function ThemePicker({ theme, onSelect, label = 'Theme', align = 'right' 
         <div
           role="listbox"
           aria-label={label}
-          data-testid="theme-menu"
+          data-testid={testId === 'theme-trigger' ? 'theme-menu' : `${testId}-menu`}
           className={`absolute top-full z-50 mt-2 w-56 animate-fade-up
             overflow-hidden rounded-xl border border-line bg-surface
             shadow-pop ${align === 'right' ? 'right-0' : 'left-0'}`}

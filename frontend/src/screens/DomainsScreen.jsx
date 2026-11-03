@@ -329,6 +329,161 @@ export function PresetConfirmModal({
   );
 }
 
+function DomainToggles({
+  domain,
+  togglingMap,
+  activeTooltip,
+  setActiveTooltip,
+  onTogglePrivacy,
+  onToggleLock,
+  onToggleAutoRenew,
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 overflow-x-visible text-[11px]">
+      {/* Privacy Toggle */}
+      <div className="relative inline-flex items-center">
+        <button
+          type="button"
+          onClick={() => onTogglePrivacy(domain)}
+          disabled={togglingMap[`${domain.id}_privacy`]}
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+            domain.privacy_enabled
+              ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
+              : 'bg-surface border-line text-muted hover:text-ink'
+          }`}
+          title="Нажмите для переключения Privacy"
+        >
+          <span>🛡</span>
+          <span>Privacy:</span>
+          <span className={domain.privacy_enabled ? 'font-semibold text-accent' : 'font-medium text-muted'}>
+            {togglingMap[`${domain.id}_privacy`] ? '...' : domain.privacy_enabled ? 'Вкл' : 'Выкл'}
+          </span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTooltip(activeTooltip === `privacy_${domain.id}` ? null : `privacy_${domain.id}`);
+            }}
+            className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+            title="Подробнее о Privacy"
+          >
+            ⓘ
+          </span>
+        </button>
+        {activeTooltip === `privacy_${domain.id}` && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-full left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
+              <span>🛡 WHOIS Privacy</span>
+              <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
+            </div>
+            <p className="text-muted leading-tight text-[10px]">
+              Скрывает паспортные данные, телефон и email владельца из общедоступной базы WHOIS.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Lock Toggle */}
+      <div className="relative inline-flex items-center">
+        <button
+          type="button"
+          onClick={() => onToggleLock(domain)}
+          disabled={togglingMap[`${domain.id}_lock`]}
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+            domain.is_locked
+              ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
+              : 'bg-surface border-line text-muted hover:text-ink'
+          }`}
+          title="Нажмите для переключения Transfer Lock"
+        >
+          <span>🔒</span>
+          <span>Lock:</span>
+          <span className={domain.is_locked ? 'font-semibold text-accent' : 'font-medium text-muted'}>
+            {togglingMap[`${domain.id}_lock`] ? '...' : domain.is_locked ? 'Вкл' : 'Выкл'}
+          </span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTooltip(activeTooltip === `lock_${domain.id}` ? null : `lock_${domain.id}`);
+            }}
+            className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+            title="Подробнее о Lock"
+          >
+            ⓘ
+          </span>
+        </button>
+        {activeTooltip === `lock_${domain.id}` && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-full left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
+              <span>🔒 Transfer Lock</span>
+              <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
+            </div>
+            <p className="text-muted leading-tight text-[10px]">
+              Блокирует перенос (трансфер) домена к другому регистратору без вашего ведома.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Auto-renew Toggle */}
+      <div className="relative inline-flex items-center">
+        <button
+          type="button"
+          onClick={() => onToggleAutoRenew(domain)}
+          disabled={togglingMap[`${domain.id}_autorenew`]}
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+            domain.auto_renew
+              ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
+              : 'bg-surface border-line text-muted hover:text-ink'
+          }`}
+          title="Нажмите для переключения автопродления"
+        >
+          <span>🔄</span>
+          <span>Продление:</span>
+          <span className={domain.auto_renew ? 'font-semibold text-accent' : 'font-medium text-muted'}>
+            {togglingMap[`${domain.id}_autorenew`] ? '...' : domain.auto_renew ? 'Вкл' : 'Выкл'}
+          </span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTooltip(activeTooltip === `autorenew_${domain.id}` ? null : `autorenew_${domain.id}`);
+            }}
+            className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+            title="Подробнее об автопродлении"
+          >
+            ⓘ
+          </span>
+        </button>
+        {activeTooltip === `autorenew_${domain.id}` && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-full right-0 sm:left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
+              <span>🔄 Автопродление</span>
+              <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
+            </div>
+            <p className="text-muted leading-tight text-[10px]">
+              Автоматически продлевает домен за 30 дней до окончания срока при наличии баланса.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DomainsScreen({ t, telegramId }) {
   const [domains, setDomains] = useState(null);
   const [error, setError] = useState(null);
@@ -449,10 +604,49 @@ export default function DomainsScreen({ t, telegramId }) {
     return <EmptyState icon="◇" title={t('domains.empty')} />;
   }
 
+  // Calculate summary metrics
+  const privacyCount = domains.filter((d) => d.privacy_enabled).length;
+  const privacyPercent = domains.length ? Math.round((privacyCount / domains.length) * 100) : 100;
+  const sortedByExpiry = [...domains].sort((a, b) => new Date(a.expires_at || 0) - new Date(b.expires_at || 0));
+  const earliestExpiry = sortedByExpiry[0];
+
   return (
     <>
-      {/* Domains Summary Header Banner */}
-      <div className="card p-3.5 bg-gradient-to-r from-accent/10 via-surface to-surface border border-accent/20 flex items-center justify-between mb-4">
+      {/* 3 KEY STAT CARDS (Desktop: lg:grid) */}
+      <div className="hidden lg:grid grid-cols-3 gap-4 mb-6">
+        <div className="card rounded-2xl p-4 flex items-center justify-between bg-surface border border-line shadow-xs">
+          <div>
+            <div className="text-[11px] font-medium text-muted uppercase tracking-wider">Активные домены</div>
+            <div className="text-xl font-semibold text-ink mt-1">
+              {domains.length} <span className="text-xs font-normal text-ok ml-1">● все в сети</span>
+            </div>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center text-lg">🌐</div>
+        </div>
+
+        <div className="card rounded-2xl p-4 flex items-center justify-between bg-surface border border-line shadow-xs">
+          <div>
+            <div className="text-[11px] font-medium text-muted uppercase tracking-wider">Защита WHOIS</div>
+            <div className="text-xl font-semibold text-ink mt-1">
+              {privacyPercent}% <span className="text-xs font-normal text-muted ml-1">Privacy</span>
+            </div>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-ok/10 text-ok flex items-center justify-center text-lg">🛡</div>
+        </div>
+
+        <div className="card rounded-2xl p-4 flex items-center justify-between bg-surface border border-line shadow-xs">
+          <div>
+            <div className="text-[11px] font-medium text-muted uppercase tracking-wider">Ближайшее продление</div>
+            <div className="text-xl font-semibold text-ink mt-1 truncate max-w-[200px]">
+              {earliestExpiry ? formatDate(earliestExpiry.expires_at) : '—'}
+            </div>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-warn/10 text-warn flex items-center justify-center text-lg">📅</div>
+        </div>
+      </div>
+
+      {/* Mobile Summary Banner (hidden on lg) */}
+      <div className="lg:hidden card p-3.5 bg-gradient-to-r from-accent/10 via-surface to-surface border border-accent/20 flex items-center justify-between mb-4">
         <div className="space-y-0.5">
           <div className="text-[11px] font-medium text-accent uppercase tracking-wider">Ваши домены</div>
           <div className="text-sm font-semibold text-ink">{domains.length} {domains.length === 1 ? 'активный домен' : 'активных доменов'}</div>
@@ -525,148 +719,17 @@ export default function DomainsScreen({ t, telegramId }) {
                   )}
                 </div>
 
-                {/* Interactive Toggles with Integrated Tooltips: Privacy, Lock, Auto-renew */}
-                <div className="flex items-center gap-2 pt-2 border-t border-line overflow-x-visible text-[11px]">
-                  {/* Privacy Toggle */}
-                  <div className="relative inline-flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleDomainPrivacy(domain)}
-                      disabled={togglingMap[`${domain.id}_privacy`]}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
-                        domain.privacy_enabled
-                          ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
-                          : 'bg-surface border-line text-muted hover:text-ink'
-                      }`}
-                      title="Нажмите для переключения Privacy"
-                    >
-                      <span>🛡</span>
-                      <span>Privacy:</span>
-                      <span className={domain.privacy_enabled ? 'font-semibold text-accent' : 'font-medium text-muted'}>
-                        {togglingMap[`${domain.id}_privacy`] ? '...' : domain.privacy_enabled ? 'Вкл' : 'Выкл'}
-                      </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveTooltip(activeTooltip === `privacy_${domain.id}` ? null : `privacy_${domain.id}`);
-                        }}
-                        className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
-                        title="Подробнее о Privacy"
-                      >
-                        ⓘ
-                      </span>
-                    </button>
-                    {activeTooltip === `privacy_${domain.id}` && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute bottom-full left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
-                      >
-                        <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
-                          <span>🛡 WHOIS Privacy</span>
-                          <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
-                        </div>
-                        <p className="text-muted leading-tight text-[10px]">
-                          Скрывает паспортные данные, телефон и email владельца из общедоступной базы WHOIS.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Lock Toggle */}
-                  <div className="relative inline-flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleDomainLock(domain)}
-                      disabled={togglingMap[`${domain.id}_lock`]}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
-                        domain.is_locked
-                          ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
-                          : 'bg-surface border-line text-muted hover:text-ink'
-                      }`}
-                      title="Нажмите для переключения Transfer Lock"
-                    >
-                      <span>🔒</span>
-                      <span>Lock:</span>
-                      <span className={domain.is_locked ? 'font-semibold text-accent' : 'font-medium text-muted'}>
-                        {togglingMap[`${domain.id}_lock`] ? '...' : domain.is_locked ? 'Вкл' : 'Выкл'}
-                      </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveTooltip(activeTooltip === `lock_${domain.id}` ? null : `lock_${domain.id}`);
-                        }}
-                        className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
-                        title="Подробнее о Lock"
-                      >
-                        ⓘ
-                      </span>
-                    </button>
-                    {activeTooltip === `lock_${domain.id}` && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute bottom-full left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
-                      >
-                        <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
-                          <span>🔒 Transfer Lock</span>
-                          <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
-                        </div>
-                        <p className="text-muted leading-tight text-[10px]">
-                          Блокирует перенос (трансфер) домена к другому регистратору без вашего ведома.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Auto-renew Toggle */}
-                  <div className="relative inline-flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleDomainAutoRenew(domain)}
-                      disabled={togglingMap[`${domain.id}_autorenew`]}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
-                        domain.auto_renew
-                          ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
-                          : 'bg-surface border-line text-muted hover:text-ink'
-                      }`}
-                      title="Нажмите для переключения автопродления"
-                    >
-                      <span>🔄</span>
-                      <span>Продление:</span>
-                      <span className={domain.auto_renew ? 'font-semibold text-accent' : 'font-medium text-muted'}>
-                        {togglingMap[`${domain.id}_autorenew`] ? '...' : domain.auto_renew ? 'Вкл' : 'Выкл'}
-                      </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveTooltip(activeTooltip === `autorenew_${domain.id}` ? null : `autorenew_${domain.id}`);
-                        }}
-                        className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
-                        title="Подробнее об автопродлении"
-                      >
-                        ⓘ
-                      </span>
-                    </button>
-                    {activeTooltip === `autorenew_${domain.id}` && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute bottom-full right-0 sm:left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
-                      >
-                        <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
-                          <span>🔄 Автопродление</span>
-                          <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
-                        </div>
-                        <p className="text-muted leading-tight text-[10px]">
-                          Автоматически продлевает домен за 30 дней до окончания срока при наличии баланса.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                {/* Interactive Toggles */}
+                <div className="pt-2 border-t border-line overflow-x-visible">
+                  <DomainToggles
+                    domain={domain}
+                    togglingMap={togglingMap}
+                    activeTooltip={activeTooltip}
+                    setActiveTooltip={setActiveTooltip}
+                    onTogglePrivacy={handleToggleDomainPrivacy}
+                    onToggleLock={handleToggleDomainLock}
+                    onToggleAutoRenew={handleToggleDomainAutoRenew}
+                  />
                 </div>
               </div>
 
