@@ -367,7 +367,7 @@ function DomainToggles({
               e.stopPropagation();
               setActiveTooltip(activeTooltip === `privacy_${domain.id}` ? null : `privacy_${domain.id}`);
             }}
-            className="ml-0.5 text-[10px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+            className="ml-1 inline-flex items-center justify-center text-amber-500 hover:text-amber-400 font-bold text-[11px] hover:scale-125 transition-transform select-none"
             title="Подробнее о Privacy"
           >
             ⓘ
@@ -376,13 +376,16 @@ function DomainToggles({
         {activeTooltip === `privacy_${domain.id}` && (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute bottom-full left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
+            className="absolute top-full left-0 mt-2 z-50 w-60 p-3 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in slide-in-from-top-1 duration-150"
           >
-            <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
-              <span>🛡 WHOIS Privacy</span>
-              <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
+            <div className="flex items-center justify-between pb-1.5 font-semibold text-accent border-b border-line mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <span>🛡</span>
+                <span>WHOIS Privacy</span>
+              </span>
+              <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs cursor-pointer p-0.5">✕</button>
             </div>
-            <p className="text-muted leading-tight text-[10px]">
+            <p className="text-muted leading-relaxed text-[11px]">
               Скрывает паспортные данные, телефон и email владельца из общедоступной базы WHOIS.
             </p>
           </div>
@@ -414,7 +417,7 @@ function DomainToggles({
               e.stopPropagation();
               setActiveTooltip(activeTooltip === `lock_${domain.id}` ? null : `lock_${domain.id}`);
             }}
-            className="ml-0.5 text-[10px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+            className="ml-1 inline-flex items-center justify-center text-amber-500 hover:text-amber-400 font-bold text-[11px] hover:scale-125 transition-transform select-none"
             title="Подробнее о Lock"
           >
             ⓘ
@@ -423,13 +426,16 @@ function DomainToggles({
         {activeTooltip === `lock_${domain.id}` && (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute bottom-full left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
+            className="absolute top-full left-0 mt-2 z-50 w-60 p-3 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in slide-in-from-top-1 duration-150"
           >
-            <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
-              <span>🔒 Transfer Lock</span>
-              <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
+            <div className="flex items-center justify-between pb-1.5 font-semibold text-accent border-b border-line mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <span>🔒</span>
+                <span>Transfer Lock</span>
+              </span>
+              <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs cursor-pointer p-0.5">✕</button>
             </div>
-            <p className="text-muted leading-tight text-[10px]">
+            <p className="text-muted leading-relaxed text-[11px]">
               Блокирует перенос (трансфер) домена к другому регистратору без вашего ведома.
             </p>
           </div>
@@ -461,7 +467,7 @@ function DomainToggles({
               e.stopPropagation();
               setActiveTooltip(activeTooltip === `autorenew_${domain.id}` ? null : `autorenew_${domain.id}`);
             }}
-            className="ml-0.5 text-[10px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+            className="ml-1 inline-flex items-center justify-center text-amber-500 hover:text-amber-400 font-bold text-[11px] hover:scale-125 transition-transform select-none"
             title="Подробнее об автопродлении"
           >
             ⓘ
@@ -470,13 +476,16 @@ function DomainToggles({
         {activeTooltip === `autorenew_${domain.id}` && (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute bottom-full right-0 sm:left-0 mb-2 z-40 w-56 p-2.5 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in zoom-in-95 duration-150"
+            className="absolute top-full right-0 sm:left-0 mt-2 z-50 w-60 p-3 rounded-xl bg-surface border border-line shadow-2xl text-[11px] text-ink animate-in fade-in slide-in-from-top-1 duration-150"
           >
-            <div className="flex items-center justify-between pb-1 font-semibold text-accent border-b border-line mb-1">
-              <span>🔄 Автопродление</span>
-              <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs">✕</button>
+            <div className="flex items-center justify-between pb-1.5 font-semibold text-accent border-b border-line mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <span>🔄</span>
+                <span>Автопродление</span>
+              </span>
+              <button onClick={() => setActiveTooltip(null)} className="text-muted hover:text-ink text-xs cursor-pointer p-0.5">✕</button>
             </div>
-            <p className="text-muted leading-tight text-[10px]">
+            <p className="text-muted leading-relaxed text-[11px]">
               Автоматически продлевает домен за 30 дней до окончания срока при наличии баланса.
             </p>
           </div>
@@ -651,8 +660,8 @@ export default function DomainsScreen({ t, telegramId }) {
           </div>
 
           {/* COMPACT DESKTOP REGISTRY TABLE (38px rows) */}
-          <div className="card rounded-2xl overflow-hidden border border-line bg-surface shadow-xs mb-6">
-            <div className="px-5 py-2.5 border-b border-line flex items-center justify-between bg-elevated/40">
+          <div className="card rounded-2xl border border-line bg-surface shadow-xs mb-6 overflow-visible">
+            <div className="px-5 py-2.5 border-b border-line flex items-center justify-between bg-elevated/40 rounded-t-2xl">
               <div className="text-xs font-semibold text-ink">Реестр доменов и параметры защит</div>
               <div className="text-[11px] text-muted">Быстрое переключение защит и настройки DNS</div>
             </div>
