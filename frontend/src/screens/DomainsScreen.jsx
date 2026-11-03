@@ -919,14 +919,19 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
-      <div className="relative z-10 w-full sm:max-w-xl h-full max-h-screen bg-surface border-l border-line shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
-        {/* Top Header: Domain title + Action Sheet dropdown button + Close */}
-        <div className="flex items-center justify-between p-4 border-b border-line bg-surface/95 shrink-0">
-          <div className="flex items-center gap-2">
+      <div className="relative z-10 w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[85vh] bg-surface rounded-t-3xl sm:rounded-2xl border border-line shadow-2xl flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 overflow-hidden">
+        {/* Mobile Swipe Handle */}
+        <div className="sm:hidden flex justify-center pt-2.5 pb-1 bg-surface shrink-0">
+          <div className="w-10 h-1 bg-line rounded-full" />
+        </div>
+
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line bg-surface/95 shrink-0">
+          <div className="flex items-center gap-2.5">
             <span className="font-mono font-medium text-sm text-ink">{domain.name}</span>
-            <span className="badge text-[10px] bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-1.5 py-0.5">
+            <span className="badge text-[10px] bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-2 py-0.5">
               {domain.uptime_status === 'up' ? '🟢 Онлайн' : 'Активен'}
             </span>
           </div>
@@ -942,10 +947,10 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
               <span className="text-[10px]">▾</span>
             </button>
 
-            {/* Close Manager */}
+            {/* Close Modal */}
             <button
               type="button"
-              className="text-sm text-muted hover:text-ink cursor-pointer p-1.5 rounded-lg hover:bg-surface transition-colors"
+              className="text-sm text-muted hover:text-ink cursor-pointer p-1.5 rounded-lg hover:bg-surface/80 transition-colors"
               onClick={onClose}
               aria-label="Закрыть"
             >
@@ -954,8 +959,8 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
           </div>
         </div>
 
-        {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Scrollable Modal Content */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
 
       {/* Mobile Action Sheet (Modal Bottom Drawer on mobile, centered modal on desktop) */}
       {actionsOpen && (
