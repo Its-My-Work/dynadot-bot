@@ -688,8 +688,8 @@ export default function SearchScreen({ t, onSelect }) {
       {results !== null && (
         <div className="flex items-center justify-between text-xs px-1 pt-1">
           <div className="flex items-center gap-2">
-            <span className="text-muted font-medium">
-              {t('search.results_count', { count: available.length })}
+            <span className="text-ink font-semibold">
+              {t('search.available_domains') || 'Доступные домены'}
             </span>
             {loading && (
               <span className="flex items-center gap-1.5 text-accent font-semibold animate-pulse">
@@ -792,9 +792,9 @@ export default function SearchScreen({ t, onSelect }) {
             <button
               type="button"
               onClick={loadMore}
-              className="btn-ghost w-full py-2 text-xs font-medium text-muted hover:text-ink cursor-pointer border border-card-border/60"
+              className="w-full py-2.5 px-4 text-xs font-semibold text-ink bg-surface hover:bg-elevated cursor-pointer border border-line rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5"
             >
-              {t('search.load_more')}
+              <span>{t('search.load_more')}</span>
             </button>
           )}
         </div>
