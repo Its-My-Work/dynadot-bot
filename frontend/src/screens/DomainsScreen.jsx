@@ -1418,71 +1418,51 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                 </div>
               )}
 
-              {/* DNS Records List (Cards with rich contrast) */}
-              <div className="space-y-2">
+              {/* DNS Records List (Single-Row Modern SaaS Layout) */}
+              <div className="space-y-1.5">
                 {records.map((rec, idx) => (
                   <div
                     key={idx}
-                    className="p-3 rounded-xl border border-line bg-surface hover:border-accent/40 shadow-xs space-y-2.5 transition-all"
+                    className="p-2 sm:px-3 sm:py-2 rounded-xl border border-line bg-surface hover:border-accent/40 shadow-xs flex items-center gap-2 transition-all group"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        {/* Styled Record Type Select with explicit dropdown arrow */}
-                        <div className="relative inline-flex items-center">
-                          <select
-                            value={rec.type}
-                            onChange={(e) => {
-                              const copy = [...records];
-                              copy[idx].type = e.target.value;
-                              setRecords(copy);
-                            }}
-                            className="appearance-none bg-accent/10 hover:bg-accent/15 border border-accent/40 text-accent font-bold text-xs rounded-lg pl-2.5 pr-6 py-1 cursor-pointer outline-none transition-colors"
-                          >
-                            <option value="A">A</option>
-                            <option value="AAAA">AAAA</option>
-                            <option value="CNAME">CNAME</option>
-                            <option value="TXT">TXT</option>
-                            <option value="MX">MX</option>
-                          </select>
-                          <span className="pointer-events-none absolute right-2 text-[10px] text-accent font-bold">▾</span>
-                        </div>
-
-                        <div className="flex items-center gap-1 bg-elevated/60 px-2 py-0.5 rounded-lg border border-line">
-                          <span className="text-[10px] text-muted font-medium">Хост:</span>
-                          <input
-                            type="text"
-                            placeholder="@"
-                            value={rec.host}
-                            onChange={(e) => {
-                              const copy = [...records];
-                              copy[idx].host = e.target.value;
-                              setRecords(copy);
-                            }}
-                            className="bg-transparent py-0.5 px-1 w-16 text-xs font-mono font-medium text-ink outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted font-mono bg-elevated/50 px-2 py-0.5 rounded border border-line/40">
-                          {rec.ttl ? `${Math.round(rec.ttl / 60)} мин` : '5 мин'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRecords(records.filter((_, i) => i !== idx));
-                            haptic('light');
-                          }}
-                          className="text-muted hover:text-danger p-1 rounded-md hover:bg-danger/10 transition-colors cursor-pointer text-xs"
-                          title="Удалить запись"
-                        >
-                          ✕
-                        </button>
-                      </div>
+                    {/* 1. Record Type Select */}
+                    <div className="relative inline-flex items-center shrink-0">
+                      <select
+                        value={rec.type}
+                        onChange={(e) => {
+                          const copy = [...records];
+                          copy[idx].type = e.target.value;
+                          setRecords(copy);
+                        }}
+                        className="appearance-none bg-accent/10 hover:bg-accent/15 border border-accent/40 text-accent font-bold text-xs rounded-lg pl-2 pr-5 py-1 cursor-pointer outline-none transition-colors w-[68px]"
+                      >
+                        <option value="A">A</option>
+                        <option value="AAAA">AAAA</option>
+                        <option value="CNAME">CNAME</option>
+                        <option value="TXT">TXT</option>
+                        <option value="MX">MX</option>
+                      </select>
+                      <span className="pointer-events-none absolute right-1.5 text-[9px] text-accent font-bold">▾</span>
                     </div>
 
-                    {/* Value Field (100% width on second row for readability) */}
-                    <div>
+                    {/* 2. Host Input */}
+                    <div className="flex items-center gap-1 bg-elevated/60 px-2 py-1 rounded-lg border border-line shrink-0 w-24">
+                      <span className="text-[10px] text-muted font-medium select-none">@</span>
+                      <input
+                        type="text"
+                        placeholder="хост"
+                        value={rec.host}
+                        onChange={(e) => {
+                          const copy = [...records];
+                          copy[idx].host = e.target.value;
+                          setRecords(copy);
+                        }}
+                        className="bg-transparent w-full text-xs font-mono font-medium text-ink outline-none"
+                      />
+                    </div>
+
+                    {/* 3. Value Input (Flex-1 takes remaining horizontal width) */}
+                    <div className="flex-1 min-w-0">
                       <input
                         type="text"
                         placeholder="Значение (IP, домен или текст)"
@@ -1492,9 +1472,27 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                           copy[idx].value = e.target.value;
                           setRecords(copy);
                         }}
-                        className="w-full rounded-lg border border-line bg-elevated/40 hover:bg-elevated/60 focus:bg-surface py-1.5 px-3 text-xs font-mono text-ink placeholder:text-muted/60 focus:border-accent outline-none transition-all shadow-2xs"
+                        className="w-full rounded-lg border border-line bg-elevated/40 hover:bg-elevated/60 focus:bg-surface py-1 px-2.5 text-xs font-mono text-ink placeholder:text-muted/60 focus:border-accent outline-none transition-all shadow-2xs"
                       />
                     </div>
+
+                    {/* 4. TTL Pill */}
+                    <span className="text-[10px] text-muted font-mono bg-elevated/50 px-1.5 py-1 rounded border border-line/40 shrink-0 select-none whitespace-nowrap">
+                      {rec.ttl ? `${Math.round(rec.ttl / 60)}м` : '5м'}
+                    </span>
+
+                    {/* 5. Delete Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecords(records.filter((_, i) => i !== idx));
+                        haptic('light');
+                      }}
+                      className="text-muted hover:text-danger p-1 rounded-md hover:bg-danger/10 transition-colors cursor-pointer text-xs shrink-0"
+                      title="Удалить запись"
+                    >
+                      ✕
+                    </button>
                   </div>
                 ))}
               </div>
