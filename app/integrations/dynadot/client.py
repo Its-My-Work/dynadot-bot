@@ -495,6 +495,27 @@ class DynadotClient:
             priority=Priority.CRITICAL,
         )
 
+    async def transfer(
+        self,
+        domain: str,
+        *,
+        auth_code: str,
+        contact_id: str | None = None,
+        request_id: str,
+    ) -> dict[str, Any]:
+        """Initiate domain transfer into Dynadot."""
+        body: dict[str, Any] = {"auth_code": auth_code}
+        if contact_id:
+            body["registrant_contact_id"] = contact_id
+
+        return await self._request(
+            "POST",
+            f"/domains/{domain}/transfer",
+            body=body,
+            request_id=request_id,
+            priority=Priority.CRITICAL,
+        )
+
     async def get_domain_info(self, domain: str) -> dict[str, Any]:
         return await self._request("GET", f"/domains/{domain}")
 

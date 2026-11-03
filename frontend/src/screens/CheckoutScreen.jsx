@@ -211,10 +211,17 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
     setBusy(true);
     setError(null);
     try {
-      const created = await api.createOrder(telegramId, {
-        domain_name: candidate.domain,
-        years,
-      });
+      const created = candidate.order_id
+        ? await api.order(candidate.order_id)
+        : candidate.is_transfer
+        ? await api.createTransferOrder(telegramId, {
+            domain_name: candidate.domain,
+            auth_code: candidate.auth_code,
+          })
+        : await api.createOrder(telegramId, {
+            domain_name: candidate.domain,
+            years,
+          });
       setOrder(created);
 
       const session = await api.checkout(created.id);
@@ -380,26 +387,34 @@ export default function CheckoutScreen({ t, telegramId, candidate, onDone }) {
 
       <div className="card divide-y divide-line">
         <div className="flex items-center justify-between p-4">
-          <span className="text-sm text-muted">{t('buy.years')}</span>
-          <div className="flex gap-1.5">
-            {[1, 2, 3].map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => {
-                  haptic('light');
-                  setYears(value);
-                }}
-                className={`badge border px-3 py-1.5 ${
-                  years === value
-                    ? 'border-accent/50 bg-accent/15 text-accent'
-                    : 'border-line bg-surface text-muted'
-                }`}
-              >
-                {t('buy.years_value', { years: value })}
-              </button>
-            ))}
-          </div>
+          <span className="text-sm text-muted">
+            {candidate.is_transfer ? 'Срок переноса' : t('buy.years')}
+          </span>
+          {candidate.is_transfer ? (
+            <span className="badge border border-accent/40 bg-accent/10 text-accent font-semibold px-3 py-1 text-xs">
+              +1 год (ICANN стандарт)
+            </span>
+          ) : (
+            <div className="flex gap-1.5">
+              {[1, 2, 3].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    haptic('light');
+                    setYears(value);
+                  }}
+                  className={`badge border px-3 py-1.5 ${
+                    years === value
+                      ? 'border-accent/50 bg-accent/15 text-accent'
+                      : 'border-line bg-surface text-muted'
+                  }`}
+                >
+                  {t('buy.years_value', { years: value })}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between p-4">

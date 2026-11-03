@@ -225,6 +225,31 @@ def test_create_order_for_unknown_user_is_404(client):
     assert response.status_code == 404
 
 
+def test_transfer_quote_and_order_flow(client):
+    quote_res = client.post(
+        "/api/v1/orders/transfer-quote",
+        json={"domain_name": "mytransfer.com", "auth_code": "EPP-SECRET-123"},
+    )
+    assert quote_res.status_code == 200, quote_res.text
+    q_body = quote_res.json()
+    assert q_body["domain_name"] == "mytransfer.com"
+    assert q_body["tld"] == "com"
+    assert q_body["price_rub"] > 0
+    assert q_body["years"] == 1
+
+    order_res = client.post(
+        "/api/v1/orders/transfer",
+        json={"domain_name": "mytransfer.com", "auth_code": "EPP-SECRET-123"},
+        params={"telegram_id": TELEGRAM_ID},
+    )
+    assert order_res.status_code == 201, order_res.text
+    o_body = order_res.json()
+    assert o_body["domain_name"] == "mytransfer.com"
+    assert o_body["tld"] == "com"
+    assert o_body["status"] == OrderStatus.DRAFT.value
+    assert o_body["price_rub"] == q_body["price_rub"]
+
+
 def test_list_and_get_orders(client):
     created = client.post(
         "/api/v1/orders",

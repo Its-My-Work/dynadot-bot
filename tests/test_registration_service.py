@@ -62,6 +62,7 @@ class FakeDynadot:
         self.register_error = register_error
         self.search_error = search_error
         self.register_calls: list[dict[str, Any]] = []
+        self.transfer_calls: list[dict[str, Any]] = []
         self.contact_calls: list[dict[str, Any]] = []
         self.ns_calls: list[tuple[str, list[str]]] = []
         self.contact_error: Exception | None = None
@@ -77,6 +78,12 @@ class FakeDynadot:
 
     async def register(self, domain: str, **kwargs: Any) -> dict[str, Any]:
         self.register_calls.append({"domain": domain, **kwargs})
+        if self.register_error is not None:
+            raise self.register_error
+        return self.register_result
+
+    async def transfer(self, domain: str, **kwargs: Any) -> dict[str, Any]:
+        self.transfer_calls.append({"domain": domain, **kwargs})
         if self.register_error is not None:
             raise self.register_error
         return self.register_result

@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import api from '../lib/api';
-import { formatDate } from '../lib/i18n';
+import { formatDate, formatPrice } from '../lib/i18n';
 import { haptic } from '../lib/telegram';
 import { EmptyState, ErrorNote, SkeletonList, Spinner, Toast } from '../components/ui';
 import { useIsDesktop } from '../hooks/useMediaQuery';
@@ -619,7 +619,232 @@ function DomainToggles({
   );
 }
 
-export default function DomainsScreen({ t, telegramId }) {
+function TransferModal({ t, telegramId, onClose, onSelectCandidate }) {
+  const [domainName, setDomainName] = useState('');
+  const [authCode, setAuthCode] = useState('');
+  const [quote, setQuote] = useState(null);
+  const [loadingQuote, setLoadingQuote] = useState(false);
+  const [quoteError, setQuoteError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+
+  // Debounced quote fetch
+  useEffect(() => {
+    const trimmed = domainName.trim().toLowerCase();
+    if (!trimmed.includes('.') || trimmed.endsWith('.')) {
+      setQuote(null);
+      setQuoteError(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setLoadingQuote(true);
+      setQuoteError(null);
+      try {
+        const res = await api.transferQuote(trimmed, authCode || 'TEST-AUTH');
+        if (!cancelled) setQuote(res);
+      } catch (err) {
+        if (!cancelled) {
+          setQuote(null);
+          setQuoteError(err.message || 'Не удалось рассчитать стоимость');
+        }
+      } finally {
+        if (!cancelled) setLoadingQuote(false);
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [domainName, authCode]);
+
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    const cleanDomain = domainName.trim().toLowerCase();
+    const cleanCode = authCode.trim();
+    if (!cleanDomain || !cleanCode) {
+      setSubmitError('Заполните домен и EPP/Auth-код');
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const order = await api.createTransferOrder(telegramId, {
+        domain_name: cleanDomain,
+        auth_code: cleanCode,
+      });
+      haptic('success');
+      onClose();
+      if (onSelectCandidate) {
+        onSelectCandidate({
+          domain: cleanDomain,
+          price_rub: order.price_rub || (quote?.price_rub ?? 0),
+          is_transfer: true,
+          auth_code: cleanCode,
+          order_id: order.id,
+        });
+      }
+    } catch (err) {
+      haptic('error');
+      setSubmitError(err.message || 'Ошибка оформления переноса');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !submitting) onClose();
+      }}
+    >
+      <div
+        className="w-full max-w-lg bg-surface border border-line rounded-2xl p-5 shadow-xl text-left max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 pb-3 border-b border-line">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-base">📥</span>
+              <h3 className="text-sm font-bold text-ink">Перенос домена в Dynadot PRO</h3>
+            </div>
+            <p className="text-[11px] text-muted mt-0.5">
+              Перенесите домен от любого регистратора (Reg.ru, GoDaddy, Namecheap) с продлением на +1 год
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="text-muted hover:text-ink text-sm p-1 rounded-lg hover:bg-elevated transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Requirements checklist */}
+        <div className="mt-3.5 p-3 rounded-xl bg-card border border-line/70 space-y-1.5">
+          <div className="text-[10px] font-semibold text-muted uppercase tracking-wider">
+            Перед началом проверьте у старого регистратора:
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px] text-ink">
+            <div className="flex items-center gap-1.5 bg-surface/70 px-2 py-1.5 rounded-lg border border-line/40">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>Замок отключён</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-surface/70 px-2 py-1.5 rounded-lg border border-line/40">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>Возраст &gt; 60 дней</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-surface/70 px-2 py-1.5 rounded-lg border border-line/40">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>Есть EPP-код</span>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
+          <div>
+            <label className="block text-xs font-semibold text-ink mb-1">
+              Имя домена для переноса:
+            </label>
+            <input
+              type="text"
+              value={domainName}
+              disabled={submitting}
+              onChange={(e) => setDomainName(e.target.value.toLowerCase().replace(/https?:\/\//, '').trim())}
+              placeholder="example.com"
+              className="input w-full font-mono text-xs shadow-2xs"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-ink">
+                Auth-код (EPP-код авторизации):
+              </label>
+              <span className="text-[10px] text-muted">Из панели прежнего регистратора</span>
+            </div>
+            <input
+              type="text"
+              value={authCode}
+              disabled={submitting}
+              onChange={(e) => setAuthCode(e.target.value.trim())}
+              placeholder="например, EPP-abc123XYZ"
+              className="input w-full font-mono text-xs shadow-2xs"
+            />
+          </div>
+
+          {/* Pricing Quote calculation */}
+          {loadingQuote ? (
+            <div className="p-3 rounded-xl bg-card border border-line flex items-center justify-center gap-2 text-xs text-muted">
+              <Spinner />
+              <span>Расчёт стоимости трансфера...</span>
+            </div>
+          ) : quote ? (
+            <div className="p-3.5 rounded-xl bg-surface border-l-4 border-l-accent border border-line shadow-2xs space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted">Продление домена:</span>
+                <span className="font-semibold text-ink">+1 год (стандарт ICANN)</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted">WHOIS Privacy (защита данных):</span>
+                <span className="font-semibold text-emerald-800 dark:text-emerald-300">Бесплатно навсегда</span>
+              </div>
+              <div className="pt-2 border-t border-line/60 flex items-center justify-between">
+                <span className="text-xs font-bold text-ink">Стоимость переноса:</span>
+                <span className="text-sm font-bold text-accent font-mono">
+                  {formatPrice(quote.price_rub, 'RUB')}
+                </span>
+              </div>
+            </div>
+          ) : quoteError ? (
+            <p className="text-xs text-danger font-medium">{quoteError}</p>
+          ) : null}
+
+          {submitError ? (
+            <p role="alert" className="text-xs text-danger font-medium">
+              {submitError}
+            </p>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+            <button
+              type="button"
+              className="btn-ghost px-3 py-1.5 text-xs cursor-pointer"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || !domainName.trim() || !authCode.trim()}
+              className="btn-accent px-4 py-1.5 text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {submitting ? (
+                <>
+                  <Spinner />
+                  <span>Создание заказа...</span>
+                </>
+              ) : (
+                <>
+                  <span>Оформить перенос</span>
+                  {quote?.price_rub ? <span>• {formatPrice(quote.price_rub, 'RUB')}</span> : null}
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function DomainsScreen({ t, telegramId, onSelectCandidate }) {
   const isDesktop = useIsDesktop();
   const [domains, setDomains] = useState(null);
   const [error, setError] = useState(null);
@@ -628,6 +853,7 @@ export default function DomainsScreen({ t, telegramId }) {
   const [toast, setToast] = useState(null);
   const [togglingMap, setTogglingMap] = useState({});
   const [activeTooltip, setActiveTooltip] = useState(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   // Close tooltip on outside click
   useEffect(() => {
@@ -737,7 +963,29 @@ export default function DomainsScreen({ t, telegramId }) {
   if (domains === null) return <SkeletonList rows={3} />;
 
   if (domains.length === 0) {
-    return <EmptyState icon="◇" title={t('domains.empty')} />;
+    return (
+      <div className="space-y-4">
+        <EmptyState icon="◇" title={t('domains.empty')} />
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => setShowTransferModal(true)}
+            className="btn-accent px-4 py-2 text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+          >
+            <span>📥</span>
+            <span>Перенести домен к нам</span>
+          </button>
+        </div>
+        {showTransferModal && (
+          <TransferModal
+            t={t}
+            telegramId={telegramId}
+            onClose={() => setShowTransferModal(false)}
+            onSelectCandidate={onSelectCandidate}
+          />
+        )}
+      </div>
+    );
   }
 
   // Calculate summary metrics
@@ -786,8 +1034,18 @@ export default function DomainsScreen({ t, telegramId }) {
           {/* COMPACT DESKTOP REGISTRY TABLE (38px rows) */}
           <div className="card rounded-2xl border border-line bg-surface shadow-xs mb-6 overflow-visible">
             <div className="px-5 py-2.5 border-b border-line flex items-center justify-between bg-elevated/40 rounded-t-2xl">
-              <div className="text-xs font-semibold text-ink">Реестр доменов и параметры защит</div>
-              <div className="text-[11px] text-muted">Быстрое переключение защит и настройки DNS</div>
+              <div>
+                <span className="text-xs font-semibold text-ink">Реестр доменов и параметры защит</span>
+                <span className="text-[11px] text-muted ml-2 hidden sm:inline">• {domains.length} доменов</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTransferModal(true)}
+                className="btn-accent px-3 py-1 text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+              >
+                <span>📥</span>
+                <span>Перенести домен</span>
+              </button>
             </div>
 
             <table className="w-full text-left text-xs">
@@ -924,9 +1182,14 @@ export default function DomainsScreen({ t, telegramId }) {
               <div className="text-[11px] font-medium text-accent uppercase tracking-wider">Ваши домены</div>
               <div className="text-sm font-semibold text-ink">{domains.length} {domains.length === 1 ? 'активный домен' : 'активных доменов'}</div>
             </div>
-            <div className="h-9 w-9 rounded-xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent text-base">
-              🌐
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowTransferModal(true)}
+              className="btn-accent px-3 py-1.5 text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+            >
+              <span>📥</span>
+              <span>Перенести</span>
+            </button>
           </div>
 
           <ul className="space-y-3">
@@ -1041,6 +1304,14 @@ export default function DomainsScreen({ t, telegramId }) {
             setToast({ message: msg, tone: 'ok' });
             haptic('success');
           }}
+        />
+      )}
+      {showTransferModal && (
+        <TransferModal
+          t={t}
+          telegramId={telegramId}
+          onClose={() => setShowTransferModal(false)}
+          onSelectCandidate={onSelectCandidate}
         />
       )}
       {toast ? <Toast message={toast.message} tone={toast.tone} /> : null}

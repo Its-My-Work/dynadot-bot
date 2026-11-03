@@ -248,6 +248,17 @@ export const api = {
       params: { telegram_id: telegramId },
       body: order,
     }),
+  transferQuote: (domain, authCode) =>
+    request('/orders/transfer-quote', {
+      method: 'POST',
+      body: { domain_name: domain, auth_code: authCode },
+    }),
+  createTransferOrder: (telegramId, { domain_name, auth_code, contact_profile_id }) =>
+    request('/orders/transfer', {
+      method: 'POST',
+      params: { telegram_id: telegramId },
+      body: { domain_name, auth_code, contact_profile_id },
+    }),
   orders: (telegramId) => request('/orders', { params: { telegram_id: telegramId } }),
   order: (orderId) => request(`/orders/${orderId}`),
   cancelOrder: (orderId) => request(`/orders/${orderId}/cancel`, { method: 'POST' }),

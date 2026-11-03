@@ -16,10 +16,17 @@ from app.api.deps import DbSession, Dynadot, Translate
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.integrations.dynadot.exceptions import DomainUnavailableError, DynadotError
+from app.models.domain import TldPricing
 from app.models.enums import OrderStatus
 from app.models.order import Order
 from app.models.user import ContactProfile, User
-from app.schemas import OrderCreate, OrderRead
+from app.schemas import (
+    OrderCreate,
+    OrderRead,
+    TransferOrderCreate,
+    TransferQuoteRequest,
+    TransferQuoteResponse,
+)
 from app.services.pricing import PricingService, split_domain
 
 logger = get_logger(__name__)
@@ -114,6 +121,130 @@ async def create_order(
 
     logger.info(
         "order created",
+        extra={
+            "order_id": order.id,
+            "domain": order.domain_name,
+            "price_rub": quote.price_rub,
+        },
+    )
+    return order
+
+
+@router.post("/transfer-quote", response_model=TransferQuoteResponse)
+async def transfer_quote(
+    payload: TransferQuoteRequest,
+    session: DbSession,
+    t: Translate,
+) -> TransferQuoteResponse:
+    """Calculate price quote for transferring a domain (+1 year renewal)."""
+    domain_name = payload.domain_name.strip().lower().lstrip(".")
+    base, tld = split_domain(domain_name)
+    if not base or not tld:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=t("search.invalid_name"),
+        )
+    pricing = PricingService(session, settings)
+    tld_record = await session.scalar(
+        select(TldPricing).where(TldPricing.tld == tld, TldPricing.is_enabled.is_(True))
+    )
+    cost_usd = 10.0
+    if tld_record is not None:
+        cost_usd = float(tld_record.transfer_cost_usd or tld_record.register_cost_usd or 10.0)
+
+    quote = await pricing.quote(tld=tld, cost_usd=cost_usd, years=1)
+    if quote.price_rub <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=t("error.registrar_unavailable"),
+        )
+    return TransferQuoteResponse(
+        domain_name=domain_name,
+        tld=tld,
+        price_rub=quote.price_rub,
+        cost_usd=quote.cost_usd,
+        years=1,
+    )
+
+
+@router.post("/transfer", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
+async def create_transfer_order(
+    payload: TransferOrderCreate,
+    telegram_id: int,
+    session: DbSession,
+    t: Translate,
+) -> Order:
+    """Create a DRAFT transfer order with EPP authorization code."""
+    user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("error.not_found")
+        )
+    if user.is_blocked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=t("error.forbidden")
+        )
+
+    domain_name = payload.domain_name.strip().lower().lstrip(".")
+    base, tld = split_domain(domain_name)
+    if not base or not tld:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=t("search.invalid_name"),
+        )
+
+    existing = await session.scalar(
+        select(Order).where(
+            Order.user_id == user.id,
+            Order.domain_name == domain_name,
+            Order.status.in_(list(CANCELLABLE)),
+        )
+    )
+    if existing is not None:
+        # Update existing draft order with new auth code
+        existing.error_code = f"TRANSFER:{payload.auth_code.strip()}"
+        await session.commit()
+        await session.refresh(existing)
+        return existing
+
+    pricing = PricingService(session, settings)
+    tld_record = await session.scalar(
+        select(TldPricing).where(TldPricing.tld == tld, TldPricing.is_enabled.is_(True))
+    )
+    cost_usd = 10.0
+    if tld_record is not None:
+        cost_usd = float(tld_record.transfer_cost_usd or tld_record.register_cost_usd or 10.0)
+
+    quote = await pricing.quote(tld=tld, cost_usd=cost_usd, years=1)
+    if quote.price_rub <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=t("error.registrar_unavailable"),
+        )
+
+    contact_profile_id = payload.contact_profile_id or await _default_contact_id(
+        session, user.id
+    )
+
+    order = Order(
+        user_id=user.id,
+        contact_profile_id=contact_profile_id,
+        domain_name=domain_name,
+        tld=tld,
+        years=1,
+        status=OrderStatus.DRAFT,
+        cost_usd=quote.cost_usd,
+        price_rub=quote.price_rub,
+        markup_percent=quote.markup_percent,
+        fx_rate=quote.fx_rate,
+        error_code=f"TRANSFER:{payload.auth_code.strip()}",
+    )
+    session.add(order)
+    await session.commit()
+    await session.refresh(order)
+
+    logger.info(
+        "transfer order created",
         extra={
             "order_id": order.id,
             "domain": order.domain_name,

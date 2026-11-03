@@ -146,20 +146,30 @@ class RegistrationService:
 
         contact_id = await self._resolve_contact_id(order)
 
+        is_transfer = bool(order.error_code and order.error_code.startswith("TRANSFER:"))
         try:
-            # Re-check availability first: the name may have gone while the
-            # customer was paying, and a refund is far cheaper than a failed
-            # register call plus a confused customer.
-            await self._client.ensure_available(order.domain_name)
+            if is_transfer:
+                auth_code = order.error_code.removeprefix("TRANSFER:")
+                payload = await self._client.transfer(
+                    order.domain_name,
+                    auth_code=auth_code,
+                    contact_id=contact_id,
+                    request_id=order.dynadot_request_id,
+                )
+            else:
+                # Re-check availability first: the name may have gone while the
+                # customer was paying, and a refund is far cheaper than a failed
+                # register call plus a confused customer.
+                await self._client.ensure_available(order.domain_name)
 
-            payload = await self._client.register(
-                order.domain_name,
-                years=order.years,
-                contact_id=contact_id,
-                nameservers=None,
-                request_id=order.dynadot_request_id,
-                privacy=True,
-            )
+                payload = await self._client.register(
+                    order.domain_name,
+                    years=order.years,
+                    contact_id=contact_id,
+                    nameservers=None,
+                    request_id=order.dynadot_request_id,
+                    privacy=True,
+                )
         except DomainUnavailableError as exc:
             return await self._mark_refund_required(order, exc)
         except RETRYABLE_ERRORS as exc:

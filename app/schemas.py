@@ -301,6 +301,25 @@ class OrderCreate(BaseModel):
     contact_profile_id: str | None = None
 
 
+class TransferQuoteRequest(BaseModel):
+    domain_name: str = Field(min_length=3, max_length=253)
+    auth_code: str = Field(min_length=1, max_length=128)
+
+
+class TransferQuoteResponse(BaseModel):
+    domain_name: str
+    tld: str
+    price_rub: float
+    cost_usd: float
+    years: int = 1
+
+
+class TransferOrderCreate(BaseModel):
+    domain_name: str = Field(min_length=3, max_length=253)
+    auth_code: str = Field(min_length=1, max_length=128)
+    contact_profile_id: str | None = None
+
+
 class OrderRead(ORMModel):
     id: str
     domain_name: str

@@ -287,7 +287,11 @@ export default function App() {
                 <VpsScreen t={t} telegramId={telegramId} />
               ) : null}
               {tab === 'domains' ? (
-                <DomainsScreen t={t} telegramId={telegramId} />
+                <DomainsScreen
+                  t={t}
+                  telegramId={telegramId}
+                  onSelectCandidate={setCandidate}
+                />
               ) : null}
               {tab === 'orders' ? (
                 <OrdersScreen t={t} telegramId={telegramId} />
