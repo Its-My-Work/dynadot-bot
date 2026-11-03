@@ -719,8 +719,8 @@ export default function DomainsScreen({ t, telegramId }) {
                   )}
                 </div>
 
-                {/* Interactive Toggles */}
-                <div className="pt-2 border-t border-line overflow-x-visible">
+                {/* Interactive Toggles & Management in the same row */}
+                <div className="pt-2 border-t border-line overflow-x-visible flex flex-wrap items-center justify-between gap-2">
                   <DomainToggles
                     domain={domain}
                     togglingMap={togglingMap}
@@ -730,23 +730,19 @@ export default function DomainsScreen({ t, telegramId }) {
                     onToggleLock={handleToggleDomainLock}
                     onToggleAutoRenew={handleToggleDomainAutoRenew}
                   />
+                  <button
+                    type="button"
+                    className="btn-accent px-3 py-1 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer shadow-xs ml-auto shrink-0"
+                    onClick={() => {
+                      haptic('light');
+                      setInitialTab('dns');
+                      setManagingDomain(domain);
+                    }}
+                  >
+                    <span>⚙️</span>
+                    <span>{t('domains.manage')}</span>
+                  </button>
                 </div>
-              </div>
-
-              {/* Action Button: Open Slide-over Drawer for DNS/NS/Presets */}
-              <div className="pt-1">
-                <button
-                  type="button"
-                  className="btn-accent w-full py-2 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                  onClick={() => {
-                    haptic('light');
-                    setInitialTab('dns');
-                    setManagingDomain(domain);
-                  }}
-                >
-                  <span>⚙️</span>
-                  <span>{t('domains.manage')} (DNS, NS, Пресеты)</span>
-                </button>
               </div>
             </li>
           );
