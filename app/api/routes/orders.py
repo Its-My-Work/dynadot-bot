@@ -150,7 +150,9 @@ async def transfer_quote(
     )
     cost_usd = 10.0
     if tld_record is not None:
-        cost_usd = float(tld_record.transfer_cost_usd or tld_record.register_cost_usd or 10.0)
+        cost_usd = float(
+            tld_record.transfer_cost_usd or tld_record.register_cost_usd or 10.0
+        )
 
     quote = await pricing.quote(tld=tld, cost_usd=cost_usd, years=1)
     if quote.price_rub <= 0:
@@ -213,7 +215,9 @@ async def create_transfer_order(
     )
     cost_usd = 10.0
     if tld_record is not None:
-        cost_usd = float(tld_record.transfer_cost_usd or tld_record.register_cost_usd or 10.0)
+        cost_usd = float(
+            tld_record.transfer_cost_usd or tld_record.register_cost_usd or 10.0
+        )
 
     quote = await pricing.quote(tld=tld, cost_usd=cost_usd, years=1)
     if quote.price_rub <= 0:
