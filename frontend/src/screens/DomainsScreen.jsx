@@ -277,15 +277,15 @@ export function PresetConfirmModal({
                     <div className="flex items-center justify-between gap-1.5">
                       <span className="text-xs font-bold flex items-center gap-1.5">
                         <span className={mode === 'merge' ? 'text-accent' : 'text-muted'}>●</span>
-                        <span>Smart Merge</span>
+                        <span>Объединить</span>
                       </span>
                       <span className="badge text-[9px] bg-surface text-ink border border-emerald-500/40 font-bold px-2 py-0.5 shrink-0 inline-flex items-center gap-1 shadow-2xs">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         <span>Рекомендуется</span>
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
-                      Дополнит записи нужными из пресета. Существующие A/AAAA записи останутся нетронутыми.
+                    <p className="text-[11px] text-muted mt-1 leading-normal">
+                      Добавит записи, сохранив текущие A/AAAA записи сайта.
                     </p>
                   </div>
                 </button>
@@ -303,15 +303,15 @@ export function PresetConfirmModal({
                     <div className="flex items-center justify-between gap-1.5">
                       <span className="text-xs font-bold flex items-center gap-1.5">
                         <span className={mode === 'replace' ? 'text-red-500' : 'text-muted'}>●</span>
-                        <span>Полная замена</span>
+                        <span>Заменить всё</span>
                       </span>
                       <span className="badge text-[9px] bg-surface text-ink border border-red-500/40 font-bold px-2 py-0.5 shrink-0 inline-flex items-center gap-1 shadow-2xs">
                         <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
                         <span>Внимание</span>
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
-                      Удалит все текущие DNS-записи и запишет только конфигурацию выбранного пресета.
+                    <p className="text-[11px] text-muted mt-1 leading-normal">
+                      Удалит все текущие DNS-записи домена.
                     </p>
                   </div>
                 </button>
