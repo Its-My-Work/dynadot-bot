@@ -705,8 +705,9 @@ function DomainsManagement({ language }) {
                       ) : null}
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="badge text-[10px] font-semibold bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30 px-2 py-0.5">
-                        {dom.status}
+                      <span className="badge text-[10px] font-semibold bg-surface text-ink border border-line px-2 py-0.5 inline-flex items-center gap-1.5 shadow-2xs">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        <span>{dom.status}</span>
                       </span>
                       {dom.auto_renew ? (
                         <span className="ml-1 text-[10px] text-muted">автопродление</span>

@@ -142,8 +142,9 @@ export default function ProfileScreen({ t, telegramId }) {
                     Администратор
                   </span>
                 ) : user?.has_password ? (
-                  <span className="badge text-[10px] bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-2 py-0.5">
-                    ✓ Активен
+                  <span className="badge text-[10px] bg-surface text-ink border border-line font-medium px-2 py-0.5 inline-flex items-center gap-1.5 shadow-2xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span>Активен</span>
                   </span>
                 ) : null}
               </p>
@@ -173,8 +174,9 @@ export default function ProfileScreen({ t, telegramId }) {
               </div>
             </div>
             {user?.email ? (
-              <span className="badge bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-2 py-0.5 text-[11px]">
-                ✓ Привязан
+              <span className="badge bg-surface text-ink border border-line font-medium px-2 py-0.5 text-[11px] inline-flex items-center gap-1.5 shadow-2xs">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>Привязан</span>
               </span>
             ) : (
               <button
@@ -240,8 +242,9 @@ export default function ProfileScreen({ t, telegramId }) {
               </div>
             </div>
             {isRealTelegram || user?.telegram_username ? (
-              <span className="badge bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 font-medium px-2 py-0.5 text-[11px]">
-                ✓ Привязан
+              <span className="badge bg-surface text-ink border border-line font-medium px-2 py-0.5 text-[11px] inline-flex items-center gap-1.5 shadow-2xs">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>Привязан</span>
               </span>
             ) : (
               <button
