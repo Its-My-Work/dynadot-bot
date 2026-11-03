@@ -31,7 +31,7 @@ jobs:
         run: ruff format --check .
 
       - name: Pytest
-        run: pytest -q
+        run: pytest -n auto -q
 
   frontend:
     name: Frontend (eslint + vitest + build)
