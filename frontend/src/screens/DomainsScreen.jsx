@@ -7,6 +7,7 @@ import api from '../lib/api';
 import { formatDate } from '../lib/i18n';
 import { haptic } from '../lib/telegram';
 import { EmptyState, ErrorNote, SkeletonList, Spinner, Toast } from '../components/ui';
+import { useIsDesktop } from '../hooks/useMediaQuery';
 
 export function parseNameservers(text) {
   return text
@@ -485,6 +486,7 @@ function DomainToggles({
 }
 
 export default function DomainsScreen({ t, telegramId }) {
+  const isDesktop = useIsDesktop();
   const [domains, setDomains] = useState(null);
   const [error, setError] = useState(null);
   const [managingDomain, setManagingDomain] = useState(null);
@@ -612,142 +614,250 @@ export default function DomainsScreen({ t, telegramId }) {
 
   return (
     <>
-      {/* 3 KEY STAT CARDS (Desktop: lg:grid) */}
-      <div className="hidden lg:grid grid-cols-3 gap-4 mb-6">
-        <div className="card rounded-2xl p-4 flex items-center justify-between bg-surface border border-line shadow-xs">
-          <div>
-            <div className="text-[11px] font-medium text-muted uppercase tracking-wider">Активные домены</div>
-            <div className="text-xl font-semibold text-ink mt-1">
-              {domains.length} <span className="text-xs font-normal text-ok ml-1">● все в сети</span>
+      {isDesktop ? (
+        <>
+          {/* 3 COMPACT KPI STAT CARDS */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="card rounded-xl p-3.5 flex items-center justify-between bg-surface border border-line shadow-xs">
+              <div>
+                <div className="text-[10px] font-medium text-muted uppercase tracking-wider">Активные домены</div>
+                <div className="text-lg font-semibold text-ink mt-0.5">
+                  {domains.length} <span className="text-xs font-normal text-ok ml-1">● все в сети</span>
+                </div>
+              </div>
+              <div className="h-9 w-9 rounded-lg bg-accent/10 text-accent flex items-center justify-center text-base">🌐</div>
+            </div>
+
+            <div className="card rounded-xl p-3.5 flex items-center justify-between bg-surface border border-line shadow-xs">
+              <div>
+                <div className="text-[10px] font-medium text-muted uppercase tracking-wider">Защита WHOIS</div>
+                <div className="text-lg font-semibold text-ink mt-0.5">
+                  {privacyPercent}% <span className="text-xs font-normal text-muted ml-1">Privacy</span>
+                </div>
+              </div>
+              <div className="h-9 w-9 rounded-lg bg-ok/10 text-ok flex items-center justify-center text-base">🛡</div>
+            </div>
+
+            <div className="card rounded-xl p-3.5 flex items-center justify-between bg-surface border border-line shadow-xs">
+              <div>
+                <div className="text-[10px] font-medium text-muted uppercase tracking-wider">Ближайшее продление</div>
+                <div className="text-lg font-semibold text-ink mt-0.5 truncate max-w-[180px]">
+                  {earliestExpiry ? formatDate(earliestExpiry.expires_at) : '—'}
+                </div>
+              </div>
+              <div className="h-9 w-9 rounded-lg bg-warn/10 text-warn flex items-center justify-center text-base">📅</div>
             </div>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center text-lg">🌐</div>
-        </div>
 
-        <div className="card rounded-2xl p-4 flex items-center justify-between bg-surface border border-line shadow-xs">
-          <div>
-            <div className="text-[11px] font-medium text-muted uppercase tracking-wider">Защита WHOIS</div>
-            <div className="text-xl font-semibold text-ink mt-1">
-              {privacyPercent}% <span className="text-xs font-normal text-muted ml-1">Privacy</span>
+          {/* COMPACT DESKTOP REGISTRY TABLE (48px rows) */}
+          <div className="card rounded-2xl overflow-hidden border border-line bg-surface shadow-xs mb-6">
+            <div className="px-5 py-3 border-b border-line flex items-center justify-between bg-elevated/40">
+              <div className="text-xs font-semibold text-ink">Реестр доменов и параметры защит</div>
+              <div className="text-[11px] text-muted">Быстрое переключение защит и настройки DNS</div>
+            </div>
+
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-line text-[11px] font-medium text-muted uppercase tracking-wider bg-surface">
+                  <th className="py-2.5 px-5">Домен</th>
+                  <th className="py-2.5 px-3">Статус</th>
+                  <th className="py-2.5 px-3">Куда ведет</th>
+                  <th className="py-2.5 px-4">Параметры защит</th>
+                  <th className="py-2.5 px-4">Срок действия</th>
+                  <th className="py-2.5 px-5 text-right">Действия</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {domains.map((domain) => {
+                  const routing = getDomainRouting(domain);
+                  return (
+                    <tr key={domain.id} className="hover:bg-accent/5 transition-colors group bg-surface">
+                      <td className="py-2.5 px-5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted text-sm">🌐</span>
+                          <span className="font-mono font-medium text-sm text-ink">{domain.name}</span>
+                          <a
+                            href={`https://${domain.name}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted hover:text-accent text-[11px] p-0.5"
+                            title="Открыть сайт"
+                          >
+                            ↗
+                          </a>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="badge bg-surface text-ink border border-line px-2 py-0.5 text-[11px] font-medium inline-flex items-center gap-1.5 shadow-xs">
+                          <span>{domain.uptime_status === 'up' ? '🟢' : '⚪'}</span>
+                          <span>{domain.uptime_status === 'up' ? 'Активен · Онлайн' : 'Активен'}</span>
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {routing.targetRedirect ? (
+                          <span className="font-mono font-normal text-accent inline-flex items-center gap-1 text-[11px] bg-accent/10 px-2 py-0.5 rounded-md border border-accent/20">
+                            <span>✈️</span>
+                            <span>{routing.targetRedirect}</span>
+                          </span>
+                        ) : routing.targetIp ? (
+                          <span className="font-mono font-normal text-ink inline-flex items-center gap-1 text-[11px] bg-elevated px-2 py-0.5 rounded-md border border-line">
+                            <span>📍</span>
+                            <span>{routing.targetIp}</span>
+                          </span>
+                        ) : routing.isCloudflare ? (
+                          <span className="font-medium text-ink inline-flex items-center gap-1 text-[11px] bg-elevated px-2 py-0.5 rounded-md border border-line">
+                            <span>☁️</span>
+                            <span>Cloudflare DNS</span>
+                          </span>
+                        ) : (
+                          <span className="text-muted text-[11px] font-mono truncate max-w-[150px] inline-block">
+                            {domain.nameservers || 'Dynadot DNS'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <DomainToggles
+                          domain={domain}
+                          togglingMap={togglingMap}
+                          activeTooltip={activeTooltip}
+                          setActiveTooltip={setActiveTooltip}
+                          onTogglePrivacy={handleToggleDomainPrivacy}
+                          onToggleLock={handleToggleDomainLock}
+                          onToggleAutoRenew={handleToggleDomainAutoRenew}
+                        />
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <div className="text-xs text-muted font-normal">
+                          {formatDate(domain.expires_at)}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            haptic('light');
+                            setInitialTab('dns');
+                            setManagingDomain(domain);
+                          }}
+                          className="px-3 py-1 rounded-lg bg-elevated hover:bg-accent hover:text-accent-ink text-ink text-xs font-medium transition-all cursor-pointer shadow-xs border border-line hover:border-accent"
+                        >
+                          Настройки DNS ⚙️
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Mobile Summary Banner (hidden on lg) */}
+          <div className="card p-3.5 bg-gradient-to-r from-accent/10 via-surface to-surface border border-accent/20 flex items-center justify-between mb-4">
+            <div className="space-y-0.5">
+              <div className="text-[11px] font-medium text-accent uppercase tracking-wider">Ваши домены</div>
+              <div className="text-sm font-semibold text-ink">{domains.length} {domains.length === 1 ? 'активный домен' : 'активных доменов'}</div>
+            </div>
+            <div className="h-9 w-9 rounded-xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent text-base">
+              🌐
             </div>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-ok/10 text-ok flex items-center justify-center text-lg">🛡</div>
-        </div>
 
-        <div className="card rounded-2xl p-4 flex items-center justify-between bg-surface border border-line shadow-xs">
-          <div>
-            <div className="text-[11px] font-medium text-muted uppercase tracking-wider">Ближайшее продление</div>
-            <div className="text-xl font-semibold text-ink mt-1 truncate max-w-[200px]">
-              {earliestExpiry ? formatDate(earliestExpiry.expires_at) : '—'}
-            </div>
-          </div>
-          <div className="h-10 w-10 rounded-xl bg-warn/10 text-warn flex items-center justify-center text-lg">📅</div>
-        </div>
-      </div>
+          <ul className="space-y-3">
+            {domains.map((domain) => {
+              const routing = getDomainRouting(domain);
 
-      {/* Mobile Summary Banner (hidden on lg) */}
-      <div className="lg:hidden card p-3.5 bg-gradient-to-r from-accent/10 via-surface to-surface border border-accent/20 flex items-center justify-between mb-4">
-        <div className="space-y-0.5">
-          <div className="text-[11px] font-medium text-accent uppercase tracking-wider">Ваши домены</div>
-          <div className="text-sm font-semibold text-ink">{domains.length} {domains.length === 1 ? 'активный домен' : 'активных доменов'}</div>
-        </div>
-        <div className="h-9 w-9 rounded-xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent text-base">
-          🌐
-        </div>
-      </div>
-
-      <ul className="space-y-3">
-        {domains.map((domain) => {
-          const routing = getDomainRouting(domain);
-
-          return (
-            <li key={domain.id} className="card p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-mono text-[15px] font-medium tracking-tight text-ink flex items-center gap-1.5">
-                    <span>🌐</span>
-                    <span>{domain.name}</span>
-                  </h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-xs text-muted">
-                      {t('domains.expires', { date: formatDate(domain.expires_at) })}
-                    </p>
+              return (
+                <li key={domain.id} className="card p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-mono text-[15px] font-medium tracking-tight text-ink flex items-center gap-1.5">
+                        <span>🌐</span>
+                        <span>{domain.name}</span>
+                      </h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-muted">
+                          {t('domains.expires', { date: formatDate(domain.expires_at) })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`https://${domain.name}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="badge bg-accent/10 text-accent hover:bg-accent/20 px-2 py-1 text-xs font-medium transition-colors flex items-center gap-0.5"
+                        title="Открыть сайт"
+                      >
+                        <span>🌐</span>
+                        <span className="text-[10px]">↗</span>
+                      </a>
+                      <span className="badge bg-surface text-ink border border-line px-2 py-0.5 text-[11px] font-medium flex items-center gap-1.5 shadow-xs">
+                        <span>{domain.uptime_status === 'up' ? '🟢' : '⚪'}</span>
+                        <span>{domain.uptime_status === 'up' ? 'Активен · Онлайн' : 'Активен'}</span>
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={`https://${domain.name}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="badge bg-accent/10 text-accent hover:bg-accent/20 px-2 py-1 text-xs font-medium transition-colors flex items-center gap-0.5"
-                    title="Открыть сайт"
-                  >
-                    <span>🌐</span>
-                    <span className="text-[10px]">↗</span>
-                  </a>
-                  <span className="badge bg-surface text-ink border border-line px-2 py-0.5 text-[11px] font-medium flex items-center gap-1.5 shadow-xs">
-                    <span>{domain.uptime_status === 'up' ? '🟢' : '⚪'}</span>
-                    <span>{domain.uptime_status === 'up' ? 'Активен · Онлайн' : 'Активен'}</span>
-                  </span>
-                </div>
-              </div>
 
-              {/* Active Routing & Options Summary Box */}
-              <div className="rounded-xl bg-surface/70 border border-line p-3 space-y-2 text-xs">
-                {/* Routing destination */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted text-[11px]">Куда ведет:</span>
-                  {routing.targetRedirect ? (
-                    <span className="font-mono font-normal text-accent flex items-center gap-1 text-xs">
-                      <span>✈️</span>
-                      <span>{routing.targetRedirect}</span>
-                    </span>
-                  ) : routing.targetIp ? (
-                    <span className="font-mono font-normal text-ink flex items-center gap-1 text-xs">
-                      <span>📍</span>
-                      <span>{routing.targetIp}</span>
-                    </span>
-                  ) : routing.isCloudflare ? (
-                    <span className="font-medium text-ink flex items-center gap-1 text-xs">
-                      <span>☁️</span>
-                      <span>Cloudflare DNS</span>
-                    </span>
-                  ) : (
-                    <span className="text-muted text-[11px] font-mono truncate max-w-[200px]">
-                      {domain.nameservers || 'Dynadot DNS'}
-                    </span>
-                  )}
-                </div>
+                  {/* Active Routing & Options Summary Box */}
+                  <div className="rounded-xl bg-surface/70 border border-line p-3 space-y-2 text-xs">
+                    {/* Routing destination */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted text-[11px]">Куда ведет:</span>
+                      {routing.targetRedirect ? (
+                        <span className="font-mono font-normal text-accent flex items-center gap-1 text-xs">
+                          <span>✈️</span>
+                          <span>{routing.targetRedirect}</span>
+                        </span>
+                      ) : routing.targetIp ? (
+                        <span className="font-mono font-normal text-ink flex items-center gap-1 text-xs">
+                          <span>📍</span>
+                          <span>{routing.targetIp}</span>
+                        </span>
+                      ) : routing.isCloudflare ? (
+                        <span className="font-medium text-ink flex items-center gap-1 text-xs">
+                          <span>☁️</span>
+                          <span>Cloudflare DNS</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted text-[11px] font-mono truncate max-w-[200px]">
+                          {domain.nameservers || 'Dynadot DNS'}
+                        </span>
+                      )}
+                    </div>
 
-                {/* Interactive Toggles & Management in the same row */}
-                <div className="pt-2 border-t border-line overflow-x-visible flex flex-wrap items-center justify-between gap-2">
-                  <DomainToggles
-                    domain={domain}
-                    togglingMap={togglingMap}
-                    activeTooltip={activeTooltip}
-                    setActiveTooltip={setActiveTooltip}
-                    onTogglePrivacy={handleToggleDomainPrivacy}
-                    onToggleLock={handleToggleDomainLock}
-                    onToggleAutoRenew={handleToggleDomainAutoRenew}
-                  />
-                  <button
-                    type="button"
-                    className="btn-accent px-3 py-1 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer shadow-xs ml-auto shrink-0"
-                    onClick={() => {
-                      haptic('light');
-                      setInitialTab('dns');
-                      setManagingDomain(domain);
-                    }}
-                  >
-                    <span>⚙️</span>
-                    <span>{t('domains.manage')}</span>
-                  </button>
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                    {/* Interactive Toggles & Management in the same row */}
+                    <div className="pt-2 border-t border-line overflow-x-visible flex flex-wrap items-center justify-between gap-2">
+                      <DomainToggles
+                        domain={domain}
+                        togglingMap={togglingMap}
+                        activeTooltip={activeTooltip}
+                        setActiveTooltip={setActiveTooltip}
+                        onTogglePrivacy={handleToggleDomainPrivacy}
+                        onToggleLock={handleToggleDomainLock}
+                        onToggleAutoRenew={handleToggleDomainAutoRenew}
+                      />
+                      <button
+                        type="button"
+                        className="btn-accent px-3 py-1 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer shadow-xs ml-auto shrink-0"
+                        onClick={() => {
+                          haptic('light');
+                          setInitialTab('dns');
+                          setManagingDomain(domain);
+                        }}
+                      >
+                        <span>⚙️</span>
+                        <span>{t('domains.manage')}</span>
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
       {managingDomain && (
         <DomainManager
           t={t}

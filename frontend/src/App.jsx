@@ -268,7 +268,7 @@ export default function App() {
         </div>
 
         {/* MAIN CONTENT AREA */}
-        <main className="flex-1 px-4 lg:px-8 pb-24 lg:pb-8 pt-4 lg:pt-6 max-w-md md:max-w-3xl lg:max-w-6xl w-full mx-auto">
+        <main className="flex-1 px-4 lg:px-8 pb-24 lg:pb-8 pt-4 lg:pt-6 max-w-md md:max-w-3xl lg:max-w-5xl w-full mx-auto">
           {candidate ? (
             <CheckoutScreen
               t={t}
