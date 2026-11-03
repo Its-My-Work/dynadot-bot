@@ -338,16 +338,17 @@ function DomainToggles({
   onTogglePrivacy,
   onToggleLock,
   onToggleAutoRenew,
+  compact = false,
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5 overflow-x-visible text-[11px]">
+    <div className={`flex flex-wrap items-center ${compact ? 'gap-1' : 'gap-1.5'} overflow-x-visible text-[11px]`}>
       {/* Privacy Toggle */}
       <div className="relative inline-flex items-center">
         <button
           type="button"
           onClick={() => onTogglePrivacy(domain)}
           disabled={togglingMap[`${domain.id}_privacy`]}
-          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1 ${compact ? 'px-2 py-0.5 rounded-md text-[10px]' : 'px-2.5 py-1 rounded-lg text-[10px]'} font-medium border transition-all cursor-pointer ${
             domain.privacy_enabled
               ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
               : 'bg-surface border-line text-muted hover:text-ink'
@@ -366,7 +367,7 @@ function DomainToggles({
               e.stopPropagation();
               setActiveTooltip(activeTooltip === `privacy_${domain.id}` ? null : `privacy_${domain.id}`);
             }}
-            className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+            className="ml-0.5 text-[10px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
             title="Подробнее о Privacy"
           >
             ⓘ
@@ -394,7 +395,7 @@ function DomainToggles({
           type="button"
           onClick={() => onToggleLock(domain)}
           disabled={togglingMap[`${domain.id}_lock`]}
-          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1 ${compact ? 'px-2 py-0.5 rounded-md text-[10px]' : 'px-2.5 py-1 rounded-lg text-[10px]'} font-medium border transition-all cursor-pointer ${
             domain.is_locked
               ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
               : 'bg-surface border-line text-muted hover:text-ink'
@@ -413,7 +414,7 @@ function DomainToggles({
               e.stopPropagation();
               setActiveTooltip(activeTooltip === `lock_${domain.id}` ? null : `lock_${domain.id}`);
             }}
-            className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+            className="ml-0.5 text-[10px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
             title="Подробнее о Lock"
           >
             ⓘ
@@ -441,7 +442,7 @@ function DomainToggles({
           type="button"
           onClick={() => onToggleAutoRenew(domain)}
           disabled={togglingMap[`${domain.id}_autorenew`]}
-          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1 ${compact ? 'px-2 py-0.5 rounded-md text-[10px]' : 'px-2.5 py-1 rounded-lg text-[10px]'} font-medium border transition-all cursor-pointer ${
             domain.auto_renew
               ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/20'
               : 'bg-surface border-line text-muted hover:text-ink'
@@ -460,7 +461,7 @@ function DomainToggles({
               e.stopPropagation();
               setActiveTooltip(activeTooltip === `autorenew_${domain.id}` ? null : `autorenew_${domain.id}`);
             }}
-            className="ml-1 text-[11px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
+            className="ml-0.5 text-[10px] opacity-60 hover:opacity-100 hover:text-accent rounded transition-opacity"
             title="Подробнее об автопродлении"
           >
             ⓘ
@@ -649,73 +650,79 @@ export default function DomainsScreen({ t, telegramId }) {
             </div>
           </div>
 
-          {/* COMPACT DESKTOP REGISTRY TABLE (48px rows) */}
+          {/* COMPACT DESKTOP REGISTRY TABLE (38px rows) */}
           <div className="card rounded-2xl overflow-hidden border border-line bg-surface shadow-xs mb-6">
-            <div className="px-5 py-3 border-b border-line flex items-center justify-between bg-elevated/40">
+            <div className="px-5 py-2.5 border-b border-line flex items-center justify-between bg-elevated/40">
               <div className="text-xs font-semibold text-ink">Реестр доменов и параметры защит</div>
               <div className="text-[11px] text-muted">Быстрое переключение защит и настройки DNS</div>
             </div>
 
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-line text-[11px] font-medium text-muted uppercase tracking-wider bg-surface">
-                  <th className="py-2.5 px-5">Домен</th>
-                  <th className="py-2.5 px-3">Статус</th>
-                  <th className="py-2.5 px-3">Куда ведет</th>
-                  <th className="py-2.5 px-4">Параметры защит</th>
-                  <th className="py-2.5 px-4">Срок действия</th>
-                  <th className="py-2.5 px-5 text-right">Действия</th>
+                <tr className="border-b border-line text-[10px] font-semibold text-muted uppercase tracking-wider bg-surface/50">
+                  <th className="py-2 px-4">Домен</th>
+                  <th className="py-2 px-3">Статус</th>
+                  <th className="py-2 px-3">Куда ведет</th>
+                  <th className="py-2 px-3">Параметры защит</th>
+                  <th className="py-2 px-3">Срок действия</th>
+                  <th className="py-2 px-4 text-right">Действия</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line">
+              <tbody className="divide-y divide-line/60">
                 {domains.map((domain) => {
                   const routing = getDomainRouting(domain);
                   return (
-                    <tr key={domain.id} className="hover:bg-accent/5 transition-colors group bg-surface">
-                      <td className="py-2.5 px-5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted text-sm">🌐</span>
-                          <span className="font-mono font-medium text-sm text-ink">{domain.name}</span>
+                    <tr key={domain.id} className="hover:bg-accent/[0.04] transition-colors group bg-surface">
+                      <td className="py-2 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-muted/70 text-xs">🌐</span>
+                          <span className="font-mono font-medium text-xs text-ink">{domain.name}</span>
                           <a
                             href={`https://${domain.name}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-muted hover:text-accent text-[11px] p-0.5"
+                            className="text-muted hover:text-accent text-[10px] p-0.5 opacity-60 group-hover:opacity-100 transition-opacity"
                             title="Открыть сайт"
                           >
                             ↗
                           </a>
                         </div>
                       </td>
-                      <td className="py-2.5 px-3">
-                        <span className="badge bg-surface text-ink border border-line px-2 py-0.5 text-[11px] font-medium inline-flex items-center gap-1.5 shadow-xs">
-                          <span>{domain.uptime_status === 'up' ? '🟢' : '⚪'}</span>
-                          <span>{domain.uptime_status === 'up' ? 'Активен · Онлайн' : 'Активен'}</span>
+                      <td className="py-2 px-3">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-ink font-normal">
+                          <span
+                            className={`h-2 w-2 rounded-full shrink-0 ${
+                              domain.uptime_status === 'up'
+                                ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]'
+                                : 'bg-muted-foreground/40'
+                            }`}
+                          />
+                          <span>{domain.uptime_status === 'up' ? 'Онлайн' : 'Офлайн'}</span>
                         </span>
                       </td>
-                      <td className="py-2.5 px-3">
+                      <td className="py-2 px-3">
                         {routing.targetRedirect ? (
-                          <span className="font-mono font-normal text-accent inline-flex items-center gap-1 text-[11px] bg-accent/10 px-2 py-0.5 rounded-md border border-accent/20">
+                          <span className="font-mono font-normal text-accent inline-flex items-center gap-1 text-[11px] bg-accent/10 px-1.5 py-0.5 rounded border border-accent/20">
                             <span>✈️</span>
                             <span>{routing.targetRedirect}</span>
                           </span>
                         ) : routing.targetIp ? (
-                          <span className="font-mono font-normal text-ink inline-flex items-center gap-1 text-[11px] bg-elevated px-2 py-0.5 rounded-md border border-line">
-                            <span>📍</span>
+                          <span className="font-mono text-xs text-ink/90 inline-flex items-center gap-1">
+                            <span className="text-[10px] text-muted">📍</span>
                             <span>{routing.targetIp}</span>
                           </span>
                         ) : routing.isCloudflare ? (
-                          <span className="font-medium text-ink inline-flex items-center gap-1 text-[11px] bg-elevated px-2 py-0.5 rounded-md border border-line">
+                          <span className="text-xs text-ink font-medium inline-flex items-center gap-1">
                             <span>☁️</span>
                             <span>Cloudflare DNS</span>
                           </span>
                         ) : (
-                          <span className="text-muted text-[11px] font-mono truncate max-w-[150px] inline-block">
+                          <span className="text-muted text-[11px] font-mono truncate max-w-[140px] inline-block">
                             {domain.nameservers || 'Dynadot DNS'}
                           </span>
                         )}
                       </td>
-                      <td className="py-2.5 px-4">
+                      <td className="py-2 px-3">
                         <DomainToggles
                           domain={domain}
                           togglingMap={togglingMap}
@@ -724,14 +731,15 @@ export default function DomainsScreen({ t, telegramId }) {
                           onTogglePrivacy={handleToggleDomainPrivacy}
                           onToggleLock={handleToggleDomainLock}
                           onToggleAutoRenew={handleToggleDomainAutoRenew}
+                          compact={true}
                         />
                       </td>
-                      <td className="py-2.5 px-4">
-                        <div className="text-xs text-muted font-normal">
+                      <td className="py-2 px-3">
+                        <div className="text-xs text-muted font-normal whitespace-nowrap">
                           {formatDate(domain.expires_at)}
                         </div>
                       </td>
-                      <td className="py-2.5 px-5 text-right">
+                      <td className="py-2 px-4 text-right">
                         <button
                           type="button"
                           onClick={() => {
@@ -739,9 +747,10 @@ export default function DomainsScreen({ t, telegramId }) {
                             setInitialTab('dns');
                             setManagingDomain(domain);
                           }}
-                          className="px-3 py-1 rounded-lg bg-elevated hover:bg-accent hover:text-accent-ink text-ink text-xs font-medium transition-all cursor-pointer shadow-xs border border-line hover:border-accent"
+                          className="px-2.5 py-1 rounded-lg bg-elevated/70 hover:bg-accent hover:text-accent-ink text-ink text-xs font-medium transition-all cursor-pointer shadow-xs border border-line hover:border-accent inline-flex items-center gap-1"
                         >
-                          Настройки DNS ⚙️
+                          <span>DNS</span>
+                          <span>⚙️</span>
                         </button>
                       </td>
                     </tr>
