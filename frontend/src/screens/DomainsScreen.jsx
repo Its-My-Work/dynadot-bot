@@ -1,7 +1,7 @@
 /** "My domains" + mobile-first domain management: DNS editor, 1-click presets dropdown,
  * nameservers, Action Sheet for WHOIS privacy, transfer lock, EPP code, and renewal.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import api from '../lib/api';
 import { formatDate, formatPrice } from '../lib/i18n';
@@ -14,6 +14,80 @@ export function parseNameservers(text) {
     .split(/[\n,]/)
     .map((line) => line.trim().toLowerCase())
     .filter(Boolean);
+}
+
+export function parseBindZoneText(rawText) {
+  const lines = rawText.split(/\r?\n/);
+  const records = [];
+  const validTypes = new Set(['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV']);
+
+  for (let line of lines) {
+    line = line.trim();
+    if (!line || line.startsWith(';') || line.startsWith('$')) continue;
+
+    const semiIdx = line.indexOf(';');
+    if (semiIdx !== -1) {
+      line = line.substring(0, semiIdx).trim();
+    }
+    if (!line) continue;
+
+    const tokens = line.split(/\s+/);
+    if (tokens.length < 2) continue;
+
+    let host = '@';
+    let rtype = null;
+    let priority = 10;
+    let value = '';
+    let ttl = 300;
+
+    if (validTypes.has(tokens[0].toUpperCase())) {
+      rtype = tokens[0].toUpperCase();
+      if (tokens.length >= 3 && !tokens[1].startsWith('http') && !tokens[1].includes('.')) {
+        host = tokens[1];
+        value = tokens.slice(2).join(' ');
+      } else {
+        host = '@';
+        value = tokens.slice(1).join(' ');
+      }
+    } else {
+      host = tokens[0];
+      let i = 1;
+      if (i < tokens.length && /^\d+$/.test(tokens[i])) {
+        ttl = parseInt(tokens[i], 10);
+        i++;
+      }
+      if (i < tokens.length && tokens[i].toUpperCase() === 'IN') {
+        i++;
+      }
+      if (i < tokens.length && validTypes.has(tokens[i].toUpperCase())) {
+        rtype = tokens[i].toUpperCase();
+        i++;
+      }
+      if (rtype) {
+        if (rtype === 'MX' && i < tokens.length && /^\d+$/.test(tokens[i])) {
+          priority = parseInt(tokens[i], 10);
+          i++;
+        }
+        value = tokens.slice(i).join(' ');
+      }
+    }
+
+    if (rtype && value) {
+      if (rtype === 'TXT' && value.startsWith('"') && value.endsWith('"')) {
+        value = value.slice(1, -1);
+      }
+      records.push({
+        id: `imp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        type: rtype,
+        name: host === '@' ? '' : host,
+        value: value.trim(),
+        priority: rtype === 'MX' ? priority : null,
+        ttl: ttl || 300,
+      });
+    }
+  }
+
+  return records;
 }
 
 export function getDomainRouting(domain) {
@@ -844,6 +918,163 @@ function TransferModal({ t, telegramId, onClose, onSelectCandidate }) {
   );
 }
 
+function ZoneImportModal({ domainName, onImport, onClose }) {
+  const [rawText, setRawText] = useState('');
+  const [mode, setMode] = useState('merge');
+  const [parsed, setParsed] = useState([]);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!rawText.trim()) {
+      setParsed([]);
+      setError(null);
+      return;
+    }
+    try {
+      const records = parseBindZoneText(rawText);
+      setParsed(records);
+      setError(records.length === 0 ? 'Записи не распознаны. Проверьте формат строк.' : null);
+    } catch (err) {
+      setError('Ошибка синтаксиса записей: ' + err.message);
+    }
+  }, [rawText]);
+
+  const handleApply = () => {
+    if (parsed.length === 0) return;
+    onImport(parsed, mode);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="w-full max-w-lg bg-surface border border-line rounded-2xl p-5 shadow-xl text-left max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 pb-3 border-b border-line">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-base">📤</span>
+              <h3 className="text-sm font-bold text-ink">Импорт DNS-записей ({domainName})</h3>
+            </div>
+            <p className="text-[11px] text-muted mt-0.5">
+              Вставьте текст файла зоны (BIND / .zone) или отдельные строки записей
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-muted hover:text-ink text-sm p-1 rounded-lg hover:bg-elevated transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-3.5 space-y-3">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-ink">
+                Текст записей / BIND .zone:
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setRawText(
+                    `@ IN A 45.192.12.105\nwww IN CNAME @\nmail IN MX 10 mx.yandex.net.\n@ IN TXT "v=spf1 include:_spf.yandex.net ~all"`
+                  )
+                }
+                className="text-[11px] text-accent hover:underline cursor-pointer"
+              >
+                Вставить пример
+              </button>
+            </div>
+            <textarea
+              rows={5}
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              placeholder="@ IN A 45.192.12.105&#10;www IN CNAME @&#10;@ IN MX 10 mx.yandex.net.&#10;@ IN TXT &quot;v=spf1 ...&quot;"
+              className="input w-full font-mono text-xs shadow-2xs leading-relaxed"
+            />
+          </div>
+
+          {parsed.length > 0 && (
+            <div className="p-3 rounded-xl bg-card border border-line space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-ink">Распознано записей:</span>
+                <span className="badge bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 font-bold px-2 py-0.5 text-xs">
+                  {parsed.length} шт.
+                </span>
+              </div>
+              <div className="max-h-32 overflow-y-auto space-y-1 pr-1 font-mono text-[11px]">
+                {parsed.map((rec, i) => (
+                  <div key={i} className="flex items-center gap-2 text-muted bg-surface/80 px-2 py-1 rounded border border-line/40">
+                    <span className="badge text-[10px] bg-accent/10 text-accent font-bold px-1.5 py-0.2 shrink-0">{rec.type}</span>
+                    <span className="text-ink font-semibold">{rec.name || '@'}</span>
+                    <span className="truncate flex-1">→ {rec.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {error && <p className="text-xs text-danger font-medium">{error}</p>}
+
+          {/* Mode choice */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setMode('merge')}
+              className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                mode === 'merge'
+                  ? 'bg-accent/15 border-accent text-ink'
+                  : 'bg-card/50 border-line text-muted hover:text-ink'
+              }`}
+            >
+              <div className="text-xs font-bold">● Дополнить</div>
+              <div className="text-[10px] text-muted mt-0.5">Добавит новые записи к текущим</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('replace')}
+              className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                mode === 'replace'
+                  ? 'bg-red-500/15 border-red-500 text-ink'
+                  : 'bg-card/50 border-line text-muted hover:text-ink'
+              }`}
+            >
+              <div className="text-xs font-bold text-red-500">● Заменить всё</div>
+              <div className="text-[10px] text-muted mt-0.5">Перезапишет текущие записи зоны</div>
+            </button>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+            <button
+              type="button"
+              className="btn-ghost px-3 py-1.5 text-xs cursor-pointer"
+              onClick={onClose}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              disabled={parsed.length === 0}
+              onClick={handleApply}
+              className="btn-accent px-4 py-1.5 text-xs font-semibold cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              Применить в редактор ({parsed.length})
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DomainsScreen({ t, telegramId, onSelectCandidate }) {
   const isDesktop = useIsDesktop();
   const [domains, setDomains] = useState(null);
@@ -854,6 +1085,30 @@ export default function DomainsScreen({ t, telegramId, onSelectCandidate }) {
   const [togglingMap, setTogglingMap] = useState({});
   const [activeTooltip, setActiveTooltip] = useState(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [domainFilter, setDomainFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const filteredDomains = useMemo(() => {
+    if (!domains) return [];
+    return domains.filter((d) => {
+      if (domainFilter.trim()) {
+        const query = domainFilter.trim().toLowerCase();
+        if (!d.name.toLowerCase().includes(query)) return false;
+      }
+      if (statusFilter === 'expiring') {
+        if (!d.expires_at) return false;
+        const daysLeft = (new Date(d.expires_at) - new Date()) / (1000 * 60 * 60 * 24);
+        return daysLeft <= 60;
+      }
+      if (statusFilter === 'locked') {
+        return Boolean(d.is_locked);
+      }
+      if (statusFilter === 'cloudflare') {
+        return Boolean(d.nameservers && d.nameservers.toLowerCase().includes('cloudflare'));
+      }
+      return true;
+    });
+  }, [domains, domainFilter, statusFilter]);
 
   // Close tooltip on outside click
   useEffect(() => {
@@ -1048,6 +1303,49 @@ export default function DomainsScreen({ t, telegramId, onSelectCandidate }) {
               </button>
             </div>
 
+            {/* Quick Filter Tabs & Instant Search Input */}
+            <div className="px-5 py-2 border-b border-line bg-surface/80 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                {[
+                  { id: 'all', label: `Все (${domains.length})` },
+                  { id: 'expiring', label: '⚠️ Истекают скоро' },
+                  { id: 'locked', label: '🔒 С замком' },
+                  { id: 'cloudflare', label: '⚡ Cloudflare' },
+                ].map((chip) => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setStatusFilter(chip.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      statusFilter === chip.id
+                        ? 'bg-accent/15 text-accent border border-accent/30 shadow-2xs'
+                        : 'text-muted hover:text-ink hover:bg-elevated'
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+              <div className="relative w-48 sm:w-56">
+                <input
+                  type="text"
+                  value={domainFilter}
+                  onChange={(e) => setDomainFilter(e.target.value)}
+                  placeholder="Поиск по доменам..."
+                  className="input w-full text-xs py-1 px-2.5 pr-6 font-mono shadow-2xs"
+                />
+                {domainFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setDomainFilter('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-ink text-xs cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-line text-[10px] font-semibold text-muted uppercase tracking-wider bg-surface/50">
@@ -1062,7 +1360,24 @@ export default function DomainsScreen({ t, telegramId, onSelectCandidate }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
-                {domains.map((domain) => {
+                {filteredDomains.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-xs text-muted">
+                      Ничего не найдено по фильтру «{domainFilter || statusFilter}»
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDomainFilter('');
+                          setStatusFilter('all');
+                        }}
+                        className="text-accent hover:underline font-semibold ml-2 cursor-pointer"
+                      >
+                        Сбросить фильтр
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredDomains.map((domain) => {
                   const routing = getDomainRouting(domain);
                   return (
                     <tr key={domain.id} className="hover:bg-accent/[0.04] transition-colors group bg-surface">
@@ -1169,7 +1484,7 @@ export default function DomainsScreen({ t, telegramId, onSelectCandidate }) {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
@@ -1192,8 +1507,66 @@ export default function DomainsScreen({ t, telegramId, onSelectCandidate }) {
             </button>
           </div>
 
-          <ul className="space-y-3">
-            {domains.map((domain) => {
+          {/* Mobile Filter & Search Bar */}
+          <div className="mb-3 space-y-2">
+            <div className="relative">
+              <input
+                type="text"
+                value={domainFilter}
+                onChange={(e) => setDomainFilter(e.target.value)}
+                placeholder="Поиск по доменам..."
+                className="input w-full text-xs py-1.5 px-3 pr-7 font-mono shadow-2xs"
+              />
+              {domainFilter && (
+                <button
+                  type="button"
+                  onClick={() => setDomainFilter('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+              {[
+                { id: 'all', label: `Все (${domains.length})` },
+                { id: 'expiring', label: '⚠️ Истекают скоро' },
+                { id: 'locked', label: '🔒 С замком' },
+                { id: 'cloudflare', label: '⚡ Cloudflare' },
+              ].map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setStatusFilter(chip.id)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors ${
+                    statusFilter === chip.id
+                      ? 'bg-accent/15 text-accent border border-accent/30 shadow-2xs'
+                      : 'text-muted hover:text-ink hover:bg-elevated'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredDomains.length === 0 ? (
+            <div className="card p-6 text-center text-xs text-muted space-y-2">
+              <p>Ничего не найдено по фильтру «{domainFilter || statusFilter}»</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setDomainFilter('');
+                  setStatusFilter('all');
+                }}
+                className="btn-ghost px-3 py-1 text-xs text-accent font-semibold cursor-pointer"
+              >
+                Сбросить фильтр
+              </button>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {filteredDomains.map((domain) => {
               const routing = getDomainRouting(domain);
 
               return (
@@ -1284,6 +1657,7 @@ export default function DomainsScreen({ t, telegramId, onSelectCandidate }) {
               );
             })}
           </ul>
+          )}
         </>
       )}
       {managingDomain && (
@@ -1346,6 +1720,54 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
   const [presetMode, setPresetMode] = useState('merge');
 
   const actionsRef = useRef(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  const handleExportZone = () => {
+    let content = `; Zone file for ${domain.name}\n; Exported from Dynadot PRO on ${new Date().toISOString().slice(0, 10)}\n$ORIGIN ${domain.name}.\n$TTL 300\n\n`;
+    const parsedNs = parseNameservers(domain.nameservers || '');
+    parsedNs.forEach((ns) => {
+      content += `@\tIN\tNS\t${ns.endsWith('.') ? ns : ns + '.'}\n`;
+    });
+    records.forEach((rec) => {
+      const host = rec.name || '@';
+      const ttl = rec.ttl || 300;
+      const rtype = (rec.type || 'A').toUpperCase();
+      if (rtype === 'MX') {
+        content += `${host}\t${ttl}\tIN\tMX\t${rec.priority || 10}\t${rec.value}\n`;
+      } else if (rtype === 'TXT') {
+        content += `${host}\t${ttl}\tIN\tTXT\t"${rec.value.replace(/"/g, '\\"')}"\n`;
+      } else {
+        content += `${host}\t${ttl}\tIN\t${rtype}\t${rec.value}\n`;
+      }
+    });
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${domain.name}.zone`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    onShowToast?.(`✓ Файл ${domain.name}.zone успешно скачан`);
+    haptic('success');
+  };
+
+  const handleApplyImportedZone = (importedRecords, importMode) => {
+    if (importMode === 'replace') {
+      setRecords(importedRecords);
+    } else {
+      const existingKeys = new Set(records.map((r) => `${r.type}_${r.name || '@'}_${r.value}`));
+      const newOnly = importedRecords.filter(
+        (r) => !existingKeys.has(`${r.type}_${r.name || '@'}_${r.value}`)
+      );
+      setRecords([...records, ...newOnly]);
+    }
+    setTab('dns');
+    onShowToast?.(`✓ Импортировано ${importedRecords.length} записей. Нажмите «Сохранить DNS-записи».`);
+    haptic('success');
+  };
 
   // Close actions popover on outside click
   useEffect(() => {
@@ -1682,6 +2104,48 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
                 </div>
                 <span className={`badge text-[11px] px-2.5 py-1 font-bold shrink-0 ${lock ? 'bg-card text-ink border border-card-border/80' : 'bg-surface text-muted border border-card-border'}`}>
                   {lock ? '✓ ВКЛ' : 'ВЫКЛ'}
+                </span>
+              </button>
+
+              {/* Export Zone */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleExportZone();
+                  setActionsOpen(false);
+                }}
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card hover:bg-card/80 border border-card-border/60 text-left text-ink cursor-pointer transition-all hover:border-accent/40 shadow-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface text-base">📥</span>
+                  <div>
+                    <div className="font-semibold text-ink">Экспорт DNS-зоны (.zone)</div>
+                    <div className="text-[11px] text-muted">Скачать RFC 1035 / BIND файл бэкапа</div>
+                  </div>
+                </div>
+                <span className="badge border border-line bg-surface text-muted font-mono text-[11px] px-2.5 py-1 shrink-0 font-bold">
+                  .zone
+                </span>
+              </button>
+
+              {/* Import Zone */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImportModal(true);
+                  setActionsOpen(false);
+                }}
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card hover:bg-card/80 border border-card-border/60 text-left text-ink cursor-pointer transition-all hover:border-accent/40 shadow-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface text-base">📤</span>
+                  <div>
+                    <div className="font-semibold text-ink">Импорт DNS-записей</div>
+                    <div className="text-[11px] text-muted">Вставить файл зоны или записи списком</div>
+                  </div>
+                </div>
+                <span className="badge border border-accent/40 bg-accent/15 text-accent text-[11px] px-2.5 py-1 shrink-0 font-bold">
+                  Импорт
                 </span>
               </button>
 
@@ -2189,6 +2653,15 @@ function DomainManager({ t, domain, telegramId, initialTab = 'dns', onClose, onS
         saving={saving}
         domain={domain}
       />
+
+      {/* Zone Import Modal */}
+      {showImportModal && (
+        <ZoneImportModal
+          domainName={domain.name}
+          onImport={handleApplyImportedZone}
+          onClose={() => setShowImportModal(false)}
+        />
+      )}
         </div>
       </div>
     </div>
